@@ -276,6 +276,48 @@
     <string name="export_share">Share</string>
     <string name="export_open">Open</string>
 
+    <!-- Voice -->
+    <string name="voice_record_title">Record</string>
+    <string name="voice_arm">Ready the mic</string>
+    <string name="voice_disarm">Release the mic</string>
+    <string name="voice_record">Record</string>
+    <string name="voice_stop">Stop</string>
+    <string name="voice_monitor">Hear myself</string>
+    <string name="voice_monitor_detail">Your voice through the headphones while you record. Keep it off on speakers.</string>
+    <string name="voice_latency">Round trip about %1$s</string>
+    <string name="voice_level">Input level</string>
+    <string name="voice_permission">Stave needs the microphone to record. Nothing recorded leaves the phone.</string>
+    <string name="voice_permission_denied">The microphone was refused. Allow it in the phone's Settings to record.</string>
+    <string name="voice_recording">Recording · %1$s</string>
+    <string name="voice_dropped">%1$d frames were dropped while writing. The take is kept; the storage was slow.</string>
+    <string name="voice_take_name">Take %1$d</string>
+    <string name="voice_transcript_title">Words</string>
+    <string name="voice_transcribe">Transcribe</string>
+    <string name="voice_transcribing">Listening · %1$d%%</string>
+    <string name="voice_language">Language</string>
+    <string name="voice_no_model">The speech model is not on this phone. Add ggml-base-q5_1.bin or ggml-small-q5_1.bin from a file in Settings → Models.</string>
+    <string name="voice_no_whisper">This build has no speech library.</string>
+    <string name="voice_transcript_hint">Transcribe a recording and its words appear here. Tap words to select that stretch of sound; delete them and the sound goes with them.</string>
+    <string name="voice_delete_words">Delete %1$d words</string>
+    <string name="voice_remove_fillers">Take out every um and uh</string>
+    <string name="voice_fillers_none">No um or uh heard.</string>
+    <string name="voice_fillers_removed">%1$d fillers taken out</string>
+    <string name="voice_stale">The sound changed since the words were heard. Transcribe again to line them up.</string>
+    <string name="voice_cleanup_title">Clean up</string>
+    <string name="voice_clean_voice">Clean up voice</string>
+    <string name="voice_clean_voice_hint">Takes out hiss and room noise, softens harsh S sounds and tames the loud bits, in one step.</string>
+    <string name="voice_even_out">Even out volume</string>
+    <string name="voice_even_out_hint">Brings quiet stretches up and loud ones down so nobody reaches for the volume.</string>
+    <string name="voice_silences">Remove silences</string>
+    <string name="voice_silences_hint">Pauses longer than this, cut down to a breath.</string>
+    <string name="voice_silences_min">Longer than</string>
+    <string name="voice_silences_keep">Keep</string>
+    <string name="voice_silences_found">%1$d pauses</string>
+    <string name="voice_loudness">Loudness for</string>
+    <string name="voice_loudness_apply">Bring to %1$s</string>
+    <string name="voice_chapter_here">Chapter here</string>
+    <string name="voice_words_selected">%1$d words selected</string>
+
     <!-- Notifications -->
     <string name="notification_channel">Recording and playback</string>
     <string name="notification_export_channel">Exports</string>

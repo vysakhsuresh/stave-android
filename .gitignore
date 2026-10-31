@@ -21,3 +21,8 @@ __pycache__/
 /keystore.properties
 *.jks
 *.keystore
+
+# Bundled models, fetched by tools/models/fetch_models.sh
+/app/src/full/assets/models/*.bin
+/app/src/full/assets/models/*.tflite
+/app/src/full/assets/models/*.onnx

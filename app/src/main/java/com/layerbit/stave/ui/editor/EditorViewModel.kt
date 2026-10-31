@@ -4,7 +4,20 @@ import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.layerbit.stave.StaveApplication
+import com.layerbit.stave.audio.AudioService
+import com.layerbit.stave.engine.dsp.CompressorSettings
 import com.layerbit.stave.engine.dsp.FadeShape
+import com.layerbit.stave.engine.dsp.LoudnessTarget
+import com.layerbit.stave.engine.json.Json
+import com.layerbit.stave.engine.json.JsonArray
+import com.layerbit.stave.engine.json.JsonObject
+import com.layerbit.stave.engine.transcript.Fillers
+import com.layerbit.stave.engine.transcript.Silences
+import com.layerbit.stave.engine.transcript.Transcript
+import com.layerbit.stave.engine.transcript.Word
+import com.layerbit.stave.engine.transcript.WordCuts
+import com.layerbit.stave.files.RawAudio
+import com.layerbit.stave.voice.WhisperRunner
 import com.layerbit.stave.engine.export.ExportSettings
 import com.layerbit.stave.engine.project.Clip
 import com.layerbit.stave.engine.project.History
@@ -116,6 +129,7 @@ class EditorViewModel(private val app: StaveApplication, val projectId: String) 
 
     private fun commit(next: Session, label: String, gesture: String? = null) {
         history.record(next, label, gesture)
+        if (!followingTranscript && _voice.value.transcript != null && next.length != session.length) _voice.value = _voice.value.copy(stale = true)
         after()
     }
 
@@ -146,6 +160,9 @@ class EditorViewModel(private val app: StaveApplication, val projectId: String) 
         saveJob?.cancel()
         runCatching { files.save(session) }
         transport.pause()
+        if (transport.state.value.recording) transport.stopRecording()
+        transport.closeInput()
+        whisper.close()
     }
 
     // ---- importing --------------------------------------------------------------------------
@@ -293,4 +310,218 @@ class EditorViewModel(private val app: StaveApplication, val projectId: String) 
     }
 
     fun exportFile(): File? = _ui.value.lastExport?.file
+
+    // ---- voice: recording, words, clean-up ------------------------------------------------
+
+    data class VoiceState(
+        val armed: Boolean = false, val monitor: Boolean = false, val roundTripMs: Double = 0.0, val recordedMs: Long = 0, val dropped: Long = 0, val inputHold: Float = 0f,
+        val language: String = "auto", val transcribing: Float? = null, val transcript: Transcript? = null, val selectedWords: Set<Int> = emptySet(), val stale: Boolean = false,
+        val silenceMinMs: Long = 800, val silenceKeepMs: Long = 200, val targetId: String = "podcast"
+    )
+
+    private val _voice = MutableStateFlow(VoiceState(targetId = app.settings.current.loudnessTargetId).let { v -> loadTranscript()?.let { v.copy(transcript = it) } ?: v })
+    val voice: StateFlow<VoiceState> = _voice.asStateFlow()
+    val whisper = WhisperRunner(app.models)
+    private var followingTranscript = false
+    private var recordStart = 0L
+    private var recordFile: File? = null
+    private var recordJob: Job? = null
+
+    private val transcriptFile get() = File(files.dir, "transcript.json")
+
+    private fun loadTranscript(): Transcript? = runCatching {
+        val o = Json.parseObject(transcriptFile.readText())
+        Transcript(o.arr("words")?.let { a -> (0 until a.size).mapNotNull { i -> a.arr(i)?.let { w -> Word(w.string(2) ?: "", w.long(0), w.long(1)) } } } ?: emptyList(), o.string("language") ?: "")
+    }.getOrNull()
+
+    private fun setTranscript(t: Transcript?, stale: Boolean = false) {
+        _voice.value = _voice.value.copy(transcript = t, selectedWords = emptySet(), stale = stale)
+        viewModelScope.launch(Dispatchers.IO) {
+            if (t == null) transcriptFile.delete()
+            else transcriptFile.writeText(Json.write(JsonObject().put("language", t.language).put("words", JsonArray().also { a -> t.words.forEach { w -> a.add(JsonArray().add(w.startMs).add(w.endMs).add(w.text)) } })))
+        }
+    }
+
+    fun armInput() {
+        if (!transport.available) { _ui.value = _ui.value.copy(message = "The audio engine is not running on this phone."); return }
+        if (!transport.openInput(1, unprocessed = true)) { _ui.value = _ui.value.copy(message = "The microphone could not be opened."); return }
+        _voice.value = _voice.value.copy(armed = true, roundTripMs = transport.state.value.latencyMs + transport.inputLatencyMs())
+        AudioService.start(app, recording = false, title = session.name.ifBlank { "Stave" })
+    }
+
+    fun disarmInput() { transport.setMonitor(false, 1f); transport.closeInput(); _voice.value = _voice.value.copy(armed = false, monitor = false); AudioService.stop(app) }
+
+    fun setMonitor(on: Boolean) { _voice.value = _voice.value.copy(monitor = on); transport.setMonitor(on, 1f) }
+
+    fun startRecording() {
+        if (!_voice.value.armed) armInput()
+        if (!_voice.value.armed) return
+        val take = File(files.takes, "take-${System.currentTimeMillis()}.wav")
+        recordStart = _ui.value.window.playhead
+        if (!transport.startRecording(take)) { _ui.value = _ui.value.copy(message = "Recording could not start."); return }
+        recordFile = take
+        AudioService.start(app, recording = true, title = session.name.ifBlank { "Stave" })
+        transport.seek(recordStart)
+        transport.setLoop(null)
+        if (session.length > recordStart) transport.play()
+        recordJob?.cancel()
+        recordJob = viewModelScope.launch {
+            while (true) {
+                val frames = transport.recordedFrames()
+                _voice.value = _voice.value.copy(recordedMs = frames * 1000 / transport.sampleRate, dropped = transport.droppedFrames(), inputHold = maxOf(_voice.value.inputHold * 0.97f, transport.state.value.inputPeak))
+                _ui.value = _ui.value.copy(window = _ui.value.window.copy(playhead = recordStart + frames, totalSamples = maxOf(session.length, recordStart + frames)))
+                delay(50)
+            }
+        }
+    }
+
+    fun stopRecording() {
+        recordJob?.cancel(); recordJob = null
+        transport.stopRecording()
+        transport.pause()
+        AudioService.start(app, recording = false, title = session.name.ifBlank { "Stave" })
+        val wav = recordFile ?: return
+        recordFile = null
+        viewModelScope.launch {
+            val rate = transport.sampleRate
+            val count = session.sources.count { it.kind == Source.Kind.TAKE } + 1
+            val source = withContext(Dispatchers.IO) {
+                RawAudio.repairWavHeader(wav)
+                app.media.takeToSource(files, wav, rate, 1, "Take $count").also { peaksFor(it) }
+            }
+            if (source.frames <= 0) { wav.delete(); return@launch }
+            var s = session.copy(sources = session.sources + source)
+            val trackId = _ui.value.selectedTrackId?.takeIf { id -> s.track(id)?.kind == Track.Kind.AUDIO } ?: run { val t = Track(Ids.next("t"), "Voice"); s = SessionEdits.addTrack(s, t); t.id }
+            // A take over existing sound goes on its own lane, so nothing underneath is covered.
+            val lane = if (s.clipsIn(recordStart, recordStart + source.frames, trackId).isEmpty()) 0 else (s.clipsOn(trackId).maxOfOrNull { it.lane } ?: 0) + 1
+            s = SessionEdits.add(s, SessionEdits.clipFor(source, trackId, recordStart, s.sampleRate).copy(lane = lane))
+            if (lane > 0) s = SessionEdits.updateTrack(s, trackId) { it.copy(lanes = maxOf(it.lanes, lane + 1)) }
+            _ui.value = _ui.value.copy(selectedTrackId = trackId)
+            if (s.name.isBlank()) s = s.copy(name = "Take $count")
+            commit(s, "Record take")
+        }
+    }
+
+    fun setLanguage(code: String) { _voice.value = _voice.value.copy(language = code) }
+
+    /** The whole mix as planar channels at the session rate, through the graph's offline render. */
+    private suspend fun mixdown(from: Long, to: Long): List<FloatArray>? = withContext(Dispatchers.IO) {
+        if (to <= from) return@withContext null
+        val tmp = File(app.cacheDir, "work").apply { mkdirs() }.let { File(it, "mix-${System.nanoTime()}.f32") }
+        try {
+            val n = transport.renderOffline(from, to, tmp)
+            if (n <= 0) return@withContext null
+            val inter = RawAudio.read(tmp, 2, 0, n.toInt())
+            com.layerbit.stave.processing.OfflineTools.deinterleave(inter, 2)
+        } finally { tmp.delete() }
+    }
+
+    fun transcribe() {
+        val s = session
+        val range = _ui.value.selection ?: (0L until s.length)
+        _voice.value = _voice.value.copy(transcribing = 0f)
+        viewModelScope.launch {
+            val result = runCatching {
+                val chs = mixdown(range.first, range.last + 1) ?: throw IllegalStateException("Nothing to transcribe.")
+                whisper.transcribe(chs, s.sampleRate, range.first * 1000 / s.sampleRate, _voice.value.language) { p -> _voice.value = _voice.value.copy(transcribing = p) }
+            }
+            _voice.value = _voice.value.copy(transcribing = null)
+            result.onSuccess { t ->
+                if (t == null) _ui.value = _ui.value.copy(message = "The speech model is not on this phone.")
+                else {
+                    // Words from a partial transcription replace those in the same stretch and keep the rest.
+                    val previous = _voice.value.transcript
+                    val kept = previous?.words?.filter { w -> (w.startMs + w.endMs) / 2 !in (range.first * 1000 / s.sampleRate) until ((range.last + 1) * 1000 / s.sampleRate) } ?: emptyList()
+                    setTranscript(Transcript((kept + t.words).sortedBy { it.startMs }, t.language.ifBlank { previous?.language ?: "" }))
+                }
+            }.onFailure { e -> _ui.value = _ui.value.copy(message = e.message ?: "Transcription failed") }
+        }
+    }
+
+    fun toggleWord(index: Int) {
+        val v = _voice.value
+        val set = if (index in v.selectedWords) v.selectedWords - index else v.selectedWords + index
+        _voice.value = v.copy(selectedWords = set)
+        // The sound under the chosen words is the selection, so Play hears what Delete would cut.
+        val t = v.transcript ?: return
+        if (set.isEmpty()) select(null) else {
+            val rate = session.sampleRate
+            val from = set.minOf { t.words[it].startMs } * rate / 1000; val to = set.maxOf { t.words[it].endMs } * rate / 1000
+            select(from until to)
+        }
+    }
+
+    /** Cuts in ms removed from every track as one undo step, the transcript following each. */
+    private fun cutRanges(rangesMs: List<LongRange>, label: String) {
+        if (rangesMs.isEmpty()) return
+        val rate = session.sampleRate
+        var s = session
+        var t = _voice.value.transcript
+        for (r in rangesMs.sortedByDescending { it.first }) {
+            val from = r.first * rate / 1000; val to = (r.last + 1) * rate / 1000
+            s = SessionEdits.deleteRange(s, from, to, null, ripple = true)
+            t = t?.afterCut(r.first, r.last + 1)
+        }
+        followingTranscript = true
+        try { commit(s, label) } finally { followingTranscript = false }
+        setTranscript(t, stale = _voice.value.stale)
+        select(null)
+        seek(rangesMs.minOf { it.first } * rate / 1000)
+    }
+
+    fun deleteSelectedWords() {
+        val v = _voice.value; val t = v.transcript ?: return
+        cutRanges(WordCuts.rangesFor(t.words, v.selectedWords, totalMs = session.durationMs), "Delete words")
+    }
+
+    fun removeFillers() {
+        val t = _voice.value.transcript ?: return
+        val found = Fillers.find(t.words)
+        if (found.isEmpty()) { _ui.value = _ui.value.copy(message = app.getString(com.layerbit.stave.R.string.voice_fillers_none)); return }
+        cutRanges(WordCuts.rangesFor(t.words, found, totalMs = session.durationMs), "Take out fillers")
+        _ui.value = _ui.value.copy(message = app.getString(com.layerbit.stave.R.string.voice_fillers_removed, found.size))
+    }
+
+    fun setSilenceRule(minMs: Long? = null, keepMs: Long? = null) { _voice.value = _voice.value.copy(silenceMinMs = minMs ?: _voice.value.silenceMinMs, silenceKeepMs = keepMs ?: _voice.value.silenceKeepMs) }
+
+    fun removeSilences() {
+        val s = session
+        _ui.value = _ui.value.copy(busy = Busy("Finding pauses", 0f))
+        viewModelScope.launch {
+            val chs = mixdown(0, s.length)
+            _ui.value = _ui.value.copy(busy = null)
+            if (chs == null) return@launch
+            val mono = FloatArray(chs[0].size) { (chs[0][it] + chs[1][it]) * 0.5f }
+            val levels = Silences.levels(mono, s.sampleRate, 20)
+            val found = Silences.find(levels, 20, Silences.thresholdFor(levels), _voice.value.silenceMinMs, _voice.value.silenceKeepMs)
+            if (found.isEmpty()) { _ui.value = _ui.value.copy(message = app.getString(com.layerbit.stave.R.string.voice_silences_found, 0)); return@launch }
+            cutRanges(found, "Remove silences")
+            _ui.value = _ui.value.copy(message = app.getString(com.layerbit.stave.R.string.voice_silences_found, found.size))
+        }
+    }
+
+    fun setVoiceTarget(id: String) { _voice.value = _voice.value.copy(targetId = id) }
+
+    private fun chain(vararg steps: com.layerbit.stave.processing.OfflineTools.Transform) = com.layerbit.stave.processing.OfflineTools.Transform { chs, rate -> steps.fold(chs) { acc, t -> t.apply(acc, rate) } }
+
+    /** Noise out, sibilance softened, the loud bits tamed, the whole brought to the target: one step, one undo. */
+    fun cleanUpVoice() {
+        val target = LoudnessTarget.byId(_voice.value.targetId)
+        val T = com.layerbit.stave.processing.OfflineTools
+        select(null)
+        applyOffline("Clean up voice", chain(T.dcRemove(), T.denoise(18.0, 0.85f, null), T.deess(6500.0, -26.0), T.compress(CompressorSettings(-20.0, 2.5, 6.0, 8.0, 150.0, 0.0)), T.normaliseLoudness(target.lufs, target.truePeakDbtp)))
+    }
+
+    fun evenOutVolume() {
+        val target = LoudnessTarget.byId(_voice.value.targetId)
+        val T = com.layerbit.stave.processing.OfflineTools
+        select(null)
+        applyOffline("Even out volume", chain(T.compress(CompressorSettings(-26.0, 3.0, 12.0, 25.0, 400.0, 0.0)), T.normaliseLoudness(target.lufs, target.truePeakDbtp)))
+    }
+
+    fun applyVoiceTarget() {
+        val target = LoudnessTarget.byId(_voice.value.targetId)
+        select(null)
+        applyOffline("Loudness to ${target.label}", com.layerbit.stave.processing.OfflineTools.normaliseLoudness(target.lufs, target.truePeakDbtp))
+    }
 }

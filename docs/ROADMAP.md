@@ -34,7 +34,7 @@ Built-not-seen is never called done.
 - [ ] Multiband compressor, transient shaper, leveller; suites
 - [ ] Beat tracking (onsets, tempo, dynamic programming) carried from Squish; suite
 - [ ] Chroma, chords (templates + Viterbi), key (Krumhansl); suite
-- [ ] Transcript rules: words → cuts, fillers per line, silence removal, alignment; suite
+- [~] Transcript rules: Whisper bytes (a character cut across pieces joined), windows and their seam, words → padded cuts merged by gap, fillers, the transcript following a cut, silences; suite (`TranscriptChecks`)
 - [ ] Sequencer model: patterns, steps, notes, swing, humanise, arpeggiator, quantise; MIDI file read/write; suite
 - [ ] Synth DSP reference: PolyBLEP oscillators, ADSR, SVF, FM operator; suite
 - [~] Export arithmetic: format table, bitrate and size estimates, file names (`ExportChecks`); chapters are written by libstaveav from the markers
@@ -58,11 +58,11 @@ Built-not-seen is never called done.
 - [~] Guide, Contact, About, Settings complete
 
 ## P3 — Recorder and podcast desk (v0.2)
-- [ ] Recorder screen with true-peak meter, input chain, count-in, takes
-- [ ] Whisper transcript aligned to the waveform; language chooser
-- [ ] Transcript editor: tap words to cut; fillers; search
-- [ ] One-tap chain: Clean up voice, Even out, Remove silences, Duck, Loudness
-- [ ] Chapters and show notes; publish presets
+- [~] Recorder: arm the mic (permission asked on the first press), level meter with hold, round-trip readout, monitor switch, Record over the existing sound onto a new lane, Stop lands the take as a clip at its start (the WAV header repaired first, so a take cut short by a crash still lands)
+- [~] Whisper transcript over the mix (or the selection), language chips (Indian languages first), words kept per project in transcript.json, stale flag when the sound changes under them
+- [~] Transcript editor: tap words (the sound under them becomes the selection), Delete words, Take out every um and uh; no search yet
+- [~] One-tap chain: Clean up voice (DC, denoise, de-ess, compress, loudness), Even out volume, Remove silences (adaptive threshold, min length, kept margin), Loudness to target; Duck under music is P4's (needs two tracks' levels)
+- [~] Chapter here (a chapter marker at the play-head; written into the file by Export); show notes and publish presets not yet
 - [ ] Read aloud (TTS door)
 
 ## P4 — Multitrack studio (v0.3)

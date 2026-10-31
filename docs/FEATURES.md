@@ -20,3 +20,7 @@ Grows with each phase. Dated.
   markers and chapters, export to MP3, AAC, Opus, Vorbis, FLAC, ALAC, WAV, AIFF or WavPack with
   tags, chapters, loudness normalisation and a size estimate, saved to Music/Stave.
 - The native graph, the FFmpeg door and the whisper door: written, awaiting the first build.
+- The Voice tab (v0.2, built, not yet seen on a phone): a recorder with a meter and monitoring,
+  takes on their own lanes, a Whisper transcript in any of Whisper's languages, words as chips
+  that select the sound under them, Delete words and Take out every um and uh, Remove silences,
+  Clean up voice, Even out volume, Loudness to target, Chapter here.

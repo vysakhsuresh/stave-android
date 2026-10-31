@@ -23,3 +23,12 @@ back into the roadmap with what broke.
 12. Select a stretch, Repair → Remove clicks: the busy card shows, the clip repoints to a new source, Undo brings the old one back, the sound follows both.
 13. Export to MP3 320 with a title and a chapter marker: the file lands in Music/Stave, plays in a music app, shows the chapter where one is read; FLAC and WAV 24-bit the same.
 14. `uiautomator dump` on the editor: zero NAF (every chip and button has a name; the strip has a description).
+
+## P3 — the Voice tab
+15. Ready the mic: the permission dialog shows once; the meter moves with the room; "Round trip about N ms" reads something between 20 and 120 ms on the moto.
+16. Record for ten seconds while the strip plays an earlier take: Stop lands "Take 2" on a second lane of the same track at the play-head's start; the first take is untouched; the two play together. `files/projects/<id>/takes/` holds the WAV; `media/` the .f32 copy.
+17. Kill the app (`am kill`) mid-recording: on reopening, the take's WAV has a 0xFFFFFFFF size in its header; the next Stop in that project is not what repairs it - a take left in `takes/` with no source is the thing to add a sweep for (not yet written).
+18. Transcribe a minute of English with the base model: the words appear in under a minute on the moto; tap two words and Play plays just those; Delete removes the stretch and the words after move up. The same with Hindi and Malayalam in their own scripts (the small model, imported through Settings - the import screen is not yet built; push the file by `run-as` into `files/models/`).
+19. "Take out every um and uh" on a take with three ums: three cuts, one Undo.
+20. Remove silences with the defaults on a take with two long pauses: the pauses shrink to the kept margin; the transcript's later words still sit under their sounds.
+21. Clean up voice on a noisy phone recording: the hiss drops, the S sounds soften, the level lands at -16 LUFS (read the Export sheet's measurement after an export).

@@ -129,6 +129,7 @@ fun EditorScreen(vm: EditorViewModel, onBack: () -> Unit, onAddSounds: () -> Uni
                         }
                     }
                 }
+                EditorTab.VOICE -> Box(Modifier.heightIn(max = 400.dp)) { com.layerbit.stave.ui.voice.VoicePanel(vm, ui) }
                 else -> ComingPanel(tab)
             }
         }
