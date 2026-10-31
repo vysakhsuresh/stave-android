@@ -62,6 +62,19 @@ struct Track {
     std::vector<InsertSpec> inserts;
     struct Send { int to; float gain; bool pre; };
     std::vector<Send> sends;
+    struct AutoPoint { int64_t position; float value; };
+    std::vector<AutoPoint> volumeAuto;   // automation, dB; empty means the static volume
+    std::vector<AutoPoint> panAuto;
+    // The value at [position]: held outside the points, linear between them.
+    static float at(const std::vector<AutoPoint>& pts, int64_t position, float fallback) {
+        if (pts.empty()) return fallback;
+        if (position <= pts.front().position) return pts.front().value;
+        if (position >= pts.back().position) return pts.back().value;
+        size_t lo = 0, hi = pts.size() - 1;
+        while (hi - lo > 1) { size_t mid = (lo + hi) / 2; if (pts[mid].position <= position) lo = mid; else hi = mid; }
+        float t = (float) (position - pts[lo].position) / (float) (pts[hi].position - pts[lo].position);
+        return pts[lo].value + (pts[hi].value - pts[lo].value) * t;
+    }
 };
 
 struct Snapshot {

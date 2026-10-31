@@ -30,7 +30,7 @@ Built-not-seen is never called done.
 - [~] Project model: sources, clips, tracks, markers, regions; JSON codec with `putFinite`; round trip suite (`ProjectChecks`)
 - [~] Edit history: undo/redo, gesture folding, `recordLate`, `amendAll`; suite (`ProjectChecks`)
 - [~] Region edits: split/trim/move/ripple delete/insert/copy/paste/crop/snap over the clip list; suite (`SessionEditsChecks`)
-- [ ] Spectral editing geometry: a brush or lasso in time-frequency to bin masks; suite
+- [~] Spectral editing: a box in time and frequency turned down with feathered edges, or filled in from the frames either side; the spectrogram the screen paints from the same STFT; suite (`SpectralEditChecks`)
 - [ ] Multiband compressor, transient shaper, leveller; suites
 - [ ] Beat tracking (onsets, tempo, dynamic programming) carried from Squish; suite
 - [ ] Chroma, chords (templates + Viterbi), key (Krumhansl); suite
@@ -50,7 +50,7 @@ Built-not-seen is never called done.
 ## P2 — Wave editor (v0.1)
 - [~] Projects: ProjectStore, atomic save, ten-minute snapshots, bin with a 30-day sweep
 - [~] Waveform canvas: peaks at every zoom, selection with edge handles, fixed play-head, two-finger scroll and zoom, double tap to fit — samples-when-fine not yet (zoom stops at the peak buckets)
-- [ ] Spectrogram canvas and the spectral brush
+- [~] Spectrogram in the selected lane (log frequency, a thousand columns at any zoom), a box dragged over it, Turn down / Remove / Fill from around on the Spectral sheet
 - [~] Edit, Gain, Fades, Repair (clicks, clipping, hum, noise, S), EQ (curve from the same coefficients), Dynamics, Time & pitch sheets — each an offline render to a new source, undoable
 - [~] Markers and chapters (regions are in the model, not yet on a sheet)
 - [~] Export sheet: format, bitrate, depth, rate, mono, loudness target, tags, chapters, estimate; published to Music/Stave; Share and Open — no batch yet
@@ -89,7 +89,7 @@ Built-not-seen is never called done.
 - [ ] Autotune live and on a note graph; vocal effect presets; looper; karaoke over stems
 
 ## P8 — Mastering (v0.7)
-- [ ] Mastering chain, EQ match, width, limiter, dither, A/B, report; stems + master
+- [~] Finish tab: Measure (integrated, range, true peak, sample peak, the distance to the target), the target, Tone and Glue, Master to the target in one step (tilt EQ, glue compressor, true-peak limiter, loudness); Undo is the A/B; EQ match and width not yet
 
 ## P9 — Polish and release (v1.0)
 - [ ] Accessibility sweep (zero NAF), locale sweep, RTL, font scale

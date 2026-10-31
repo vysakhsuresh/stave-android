@@ -14,6 +14,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -56,6 +57,7 @@ fun EditSheetContent(sheet: EditSheet, vm: EditorViewModel, ui: EditorViewModel.
         EditSheet.GAIN -> GainSheet(vm, ui)
         EditSheet.FADES -> FadesSheet(vm, ui)
         EditSheet.REPAIR -> RepairSheet(vm, ui)
+        EditSheet.SPECTRAL -> SpectralSheet(vm, ui)
         EditSheet.EQ -> EqSheet(vm, ui)
         EditSheet.DYNAMICS -> DynamicsSheet(vm, ui)
         EditSheet.TIME -> TimeSheet(vm, ui)
@@ -179,6 +181,27 @@ private fun RepairSheet(vm: EditorViewModel, ui: EditorViewModel.Ui) {
     SectionHeading(stringResource(R.string.repair_deess))
     ValueSlider(stringResource(R.string.eq_frequency), deessHz, 3000f..10_000f, { deessHz = it }, format = Formats::hz)
     SecondaryButton(stringResource(R.string.repair_deess_button), onClick = { vm.applyOffline("Soften S", OfflineTools.deess(deessHz.toDouble(), -24.0)) }, tall = false, modifier = Modifier.fillMaxWidth())
+}
+
+@Composable
+private fun SpectralSheet(vm: EditorViewModel, ui: EditorViewModel.Ui) {
+    val spectral by vm.spectral.collectAsState()
+    var gain by remember { mutableStateOf(-24f) }
+    ToggleRow(stringResource(R.string.spectral_show), spectral.shown, { vm.showSpectrogram(it) })
+    Text(stringResource(R.string.spectral_hint), style = MaterialTheme.typography.bodySmall, color = StaveColors.Dim, modifier = Modifier.padding(vertical = 4.dp))
+    val box = spectral.box
+    val rate = ui.session.sampleRate
+    Text(
+        if (box == null) stringResource(R.string.spectral_no_box)
+        else stringResource(R.string.spectral_box, Timecode.display(Timecode.ofSamples(box.fromSample, rate), 2), Timecode.display(Timecode.ofSamples(box.toSample, rate), 2), Formats.hz(box.lowHz.toFloat()), Formats.hz(box.highHz.toFloat())),
+        style = MaterialTheme.typography.bodySmall, color = if (box == null) StaveColors.Dim else StaveColors.Band, modifier = Modifier.padding(bottom = 6.dp)
+    )
+    ValueSlider(stringResource(R.string.spectral_gain), gain, -60f..-3f, { gain = it }, format = Formats::dbPlain)
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        PrimaryButton(stringResource(R.string.spectral_attenuate), onClick = { vm.spectralAttenuate(gain.toDouble()) }, enabled = box != null && spectral.shown, tall = false, modifier = Modifier.weight(1f))
+        SecondaryButton(stringResource(R.string.spectral_remove), onClick = { vm.spectralAttenuate(-60.0) }, enabled = box != null && spectral.shown, tall = false, modifier = Modifier.weight(1f))
+        SecondaryButton(stringResource(R.string.spectral_fill), onClick = vm::spectralFill, enabled = box != null && spectral.shown, tall = false, modifier = Modifier.weight(1f))
+    }
 }
 
 @Composable

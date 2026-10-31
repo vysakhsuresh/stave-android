@@ -87,6 +87,7 @@ fun EditorRoute(projectId: String, startTool: String?, onBack: () -> Unit, onAdd
 fun EditorScreen(vm: EditorViewModel, onBack: () -> Unit, onAddSounds: () -> Unit) {
     val ui by vm.ui.collectAsState()
     val transport by vm.transport.state.collectAsState()
+    val spectral by vm.spectral.collectAsState()
     LaunchedEffect(transport.position, transport.playing) { if (transport.playing) vm.followPlayhead(transport.position) }
     BackHandler(enabled = ui.sheet != null) { vm.setSheet(null) }
     var renaming by remember { mutableStateOf(false) }
@@ -109,7 +110,9 @@ fun EditorScreen(vm: EditorViewModel, onBack: () -> Unit, onAddSounds: () -> Uni
             WaveformStrip(
                 session = ui.session, window = ui.window, selection = ui.selection, selectedTrackId = ui.selectedTrackId,
                 peaksFor = vm::peaksFor, onWindow = vm::setWindow, onSelect = vm::select, onSelectTrack = vm::selectTrack,
-                onSeek = vm::seek, onFit = vm::fit, onWidth = vm::setWidth
+                onSeek = vm::seek, onFit = vm::fit, onWidth = vm::setWidth,
+                spectrogram = if (spectral.shown) spectral.image else null, spectralBox = spectral.box, onSpectralBox = vm::setSpectralBox,
+                onCarry = vm::carryClip
             )
             ui.busy?.let { b ->
                 Box(Modifier.fillMaxSize().background(StaveColors.Background.copy(alpha = 0.6f)), contentAlignment = Alignment.Center) {
@@ -130,6 +133,8 @@ fun EditorScreen(vm: EditorViewModel, onBack: () -> Unit, onAddSounds: () -> Uni
                     }
                 }
                 EditorTab.VOICE -> Box(Modifier.heightIn(max = 400.dp)) { com.layerbit.stave.ui.voice.VoicePanel(vm, ui) }
+                EditorTab.STUDIO -> Box(Modifier.heightIn(max = 400.dp)) { com.layerbit.stave.ui.studio.StudioPanel(vm, ui) }
+                EditorTab.FINISH -> Box(Modifier.heightIn(max = 400.dp)) { com.layerbit.stave.ui.finish.FinishPanel(vm, ui) }
                 else -> ComingPanel(tab)
             }
         }

@@ -99,12 +99,12 @@ class EditorViewModel(private val app: StaveApplication, val projectId: String) 
     // ---- the view --------------------------------------------------------------------------
 
     fun setWidth(px: Int) { if (px > 0 && px != widthPx) { widthPx = px; _ui.value = _ui.value.copy(window = _ui.value.window.copy(widthPx = px)) } }
-    fun setWindow(w: TimeWindow) { _ui.value = _ui.value.copy(window = w) }
+    fun setWindow(w: TimeWindow) { _ui.value = _ui.value.copy(window = w); refreshSpectrogram() }
     fun fit() { _ui.value = _ui.value.copy(window = _ui.value.window.copy(totalSamples = session.length).fitted()) }
     fun zoomBy(factor: Float) { val w = _ui.value.window; setWindow(w.zoomed(factor, w.widthPx * TimeWindow.PLAYHEAD_FRACTION.toFloat())) }
     fun select(range: LongRange?) { _ui.value = _ui.value.copy(selection = range?.takeIf { it.last > it.first }) }
     fun selectAll() { select(0L until session.length) }
-    fun selectTrack(id: String?) { _ui.value = _ui.value.copy(selectedTrackId = id) }
+    fun selectTrack(id: String?) { if (id != _ui.value.selectedTrackId) { _ui.value = _ui.value.copy(selectedTrackId = id); refreshSpectrogram() } }
     fun setTab(tab: EditorTab) { _ui.value = _ui.value.copy(tab = tab) }
     fun setSheet(sheet: EditSheet?) { _ui.value = _ui.value.copy(sheet = if (_ui.value.sheet == sheet) null else sheet) }
     fun dismissMessage() { _ui.value = _ui.value.copy(message = null) }
@@ -138,6 +138,7 @@ class EditorViewModel(private val app: StaveApplication, val projectId: String) 
         _ui.value = _ui.value.copy(session = s, canUndo = history.canUndo, canRedo = history.canRedo, undoLabel = history.undoLabel, window = _ui.value.window.copy(totalSamples = s.length))
         pushToGraph()
         scheduleSave()
+        refreshSpectrogram()
     }
 
     fun endGesture() { history.endGesture() }
@@ -523,5 +524,248 @@ class EditorViewModel(private val app: StaveApplication, val projectId: String) 
         val target = LoudnessTarget.byId(_voice.value.targetId)
         select(null)
         applyOffline("Loudness to ${target.label}", com.layerbit.stave.processing.OfflineTools.normaliseLoudness(target.lufs, target.truePeakDbtp))
+    }
+
+    // ---- studio: tempo, bounce, stems, ducking ---------------------------------------------
+
+    fun setTempo(bpm: Double) { commit(session.copy(tempo = listOf(com.layerbit.stave.engine.project.TempoEntry(0, bpm.coerceIn(20.0, 300.0), session.tempo.first().beatsPerBar))), "Tempo", gesture = "tempo") }
+
+    /** The whole mix rendered to a new source on a new track, muted tracks and all as heard. */
+    fun bounceToTrack() {
+        val s = session
+        if (s.length <= 0) return
+        _ui.value = _ui.value.copy(busy = Busy("Bouncing", 0f))
+        viewModelScope.launch {
+            val source = withContext(Dispatchers.IO) {
+                val id = Ids.next("s")
+                val out = files.newSourceFile(id)
+                val n = transport.renderOffline(0, s.length, out)
+                if (n <= 0) { out.delete(); return@withContext null }
+                Source(id, "Bounce", "media/${out.name}", s.sampleRate, 2, n, Source.Kind.RENDER).also { peaksFor(it) }
+            }
+            _ui.value = _ui.value.copy(busy = null)
+            if (source == null) { _ui.value = _ui.value.copy(message = "Nothing to bounce."); return@launch }
+            val track = Track(Ids.next("t"), "Bounce ${session.sources.count { it.kind == Source.Kind.RENDER && it.name.startsWith("Bounce") } + 1}")
+            var next = SessionEdits.addTrack(session.copy(sources = session.sources + source), track)
+            next = SessionEdits.add(next, SessionEdits.clipFor(source, track.id, 0, next.sampleRate))
+            history.recordLate("Bounce") { next }
+            after()
+            selectTrack(track.id)
+        }
+    }
+
+    /** Every audio track rendered on its own to a 24-bit WAV in exports/, published to Music/Stave. */
+    fun exportStems() {
+        val s = session
+        val tracks = s.audioTracks
+        if (tracks.isEmpty() || s.length <= 0) return
+        viewModelScope.launch {
+            val exporter = Exporter(app)
+            for ((i, t) in tracks.withIndex()) {
+                _ui.value = _ui.value.copy(busy = Busy("Stem ${i + 1} of ${tracks.size}: ${t.name}", i.toFloat() / tracks.size))
+                // Solo this one in a copy of the session, render that, and leave the live snapshot as it was.
+                val solo = s.copy(tracks = s.tracks.map { tr -> if (tr.kind == Track.Kind.AUDIO) tr.copy(solo = tr.id == t.id, muted = false) else tr })
+                val settings = ExportSettings(formatId = "wav", depth = 24, title = "${s.name.ifBlank { "Stave" }} - ${t.name}", normaliseToTarget = false)
+                runCatching {
+                    exporter.export(solo, files, settings, t.name, render = { out ->
+                        withContext(Dispatchers.IO) { transport.setSession(solo, files.dir); try { transport.renderOffline(0, s.length, out) } finally { transport.setSession(s, files.dir) } }
+                    }) { _, _ -> }
+                }.onFailure { e -> _ui.value = _ui.value.copy(message = e.message ?: "Stem export failed") }
+            }
+            _ui.value = _ui.value.copy(busy = null, message = "${tracks.size} stems saved to Music/Stave")
+        }
+    }
+
+    /** Volume automation on [musicTrackId] that dips wherever [voiceTrackId] speaks, as one step. */
+    fun duckUnder(musicTrackId: String, voiceTrackId: String, depthDb: Double) {
+        val s = session
+        val music = s.track(musicTrackId) ?: return
+        _ui.value = _ui.value.copy(busy = Busy("Listening for speech", 0f))
+        viewModelScope.launch {
+            val mask = withContext(Dispatchers.Default) {
+                // The voice track's level, 20 ms frames over the whole session, from its clips' sources.
+                val frame = s.sampleRate / 50
+                val frames = ((s.length + frame - 1) / frame).toInt()
+                val levels = FloatArray(frames) { -144f }
+                for (clip in s.clipsOn(voiceTrackId)) {
+                    val source = s.source(clip.sourceId) ?: continue
+                    val grab = com.layerbit.stave.processing.OfflineTools.read(files, clip, source, s.sampleRate) ?: continue
+                    val mono = grab.channels.first()
+                    val clipLevels = Silences.levels(mono, grab.sampleRate, 20)
+                    val startFrame = (clip.position / frame).toInt()
+                    for ((k, l) in clipLevels.withIndex()) { val f = startFrame + k; if (f in levels.indices) levels[f] = maxOf(levels[f], l + clip.gainDb.toFloat()) }
+                }
+                com.layerbit.stave.engine.project.Ducking.speechMask(levels, Silences.thresholdFor(levels, aboveFloorDb = 12f, capDb = -35f))
+            }
+            _ui.value = _ui.value.copy(busy = null)
+            val frame = s.sampleRate / 50
+            val points = com.layerbit.stave.engine.project.Ducking.points(mask, frame, music.volumeDb, depthDb, attackSamples = s.sampleRate / 5L, releaseSamples = s.sampleRate / 2L, holdSamples = s.sampleRate / 3L)
+            if (points.isEmpty()) { _ui.value = _ui.value.copy(message = "No speech heard on that track."); return@launch }
+            history.recordLate("Duck under speech") { cur -> SessionEdits.updateTrack(cur, musicTrackId) { it.copy(automation = it.automation + ("volume" to com.layerbit.stave.engine.project.ValueTrack(points))) } }
+            after()
+        }
+    }
+
+    // ---- finish: measure and master --------------------------------------------------------
+
+    data class FinishState(val targetId: String = "streaming", val reading: com.layerbit.stave.engine.dsp.LoudnessReading? = null)
+    private val _finish = MutableStateFlow(FinishState(targetId = app.settings.current.loudnessTargetId))
+    val finish: StateFlow<FinishState> = _finish.asStateFlow()
+
+    fun setFinishTarget(id: String) { _finish.value = _finish.value.copy(targetId = id) }
+
+    fun measureMix() {
+        val s = session
+        _ui.value = _ui.value.copy(busy = Busy("Measuring", 0f))
+        viewModelScope.launch {
+            val chs = mixdown(0, s.length)
+            _ui.value = _ui.value.copy(busy = null)
+            if (chs == null) return@launch
+            val reading = withContext(Dispatchers.Default) {
+                val meter = com.layerbit.stave.engine.dsp.LoudnessMeter(s.sampleRate, 2)
+                meter.process(com.layerbit.stave.processing.OfflineTools.interleave(chs))
+                meter.reading()
+            }
+            _finish.value = _finish.value.copy(reading = reading)
+        }
+    }
+
+    /** Tone, glue, a true-peak limiter and the loudness to the target, over the whole session, as one step. */
+    fun master(toneDb: Double, glue: Double) {
+        val target = LoudnessTarget.byId(_finish.value.targetId)
+        val T = com.layerbit.stave.processing.OfflineTools
+        val steps = ArrayList<T.Transform>()
+        if (kotlin.math.abs(toneDb) > 0.05) steps += T.eq(com.layerbit.stave.engine.dsp.ParametricEq.tilt(toneDb))
+        if (glue > 0.02) steps += T.compress(CompressorSettings(thresholdDb = -24.0 + 8.0 * (1 - glue), ratio = 1.5 + 1.5 * glue, kneeDb = 12.0, attackMs = 30.0, releaseMs = 250.0))
+        steps += T.normaliseLoudness(target.lufs, target.truePeakDbtp)
+        select(null)
+        applyOffline("Master to ${target.label}", chain(*steps.toTypedArray())) { measureMix() }
+    }
+
+    // ---- spectral view and edits -------------------------------------------------------------
+
+    /** The picture of the selected track's visible stretch, and where it sits. */
+    class SpectrogramImage(val bitmap: android.graphics.Bitmap, val fromSample: Long, val toSample: Long, val lowHz: Double, val highHz: Double)
+
+    data class SpectralState(val shown: Boolean = false, val image: SpectrogramImage? = null, val box: com.layerbit.stave.engine.dsp.SpectralEdit.Box? = null, val computing: Boolean = false)
+    private val _spectral = MutableStateFlow(SpectralState())
+    val spectral: StateFlow<SpectralState> = _spectral.asStateFlow()
+    private var spectralJob: Job? = null
+
+    fun showSpectrogram(on: Boolean) { _spectral.value = _spectral.value.copy(shown = on, box = null, image = if (on) _spectral.value.image else null); if (on) refreshSpectrogram() }
+    fun setSpectralBox(box: com.layerbit.stave.engine.dsp.SpectralEdit.Box?) { _spectral.value = _spectral.value.copy(box = box); box?.let { select(it.fromSample until it.toSample) } }
+
+    /** Recomputes the picture for the current window, debounced; called when the window or the track changes. */
+    fun refreshSpectrogram() {
+        if (!_spectral.value.shown) return
+        spectralJob?.cancel()
+        spectralJob = viewModelScope.launch {
+            delay(120)
+            val w = _ui.value.window; val s = session
+            val trackId = _ui.value.selectedTrackId ?: s.tracks.firstOrNull()?.id ?: return@launch
+            val from = w.firstSample.coerceAtLeast(0); val to = w.lastSample.coerceAtMost(s.length)
+            if (to <= from) return@launch
+            _spectral.value = _spectral.value.copy(computing = true)
+            val image = withContext(Dispatchers.Default) {
+                // The track's mono mix over the window, from its clips' sources.
+                val n = (to - from).toInt()
+                val mono = FloatArray(n)
+                for (clip in s.clipsIn(from, to, trackId)) {
+                    val source = s.source(clip.sourceId) ?: continue
+                    val a = maxOf(from, clip.position); val b = minOf(to, clip.end)
+                    val part = clip.copy(position = a, offset = clip.offset + clip.sourceFrames(a - clip.position), length = b - a)
+                    val grab = com.layerbit.stave.processing.OfflineTools.read(files, part, source, s.sampleRate) ?: continue
+                    val g = com.layerbit.stave.engine.dsp.Gain.dbToLinear(clip.gainDb).toFloat()
+                    val chs = grab.channels
+                    val len = minOf(chs[0].size, n - (a - from).toInt())
+                    for (c in chs) for (i in 0 until len) mono[(a - from).toInt() + i] += c[i] * g / chs.size
+                }
+                // A hop that gives about a thousand columns whatever the zoom; the window stays 2048.
+                val hop = maxOf(com.layerbit.stave.engine.dsp.SpectralEdit.HOP, n / 1024)
+                val frames = com.layerbit.stave.engine.dsp.SpectralEdit.spectrogramDb(mono, s.sampleRate, com.layerbit.stave.engine.dsp.SpectralEdit.SIZE, hop)
+                if (frames.isEmpty()) return@withContext null
+                val lowHz = 40.0; val highHz = s.sampleRate / 2.0
+                val rows = 256
+                val bmp = android.graphics.Bitmap.createBitmap(frames.size, rows, android.graphics.Bitmap.Config.ARGB_8888)
+                val px = IntArray(frames.size * rows)
+                val logLo = Math.log(lowHz); val logHi = Math.log(highHz)
+                for (y in 0 until rows) {
+                    // Row 0 is the top: the highest frequency. Log scale, so a voice's octaves are even.
+                    val hz = Math.exp(logHi - (logHi - logLo) * y / (rows - 1))
+                    val k = (hz * com.layerbit.stave.engine.dsp.SpectralEdit.SIZE / s.sampleRate).toInt().coerceIn(0, frames[0].size - 1)
+                    for (x in frames.indices) px[y * frames.size + x] = heat(frames[x][k])
+                }
+                bmp.setPixels(px, 0, frames.size, 0, 0, frames.size, rows)
+                SpectrogramImage(bmp, from, from + frames.size.toLong() * hop, lowHz, highHz)
+            }
+            _spectral.value = _spectral.value.copy(image = image, computing = false)
+        }
+    }
+
+    /** dBFS to a colour: ink below -90, through violet and the hot amber to a pale lime near full scale. */
+    private fun heat(db: Float): Int {
+        val t = ((db + 90f) / 90f).coerceIn(0f, 1f)
+        fun mix(a: Int, b: Int, f: Float) = (a + (b - a) * f).toInt()
+        val stops = intArrayOf(0x070A12, 0x2A1B5E, 0x7A2E8C, 0xE8705F, 0xF0A93D, 0xE2FF8A)
+        val pos = t * (stops.size - 1)
+        val i = pos.toInt().coerceAtMost(stops.size - 2); val f = pos - i
+        val a = stops[i]; val b = stops[i + 1]
+        val r = mix((a shr 16) and 255, (b shr 16) and 255, f); val g = mix((a shr 8) and 255, (b shr 8) and 255, f); val bl = mix(a and 255, b and 255, f)
+        return (0xFF shl 24) or (r shl 16) or (g shl 8) or bl
+    }
+
+    fun spectralAttenuate(gainDb: Double) {
+        val box = _spectral.value.box ?: return
+        val s = session
+        _ui.value = _ui.value.copy(selection = box.fromSample until box.toSample)
+        applyOffline(if (gainDb <= -59) "Remove from spectrogram" else "Turn down in spectrogram", com.layerbit.stave.processing.OfflineTools.Transform { chs, rate ->
+            // The transform sees the selection's samples starting at the box's own start, in the source's rate.
+            val scaled = com.layerbit.stave.engine.dsp.SpectralEdit.Box(0, (box.toSample - box.fromSample) * rate / s.sampleRate, box.lowHz, box.highHz)
+            chs.map { com.layerbit.stave.engine.dsp.SpectralEdit.attenuate(it, rate, scaled, gainDb) }
+        }) { refreshSpectrogram() }
+    }
+
+    fun spectralFill() {
+        val box = _spectral.value.box ?: return
+        val s = session
+        // Fill wants a margin either side of the box to read from: the selection is the box grown by half a second.
+        val pad = s.sampleRate / 2L
+        _ui.value = _ui.value.copy(selection = (box.fromSample - pad).coerceAtLeast(0) until (box.toSample + pad).coerceAtMost(s.length))
+        val from = _ui.value.selection!!.first
+        applyOffline("Fill from around", com.layerbit.stave.processing.OfflineTools.Transform { chs, rate ->
+            val local = com.layerbit.stave.engine.dsp.SpectralEdit.Box((box.fromSample - from) * rate / s.sampleRate, (box.toSample - from) * rate / s.sampleRate, box.lowHz, box.highHz)
+            chs.map { com.layerbit.stave.engine.dsp.SpectralEdit.interpolate(it, rate, local) }
+        }) { refreshSpectrogram() }
+    }
+
+    // ---- carrying a clip -------------------------------------------------------------------
+
+    /** A clip under a long press follows the finger; [done] on release lands it with a snap and closes the step. */
+    fun carryClip(clipId: String, position: Long, trackId: String?, done: Boolean) {
+        val s = session
+        val clip = s.clip(clipId) ?: return
+        val target = trackId?.takeIf { id -> s.track(id)?.kind == clip.let { c -> s.track(c.trackId)?.kind } } ?: clip.trackId
+        var p = position.coerceAtLeast(0)
+        if (done) p = SessionEdits.snap(s, p, (s.sampleRate / 20L), beats = true, excludeClipId = clipId).let { snapped -> if (kotlin.math.abs(snapped - p) <= s.sampleRate / 20L) snapped else p }
+        commit(SessionEdits.move(s, clipId, p, target), "Move clip", gesture = "carry-$clipId")
+        if (done) endGesture()
+    }
+
+    // ---- tune and effects --------------------------------------------------------------------
+
+    fun tune(scale: com.layerbit.stave.engine.dsp.PitchCorrect.Scale, strength: Float, retuneMs: Double) {
+        val settings = com.layerbit.stave.engine.dsp.PitchCorrect.Settings(scale, strength, retuneMs, toleranceCents = 5.0)
+        applyOffline("Tune", com.layerbit.stave.processing.OfflineTools.Transform { chs, rate ->
+            // A voice is one line: tuned on the channels' sum and the result carried to every channel, so a stereo take stays in phase.
+            val n = chs[0].size
+            val mono = FloatArray(n); for (a in chs) for (i in 0 until n) mono[i] += a[i] / chs.size
+            val tuned = com.layerbit.stave.engine.dsp.PitchCorrect.correct(mono, rate, settings)
+            chs.map { a -> FloatArray(n) { i -> if (kotlin.math.abs(mono[i]) > 1e-6f) tuned[i] * (a[i] / mono[i]).coerceIn(-2f, 2f) else tuned[i] } }
+        })
+    }
+
+    fun applyEffect(presetId: String) {
+        val preset = com.layerbit.stave.engine.dsp.VocalPresets.byId(presetId) ?: return
+        applyOffline(preset.label, com.layerbit.stave.processing.OfflineTools.Transform { chs, rate -> com.layerbit.stave.engine.dsp.VocalPresets.apply(preset, chs, rate) })
     }
 }

@@ -17,7 +17,7 @@ import java.nio.ByteOrder
  */
 object SnapshotEncoder {
     private const val MAGIC = 0x4E535453   // 'STSN' little-endian
-    private const val VERSION = 1
+    private const val VERSION = 2
 
     /** Insert kinds the graph knows: the rest are rendered offline and arrive as a new source. */
     private val insertKinds = mapOf("eq" to 1, "compressor" to 2, "limiter" to 3, "gate" to 4)
@@ -42,6 +42,9 @@ object SnapshotEncoder {
             inserts(buf, t.inserts)
             buf.putShort(t.sends.size.toShort())
             for (s in t.sends) { buf.putInt(trackIndex[s.toTrackId] ?: -1).putFloat(Gain.dbToLinear(s.gainDb).toFloat()).put(flag(s.preFader)) }
+            // Automation the graph evaluates per block: volume in dB and pan, as (position, value) points.
+            automation(buf, t.automationOf("volume"))
+            automation(buf, t.automationOf("pan"))
         }
         val clips = session.clips.filter { it.sourceId in sourceIndex && it.trackId in trackIndex }
         buf.putInt(clips.size)
@@ -56,6 +59,12 @@ object SnapshotEncoder {
         buf.putFloat(Gain.dbToLinear(session.masterVolumeDb).toFloat())
         inserts(buf, session.masterInserts)
         return buf.array().copyOf(buf.position())
+    }
+
+    private fun automation(buf: ByteBuffer, track: com.layerbit.stave.engine.project.ValueTrack) {
+        val points = track.sorted
+        buf.putShort(points.size.coerceAtMost(4096).toShort())
+        for (p in points.take(4096)) { buf.putLong(p.position).putFloat(p.value.toFloat()) }
     }
 
     private fun inserts(buf: ByteBuffer, list: List<Insert>) {
@@ -89,7 +98,7 @@ object SnapshotEncoder {
         fun insertsBytes(list: List<Insert>) = 2 + list.sumOf { 4 + 2 + 4 * 8 + 2 + it.bands.size * 14 }
         return 64 +
             s.sources.sumOf { 18 + it.file.toByteArray(Charsets.UTF_8).size + 1024 } +   // the project dir's own path is under a kilobyte
-            s.tracks.sumOf { 32 + insertsBytes(it.inserts) + 2 + it.sends.size * 9 } +
+            s.tracks.sumOf { 32 + insertsBytes(it.inserts) + 2 + it.sends.size * 9 + 4 + 12 * (it.automationOf("volume").points.size.coerceAtMost(4096) + it.automationOf("pan").points.size.coerceAtMost(4096)) } +
             s.clips.sumOf { 80 + it.envelope.size * 12 } +
             insertsBytes(s.masterInserts)
     }

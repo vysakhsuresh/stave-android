@@ -109,6 +109,35 @@ fun VoicePanel(vm: EditorViewModel, ui: EditorViewModel.Ui, modifier: Modifier =
                 SecondaryButton(stringResource(R.string.voice_chapter_here), onClick = { vm.addMarker(com.layerbit.stave.engine.project.Marker.Kind.CHAPTER) }, tall = false, modifier = Modifier.fillMaxWidth().padding(top = 8.dp))
             }
         }
+        // ---- Tune ----
+        Panel(modifier = Modifier.fillMaxWidth()) {
+            SectionHeading(stringResource(R.string.tune_title))
+            Text(stringResource(R.string.tune_hint), style = MaterialTheme.typography.bodySmall, color = StaveColors.Dim, modifier = Modifier.padding(vertical = 4.dp))
+            var kind by remember { mutableStateOf("chromatic") }
+            var root by remember { mutableStateOf(0) }
+            var strength by remember { mutableStateOf(1f) }
+            var retune by remember { mutableStateOf(20f) }
+            Text(stringResource(R.string.tune_scale), style = MaterialTheme.typography.bodyMedium, color = StaveColors.Text)
+            ChipRow(options = listOf("chromatic" to stringResource(R.string.tune_chromatic), "major" to stringResource(R.string.tune_major), "minor" to stringResource(R.string.tune_minor), "pentatonic" to stringResource(R.string.tune_pentatonic)), selected = kind, onSelect = { kind = it }, modifier = Modifier.padding(vertical = 6.dp))
+            if (kind != "chromatic") {
+                Text(stringResource(R.string.tune_root), style = MaterialTheme.typography.bodyMedium, color = StaveColors.Text)
+                ChipRow(options = (0 until 12).map { it to com.layerbit.stave.engine.dsp.Notes.name(60 + it).dropLast(1) }, selected = root, onSelect = { root = it }, modifier = Modifier.padding(vertical = 6.dp))
+            }
+            ValueSlider(stringResource(R.string.tune_strength), strength, 0f..1f, { strength = it }, format = Formats::percent)
+            ValueSlider(stringResource(R.string.tune_retune), retune, 0f..400f, { retune = it }, format = Formats::ms)
+            PrimaryButton(stringResource(R.string.tune_apply), onClick = {
+                val scale = when (kind) { "major" -> com.layerbit.stave.engine.dsp.PitchCorrect.Scale.major(root); "minor" -> com.layerbit.stave.engine.dsp.PitchCorrect.Scale.minor(root); "pentatonic" -> com.layerbit.stave.engine.dsp.PitchCorrect.Scale.pentatonic(root); else -> com.layerbit.stave.engine.dsp.PitchCorrect.Scale.CHROMATIC }
+                vm.tune(scale, strength, retune.toDouble())
+            }, tall = false, modifier = Modifier.fillMaxWidth().padding(top = 4.dp), enabled = ui.session.length > 0)
+        }
+        // ---- Effects ----
+        Panel(modifier = Modifier.fillMaxWidth()) {
+            SectionHeading(stringResource(R.string.fx_title))
+            var preset by remember { mutableStateOf("doubler") }
+            ChipRow(options = com.layerbit.stave.engine.dsp.VocalPresets.all.map { it.id to it.label }, selected = preset, onSelect = { preset = it }, modifier = Modifier.padding(vertical = 8.dp))
+            Text(com.layerbit.stave.engine.dsp.VocalPresets.byId(preset)?.note ?: "", style = MaterialTheme.typography.bodySmall, color = StaveColors.Dim)
+            PrimaryButton(stringResource(R.string.fx_apply, com.layerbit.stave.engine.dsp.VocalPresets.byId(preset)?.label ?: ""), onClick = { vm.applyEffect(preset) }, tall = false, modifier = Modifier.fillMaxWidth().padding(top = 8.dp), enabled = ui.session.length > 0)
+        }
         // ---- Clean up ----
         Panel(modifier = Modifier.fillMaxWidth()) {
             SectionHeading(stringResource(R.string.voice_cleanup_title))

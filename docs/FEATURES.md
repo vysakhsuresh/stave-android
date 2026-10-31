@@ -24,3 +24,11 @@ Grows with each phase. Dated.
   takes on their own lanes, a Whisper transcript in any of Whisper's languages, words as chips
   that select the sound under them, Delete words and Take out every um and uh, Remove silences,
   Clean up voice, Even out volume, Loudness to target, Chapter here.
+- Spectral editing (v0.1b): the spectrogram over the selected track, a box over a cough or a
+  whistle, Turn down, Remove or Fill from around.
+- The Studio tab (v0.3, built, not yet seen on a phone): a mixer with a strip per track and a
+  master, inserts with live parameters, sends and buses, volume and pan automation points,
+  clips carried by a long press, a click with its tempo, loop the selection, Bounce to a new
+  track, every track exported as a stem, Duck under speech.
+- The Finish tab (v0.7 brought forward): Measure the mix as a broadcast meter does, pick the
+  target, Master to it in one step.

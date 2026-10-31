@@ -21,6 +21,7 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.clipRect
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.positionChanged
@@ -67,6 +68,12 @@ fun WaveformStrip(
     onSeek: (Long) -> Unit,
     onFit: () -> Unit,
     onWidth: (Int) -> Unit,
+    /** The spectrogram of the selected track's visible stretch, when the Spectral sheet asked for it. */
+    spectrogram: EditorViewModel.SpectrogramImage? = null,
+    spectralBox: com.layerbit.stave.engine.dsp.SpectralEdit.Box? = null,
+    onSpectralBox: (com.layerbit.stave.engine.dsp.SpectralEdit.Box?) -> Unit = {},
+    /** A clip under a long press follows the finger: (clipId, position, trackId, done). */
+    onCarry: (String, Long, String?, Boolean) -> Unit = { _, _, _, _ -> },
     modifier: Modifier = Modifier
 ) {
     val density = LocalDensity.current
@@ -112,12 +119,26 @@ fun WaveformStrip(
                         val xs = currentWindow.pixelOf(sel.first); val xe = currentWindow.pixelOf(sel.last + 1)
                         if (abs(first.position.x - xs) < handlePx) editingEdge = 1 else if (abs(first.position.x - xe) < handlePx) editingEdge = 2
                     }
+                    val downTime = System.currentTimeMillis()
+                    val downTrack = trackAt(first.position.y)
+                    val downClip = downTrack?.let { tid -> currentSession.clipAt(tid, currentWindow.sampleAt(first.position.x)) }
+                    var carrying: com.layerbit.stave.engine.project.Clip? = null
+                    var carryGrab = 0L
+                    val spectralMode = spectrogram != null && downTrack == selectedTrackId && downTrack != null
                     var twoFinger = false
                     var moved = false
                     while (true) {
                         val event = awaitPointerEvent(PointerEventPass.Main)
                         val pressed = event.changes.filter { it.pressed }
-                        if (pressed.isEmpty()) break
+                        if (pressed.isEmpty()) {
+                            carrying?.let { c -> onCarry(c.id, c.position, c.trackId, true) }
+                            break
+                        }
+                        // Held still on a clip for 400 ms: pick it up.
+                        if (!moved && !twoFinger && editingEdge == 0 && carrying == null && downClip != null && !spectralMode && System.currentTimeMillis() - downTime > 400) {
+                            carrying = downClip; carryGrab = currentWindow.sampleAt(first.position.x) - downClip.position
+                            onCarry(downClip.id, downClip.position, downClip.trackId, false)
+                        }
                         if (pressed.size >= 2) {
                             twoFinger = true
                             val zoom = event.calculateZoom(); val pan = event.calculatePan(); val centroid = event.calculateCentroid()
@@ -133,9 +154,25 @@ fun WaveformStrip(
                         if (!change.positionChanged()) continue
                         val x = change.position.x
                         val sample = currentWindow.sampleAt(x).coerceIn(0L, currentSession.length)
-                        if (!moved && abs(change.position.x - first.position.x) < 6f) continue
+                        carrying?.let { c ->
+                            change.consume()
+                            onCarry(c.id, (currentWindow.sampleAt(x) - carryGrab).coerceAtLeast(0L), trackAt(change.position.y) ?: c.trackId, false)
+                            continue
+                        }
+                        if (!moved && abs(change.position.x - first.position.x) < 6f && abs(change.position.y - first.position.y) < 6f) continue
                         moved = true
                         change.consume()
+                        if (spectralMode) {
+                            // A box in time and frequency, the lane's height a log scale from the picture's low to its high.
+                            val img = spectrogram!!
+                            val laneTop = rulerPx + (tracks.indexOfFirst { it.id == downTrack }) * max(minLanePx, lanesHeight / laneCount)
+                            val laneH = max(minLanePx, lanesHeight / laneCount)
+                            fun hzAt(y: Float): Double { val f = ((y - laneTop) / laneH).coerceIn(0f, 1f); return Math.exp(Math.log(img.highHz) - (Math.log(img.highHz) - Math.log(img.lowHz)) * f) }
+                            val s0 = currentWindow.sampleAt(first.position.x).coerceIn(0L, currentSession.length)
+                            val h0 = hzAt(first.position.y); val h1 = hzAt(change.position.y)
+                            onSpectralBox(com.layerbit.stave.engine.dsp.SpectralEdit.Box(min(s0, sample), max(s0, sample), min(h0, h1), max(h0, h1)))
+                            continue
+                        }
                         when (editingEdge) {
                             1 -> { val s = currentSelection ?: continue; onSelect(min(sample, s.last) until max(sample, s.last + 1)) }
                             2 -> { val s = currentSelection ?: continue; onSelect(min(sample, s.first) until max(sample, s.first + 1)) }
@@ -158,6 +195,18 @@ fun WaveformStrip(
             clipRect(0f, top, w, top + lane) {
                 if (track.id == selectedTrackId) drawRect(StaveColors.Band.copy(alpha = 0.04f), Offset(0f, top), Size(w, lane))
                 drawLine(StaveColors.Border, Offset(0f, top + lane - 0.5f), Offset(w, top + lane - 0.5f), 1f)
+                if (spectrogram != null && track.id == selectedTrackId) {
+                    val x0 = window.pixelOf(spectrogram.fromSample); val x1 = window.pixelOf(spectrogram.toSample)
+                    drawImage(spectrogram.bitmap.asImageBitmap(), dstOffset = androidx.compose.ui.unit.IntOffset(x0.roundToInt(), top.roundToInt()), dstSize = androidx.compose.ui.unit.IntSize((x1 - x0).roundToInt().coerceAtLeast(1), lane.roundToInt()))
+                    spectralBox?.let { b ->
+                        fun yOf(hz: Double): Float { val f = ((Math.log(spectrogram.highHz) - Math.log(hz)) / (Math.log(spectrogram.highHz) - Math.log(spectrogram.lowHz))).toFloat().coerceIn(0f, 1f); return top + f * lane }
+                        val bx0 = window.pixelOf(b.fromSample); val bx1 = window.pixelOf(b.toSample)
+                        val by0 = yOf(b.highHz); val by1 = yOf(b.lowHz)
+                        drawRect(StaveColors.Band.copy(alpha = 0.25f), Offset(bx0, by0), Size(bx1 - bx0, by1 - by0))
+                        drawRect(StaveColors.Band, Offset(bx0, by0), Size(bx1 - bx0, by1 - by0), style = androidx.compose.ui.graphics.drawscope.Stroke(2f))
+                    }
+                    return@clipRect
+                }
                 for (clip in session.clipsOn(track.id)) {
                     val x0 = window.pixelOf(clip.position); val x1 = window.pixelOf(clip.end)
                     if (x1 < 0 || x0 > w) continue

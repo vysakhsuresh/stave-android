@@ -22,6 +22,7 @@ enum class EditSheet(val id: String, val titleRes: Int) {
     GAIN("gain", R.string.sheet_gain),
     FADES("fades", R.string.sheet_fades),
     REPAIR("repair", R.string.sheet_repair),
+    SPECTRAL("spectral", R.string.sheet_spectral),
     EQ("eq", R.string.sheet_eq),
     DYNAMICS("dynamics", R.string.sheet_dynamics),
     TIME("time", R.string.sheet_time),

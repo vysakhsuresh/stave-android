@@ -21,6 +21,9 @@ object Registry {
         JsonChecks,
         ProjectChecks,
         SessionEditsChecks,
-        ExportChecks
+        ExportChecks,
+        SpectralEditChecks,
+        EffectsChecks,
+        PitchCorrectChecks
     ) + MusicSuites.all + SequencerSuites.all + VoiceSuites.all + listOf(RunnerChecks)
 }

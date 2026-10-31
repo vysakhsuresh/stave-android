@@ -168,6 +168,7 @@
     <string name="sheet_gain">Gain</string>
     <string name="sheet_fades">Fades</string>
     <string name="sheet_repair">Repair</string>
+    <string name="sheet_spectral">Spectral</string>
     <string name="sheet_eq">EQ</string>
     <string name="sheet_dynamics">Dynamics</string>
     <string name="sheet_time">Time &amp; pitch</string>
@@ -317,6 +318,88 @@
     <string name="voice_loudness_apply">Bring to %1$s</string>
     <string name="voice_chapter_here">Chapter here</string>
     <string name="voice_words_selected">%1$d words selected</string>
+
+    <!-- Studio -->
+    <string name="studio_mixer">Mixer</string>
+    <string name="studio_add_track">Add track</string>
+    <string name="studio_add_bus">Add bus</string>
+    <string name="studio_master">Master</string>
+    <string name="studio_volume">Volume</string>
+    <string name="studio_pan">Pan</string>
+    <string name="studio_mute">Mute</string>
+    <string name="studio_solo">Solo</string>
+    <string name="studio_arm">Arm</string>
+    <string name="studio_rename">Rename</string>
+    <string name="studio_remove">Remove track</string>
+    <string name="studio_output">Send to</string>
+    <string name="studio_inserts">Inserts</string>
+    <string name="studio_insert_add">Add an insert</string>
+    <string name="studio_insert_eq">EQ</string>
+    <string name="studio_insert_compressor">Compressor</string>
+    <string name="studio_insert_limiter">Limiter</string>
+    <string name="studio_insert_gate">Gate</string>
+    <string name="studio_insert_on">On</string>
+    <string name="studio_insert_remove">Remove</string>
+    <string name="studio_sends">Sends</string>
+    <string name="studio_send_add">Send to %1$s</string>
+    <string name="studio_automation">Automation</string>
+    <string name="studio_automation_volume">Volume</string>
+    <string name="studio_automation_pan">Pan</string>
+    <string name="studio_automation_add">Add point at play-head</string>
+    <string name="studio_automation_clear">Clear</string>
+    <string name="studio_automation_points">%1$d points</string>
+    <string name="studio_metronome">Click</string>
+    <string name="studio_tempo">Tempo</string>
+    <string name="studio_loop">Loop the selection</string>
+    <string name="studio_duck">Duck under speech</string>
+    <string name="studio_duck_hint">Lowers this track wherever the selected voice track speaks.</string>
+    <string name="studio_duck_depth">Lower by</string>
+    <string name="studio_bounce">Bounce to a new track</string>
+    <string name="studio_stems">Export each track</string>
+    <string name="studio_no_tracks">No tracks yet. Add one, or open a sound.</string>
+
+    <!-- Finish -->
+    <string name="finish_measure">Measure</string>
+    <string name="finish_measure_hint">Reads the whole mix the way a broadcast meter does.</string>
+    <string name="finish_integrated">Loudness</string>
+    <string name="finish_range">Range</string>
+    <string name="finish_true_peak">True peak</string>
+    <string name="finish_sample_peak">Sample peak</string>
+    <string name="finish_target">Deliver to</string>
+    <string name="finish_distance">%1$s from the target</string>
+    <string name="finish_character">Character</string>
+    <string name="finish_tone">Tone</string>
+    <string name="finish_glue">Glue</string>
+    <string name="finish_width">Width</string>
+    <string name="finish_master">Master to %1$s</string>
+    <string name="finish_master_hint">Tone, a gentle compressor for glue, a true-peak limiter at the target's ceiling, and the loudness brought to the target. One step; Undo takes it all back.</string>
+    <string name="finish_not_measured">Not measured yet.</string>
+
+    <!-- Spectral -->
+    <string name="spectral_show">Show the spectrogram</string>
+    <string name="spectral_hint">Time runs across, pitch runs up. Drag a box over a cough, a ring, a squeak, then turn it down or fill it in from what is around it. Everything outside the box is left alone.</string>
+    <string name="spectral_box">%1$s – %2$s, %3$s to %4$s</string>
+    <string name="spectral_no_box">Drag a box on the spectrogram.</string>
+    <string name="spectral_gain">Turn down by</string>
+    <string name="spectral_attenuate">Turn down</string>
+    <string name="spectral_remove">Remove</string>
+    <string name="spectral_fill">Fill from around</string>
+    <string name="spectral_zoom">Zoom in to see detail here.</string>
+
+    <!-- Tune and effects -->
+    <string name="tune_title">Tune</string>
+    <string name="tune_hint">Pulls each note to the nearest one of the scale. Full strength and no retune time is the hard, robotic snap; half strength with a slow retune is a quiet correction nobody hears.</string>
+    <string name="tune_scale">Scale</string>
+    <string name="tune_chromatic">Any note</string>
+    <string name="tune_major">Major</string>
+    <string name="tune_minor">Minor</string>
+    <string name="tune_pentatonic">Pentatonic</string>
+    <string name="tune_root">Key</string>
+    <string name="tune_strength">Strength</string>
+    <string name="tune_retune">Retune time</string>
+    <string name="tune_apply">Tune the selection</string>
+    <string name="fx_title">Effects</string>
+    <string name="fx_apply">Apply %1$s</string>
 
     <!-- Notifications -->
     <string name="notification_channel">Recording and playback</string>

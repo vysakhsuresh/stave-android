@@ -312,8 +312,11 @@ void Engine::processBlock(float* outBuf, int frames) {
                 if (st.hasEq) st.eq.process(buf, frames, 2);
                 if (st.hasComp) st.comp.process(buf, frames, 2);
                 if (st.hasLim) st.lim.process(buf, frames);
-                float vol = volumeOverrides[t]->load(); if (vol < 0) vol = tr.volume;
-                float pan = panOverrides[t]->load(); if (pan < -2) pan = tr.pan;
+                // A fader under the finger wins; else the automation at this block's start; else the static value.
+                float vol = volumeOverrides[t]->load();
+                if (vol < 0) vol = tr.volumeAuto.empty() ? tr.volume : dbToLinear(Track::at(tr.volumeAuto, pos, 0.0f));
+                float pan = panOverrides[t]->load();
+                if (pan < -2) pan = tr.panAuto.empty() ? tr.pan : Track::at(tr.panAuto, pos, 0.0f);
                 float pl, pr; panGains(pan, pl, pr);
                 st.volume.set(vol, frames); st.panL.set(pl * 1.41421356f, frames); st.panR.set(pr * 1.41421356f, frames);
                 for (const auto& send : tr.sends) if (send.pre && send.to >= 0 && send.to < (int) nTracks) mixInto(&busScratch[(size_t) send.to * MAX_BLOCK * 2], buf, frames, send.gain);

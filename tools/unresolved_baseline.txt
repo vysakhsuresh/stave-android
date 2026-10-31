@@ -21,3 +21,4 @@ setIntent
 setSound
 size
 startForeground
+drawImage

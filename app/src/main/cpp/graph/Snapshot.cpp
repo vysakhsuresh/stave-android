@@ -38,6 +38,7 @@ void Source::close() {
 //   u32 trackCount; per track: u8 kind, f32 volume, f32 pan, u8 muted, u8 solo, u8 armed, i32 output,
 //        u16 insertCount; per insert: u8 kind, u8 enabled, u16 paramCount, f32[params], u16 bandCount, per band: u8 kind, f32 hz, f32 gain, f32 q, u8 enabled
 //        u16 sendCount; per send: i32 to, f32 gain, u8 pre
+//        u16 volumeAutoCount; per point: i64 position, f32 dB; u16 panAutoCount; per point: i64 position, f32 pan   (version 2)
 //   u32 clipCount; per clip: i32 track, i32 source, i64 position, i64 offset, i64 length, f32 gain,
 //        i64 fadeIn, u8 fadeInShape, i64 fadeOut, u8 fadeOutShape, u8 muted, u8 reversed, f64 stretch,
 //        u16 envCount; per point: i64 position, f32 gainDb
@@ -70,7 +71,6 @@ std::shared_ptr<Snapshot> Snapshot::parse(const uint8_t* bytes, size_t length, c
     Reader r(bytes, length);
     if (r.get<uint32_t>() != 0x4E535453u) { LOGW("snapshot: bad magic"); return nullptr; }
     uint32_t version = r.get<uint32_t>();
-    (void) version;
     auto snap = std::make_shared<Snapshot>();
     snap->sampleRate = (int) r.get<uint32_t>();
     if (snap->sampleRate <= 0) snap->sampleRate = sessionRate;
@@ -100,6 +100,12 @@ std::shared_ptr<Snapshot> Snapshot::parse(const uint8_t* bytes, size_t length, c
         readInserts(r, t.inserts, snap->sampleRate);
         uint16_t sends = r.get<uint16_t>();
         for (int s = 0; s < sends && r.ok; s++) { Track::Send sd; sd.to = r.get<int32_t>(); sd.gain = r.get<float>(); sd.pre = r.get<uint8_t>() != 0; t.sends.push_back(sd); }
+        if (version >= 2) {
+            uint16_t va = r.get<uint16_t>();
+            for (int k = 0; k < va && r.ok; k++) { Track::AutoPoint p; p.position = r.get<int64_t>(); p.value = r.get<float>(); t.volumeAuto.push_back(p); }
+            uint16_t pa = r.get<uint16_t>();
+            for (int k = 0; k < pa && r.ok; k++) { Track::AutoPoint p; p.position = r.get<int64_t>(); p.value = r.get<float>(); t.panAuto.push_back(p); }
+        }
         if (t.solo && t.kind == 0) snap->anySolo = true;
         snap->tracks.push_back(std::move(t));
     }
