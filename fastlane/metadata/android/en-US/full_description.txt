@@ -1,0 +1,17 @@
+Stave is an audio studio for Android with no account, no subscription, no cap, no ad, no watermark, and no INTERNET permission in its manifest. Everything runs on the phone.
+
+Six tabs:
+
+• Edit — open any sound the phone has (FFmpeg decodes it), see the waveform at any zoom, cut, trim, fade, normalise, repair clicks, clipping, hum and noise, equalise with the curve drawn from the filters themselves, compress, limit, stretch and pitch, mark chapters, and export to MP3, AAC, Opus, FLAC, ALAC, WAV and more with tags and artwork.
+
+• Voice — record with a meter and monitoring, transcribe with Whisper in Whisper's languages (Indian languages first), tap words to select the sound under them, delete words, take out every um and uh, remove silences, clean up a voice in one step, read a typed line aloud with the phone's own voice.
+
+• Studio — tracks, a mixer with faders, pans, inserts, sends and buses, automation, takes on their own lanes, a click, a loop, bounce, stems, freeze.
+
+• Musician — pull a song into vocals, drums, bass and the rest on the phone; read its tempo, beats, bars, key and chords; slow a passage and change its key; a tuner; your melody as notes.
+
+• Beats — a step sequencer that is also a piano roll, pads and keys, a synthesised drum kit, subtractive and FM synths, any SoundFont you add, swing, quantise, humanise, an arpeggiator, a song of patterns, MIDI files in and out.
+
+• Finish — measure as a broadcast meter does, master to a loudness target in one step, match the tone of a reference track, width, three-band compression, transients, and compare with before at matched loudness.
+
+Free software under the GPL-3.0. The source is at github.com/vysakhsuresh/stave-android.

@@ -1,0 +1,1 @@
+First release: the wave editor, the Voice tab with Whisper, the Studio, the Musician tab (stems, chords, tempo, tuner), the Beats tab (sequencer, synths, MIDI) and the Finish tab (loudness, EQ match, width, bands, transients).

@@ -44,3 +44,5 @@ Grows with each phase. Dated.
   a song of placements, Render to a track and Render the song (one track per instrument),
   Standard MIDI files in and out, a drum machine on a synthesised sixteen-sound starter kit,
   seven subtractive and five FM synth presets, and any SoundFont the person adds.
+- Also on 31 October: Read aloud through the phone's speech engine (Voice); a looper that folds each take over a loop of bars into layers (Voice); Sing along with the words following the play-head and the vocals muted (Musician); Freeze a track (Studio); and on Finish the report, Match a reference, Width, Three bands, Transients and a level-matched Compare with before.
+

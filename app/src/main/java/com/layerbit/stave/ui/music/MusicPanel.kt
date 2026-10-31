@@ -43,6 +43,7 @@ fun MusicPanel(vm: EditorViewModel, ui: EditorViewModel.Ui, modifier: Modifier =
     Column(modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 8.dp, vertical = 6.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         TunerCard(vm.transport, armed = voice.armed)
         AnalysisCard(vm, ui)
+        KaraokeCard(vm, ui)
         Panel(modifier = Modifier.fillMaxWidth()) {
             SectionHeading(stringResource(R.string.music_stems))
             Text(stringResource(R.string.music_stems_hint), style = MaterialTheme.typography.bodySmall, color = StaveColors.Dim, modifier = Modifier.padding(vertical = 4.dp))

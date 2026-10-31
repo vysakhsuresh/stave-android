@@ -364,15 +364,19 @@ class EditorViewModel(private val app: StaveApplication, val projectId: String) 
         if (!transport.startRecording(take)) { _ui.value = _ui.value.copy(message = "Recording could not start."); return }
         recordFile = take
         AudioService.start(app, recording = true, title = session.name.ifBlank { "Stave" })
+        val loop = _looper.value.takeIf { it.active }
+        if (loop != null) { recordStart = loop.start; _looper.value = loop.copy(recordingLayer = true) }
         transport.seek(recordStart)
-        transport.setLoop(null)
-        if (session.length > recordStart) transport.play()
+        transport.setLoop(loop?.let { it.start until it.start + it.length })
+        if (session.length > recordStart || loop != null) transport.play()
         recordJob?.cancel()
         recordJob = viewModelScope.launch {
             while (true) {
                 val frames = transport.recordedFrames()
                 _voice.value = _voice.value.copy(recordedMs = frames * 1000 / transport.sampleRate, dropped = transport.droppedFrames(), inputHold = maxOf(_voice.value.inputHold * 0.97f, transport.state.value.inputPeak))
-                _ui.value = _ui.value.copy(window = _ui.value.window.copy(playhead = recordStart + frames, totalSamples = maxOf(session.length, recordStart + frames)))
+                val lp = _looper.value
+                val shown = if (lp.active && lp.recordingLayer && lp.length > 0) lp.start + frames % lp.length else recordStart + frames
+                _ui.value = _ui.value.copy(window = _ui.value.window.copy(playhead = shown, totalSamples = maxOf(session.length, shown)))
                 delay(50)
             }
         }
@@ -393,6 +397,8 @@ class EditorViewModel(private val app: StaveApplication, val projectId: String) 
                 app.media.takeToSource(files, wav, rate, 1, "Take $count").also { peaksFor(it) }
             }
             if (source.frames <= 0) { wav.delete(); return@launch }
+            val lp = _looper.value
+            if (lp.active && lp.recordingLayer && lp.length > 0) { landLayers(source, lp); return@launch }
             var s = session.copy(sources = session.sources + source)
             val trackId = _ui.value.selectedTrackId?.takeIf { id -> s.track(id)?.kind == Track.Kind.AUDIO } ?: run { val t = Track(Ids.next("t"), "Voice"); s = SessionEdits.addTrack(s, t); t.id }
             // A take over existing sound goes on its own lane, so nothing underneath is covered.
@@ -1028,6 +1034,137 @@ class EditorViewModel(private val app: StaveApplication, val projectId: String) 
     fun shiftDownbeat() {
         val a = _music.value.analysis ?: return
         _music.value = _music.value.copy(analysis = a.copy(downbeatOffset = (a.downbeatOffset + 1).mod(4)))
+    }
+
+    // ---- read aloud ---------------------------------------------------------------------
+
+    /**
+     * A typed line spoken by the phone's own engine (voice/ReadAloud) and landed as a clip at the
+     * play-head on the selected track's free lane - the podcast intro you did not want to record,
+     * or a line the take missed. The language follows the Voice tab's chip when it is not "auto".
+     */
+    fun readAloud(text: String) {
+        val line = text.trim()
+        if (line.isEmpty() || _ui.value.busy != null) return
+        val s = session
+        val language = _voice.value.language.takeIf { it != "auto" }
+        _ui.value = _ui.value.copy(busy = Busy(app.getString(com.layerbit.stave.R.string.voice_reading), 0f))
+        viewModelScope.launch {
+            val wav = File(files.takes, "speech-${System.currentTimeMillis()}.wav")
+            val result = runCatching {
+                val spoken = com.layerbit.stave.voice.ReadAloud(app).speak(line, language, wav)
+                withContext(Dispatchers.Default) {
+                    val mono = com.layerbit.stave.voice.ReadAloud(app).atRate(spoken, s.sampleRate)
+                    val parent = s.sources.firstOrNull() ?: Source("mix", "Mix", "", s.sampleRate, 1, 0)
+                    OfflineTools.writeSource(files, listOf(mono), s.sampleRate, parent, line.take(24)).copy(kind = Source.Kind.TAKE, name = line.take(24))
+                }
+            }
+            wav.delete()
+            _ui.value = _ui.value.copy(busy = null)
+            result.onSuccess { source ->
+                withContext(Dispatchers.IO) { peaksFor(source) }
+                val at = _ui.value.window.playhead
+                history.recordLate("Read aloud") { cur ->
+                    var next = cur.copy(sources = cur.sources + source)
+                    val trackId = _ui.value.selectedTrackId?.takeIf { id -> next.track(id)?.kind == Track.Kind.AUDIO } ?: run { val t = Track(Ids.next("t"), "Voice"); next = SessionEdits.addTrack(next, t); t.id }
+                    val lane = if (next.clipsIn(at, at + source.frames, trackId).isEmpty()) 0 else (next.clipsOn(trackId).maxOfOrNull { it.lane } ?: 0) + 1
+                    next = SessionEdits.add(next, SessionEdits.clipFor(source, trackId, at, next.sampleRate).copy(lane = lane))
+                    if (lane > 0) next = SessionEdits.updateTrack(next, trackId) { it.copy(lanes = maxOf(it.lanes, lane + 1)) }
+                    next
+                }
+                after()
+            }.onFailure { e -> _ui.value = _ui.value.copy(message = e.message ?: "Could not read that aloud") }
+        }
+    }
+
+    // ---- the looper -------------------------------------------------------------------------
+
+    /** A loop of so many bars from the play-head; each take over it is folded into layers, one lane each. */
+    data class LooperState(val bars: Int = 2, val active: Boolean = false, val start: Long = 0, val length: Long = 0, val layers: Int = 0, val recordingLayer: Boolean = false)
+    private val _looper = MutableStateFlow(LooperState())
+    val looper: StateFlow<LooperState> = _looper.asStateFlow()
+
+    /** Sets the loop at the play-head: [bars] bars at the session's tempo, selected and looped on the transport. */
+    fun looperSet(bars: Int) {
+        val s = session
+        val tempo = s.tempo.first()
+        val length = (bars.coerceIn(1, 16) * tempo.beatsPerBar * 60.0 / tempo.bpm * s.sampleRate).toLong().coerceAtLeast(1)
+        val start = _ui.value.window.playhead
+        _looper.value = LooperState(bars.coerceIn(1, 16), true, start, length, _looper.value.layers)
+        select(start until start + length)
+        transport.setLoop(start until start + length)
+    }
+
+    fun looperOff() { _looper.value = _looper.value.copy(active = false, recordingLayer = false); transport.setLoop(null) }
+
+    /** A finished take over the loop cut into passes, each a layer on its own lane of the Loop track, all starting at the loop's start. */
+    private fun landLayers(source: Source, lp: LooperState) {
+        var s = session.copy(sources = session.sources + source)
+        val trackId = s.tracks.firstOrNull { it.name == "Loop" && it.kind == Track.Kind.AUDIO }?.id ?: run { val t = Track(Ids.next("t"), "Loop"); s = SessionEdits.addTrack(s, t); t.id }
+        var lane = (s.clipsOn(trackId).maxOfOrNull { it.lane + 1 } ?: 0)
+        var offset = 0L
+        var layers = 0
+        while (offset < source.frames) {
+            val length = minOf(lp.length, source.frames - offset)
+            // A last pass under a quarter of the loop is the finger lifting late, not a layer.
+            if (length < lp.length / 4 && layers > 0) break
+            val clip = SessionEdits.clipFor(source, trackId, lp.start, s.sampleRate).copy(offset = offset, length = length, lane = lane, name = "Layer ${lp.layers + layers + 1}")
+            s = SessionEdits.add(s, clip)
+            lane++; layers++; offset += lp.length
+        }
+        s = SessionEdits.updateTrack(s, trackId) { it.copy(lanes = maxOf(it.lanes, lane)) }
+        _ui.value = _ui.value.copy(selectedTrackId = trackId)
+        _looper.value = lp.copy(layers = lp.layers + layers, recordingLayer = false)
+        commit(s, if (layers == 1) "Loop layer" else "$layers loop layers")
+        // Keep looping so the next layer goes straight over these.
+        transport.setLoop(lp.start until lp.start + lp.length)
+        seek(lp.start)
+    }
+
+    // ---- karaoke ----------------------------------------------------------------------------
+
+    /** The stem the separator named Vocals, if the song has been pulled apart. */
+    fun vocalsTrackId(): String? = session.tracks.firstOrNull { it.kind == Track.Kind.AUDIO && it.name.equals("Vocals", ignoreCase = true) }?.id
+    fun muteVocals(on: Boolean) { val id = vocalsTrackId() ?: return; updateTrack(id, if (on) "Mute vocals" else "Unmute vocals") { it.copy(muted = on) } }
+
+    // ---- freeze -----------------------------------------------------------------------------
+
+    /**
+     * Freeze: the track alone, through its inserts, rendered to one FREEZE source that replaces
+     * its clips, with the inserts switched off - the sound stays, the CPU it cost goes. The fader,
+     * pan, sends and automation are left live (the render runs them flat), so the frozen track
+     * still mixes as a track. Undo is unfreeze.
+     */
+    fun freezeTrack(trackId: String) {
+        val s = session
+        val track = s.track(trackId) ?: return
+        if (s.length <= 0 || s.clipsOn(trackId).isEmpty() || !transport.available) return
+        _ui.value = _ui.value.copy(busy = Busy(app.getString(com.layerbit.stave.R.string.studio_freezing), 0f))
+        viewModelScope.launch {
+            val source = withContext(Dispatchers.IO) {
+                // The graph plays a copy with this track solo, flat and dry, and the master as a wire.
+                val solo = s.copy(
+                    tracks = s.tracks.map { t -> if (t.id == trackId) t.copy(solo = true, muted = false, volumeDb = 0.0, pan = 0.0, sends = emptyList(), automation = emptyMap(), outputId = null) else t.copy(solo = false) },
+                    masterVolumeDb = 0.0, masterInserts = emptyList()
+                )
+                transport.setSession(solo, files.dir)
+                try {
+                    val id = Ids.next("s")
+                    val out = files.newSourceFile(id)
+                    val n = transport.renderOffline(0, s.length, out)
+                    if (n <= 0) { out.delete(); null } else Source(id, "${track.name} (frozen)", "media/${out.name}", s.sampleRate, 2, n, Source.Kind.FREEZE).also { peaksFor(it) }
+                } finally { transport.setSession(session, files.dir) }
+            }
+            _ui.value = _ui.value.copy(busy = null)
+            if (source == null) { _ui.value = _ui.value.copy(message = app.getString(com.layerbit.stave.R.string.studio_freeze_failed)); return@launch }
+            history.recordLate("Freeze ${track.name}") { cur ->
+                var next = cur.copy(sources = cur.sources + source, clips = cur.clips.filter { it.trackId != trackId })
+                next = SessionEdits.add(next, SessionEdits.clipFor(source, trackId, 0, next.sampleRate))
+                SessionEdits.updateTrack(next, trackId) { t -> t.copy(inserts = t.inserts.map { it.copy(enabled = false) }, lanes = 1) }
+            }
+            after()
+            _ui.value = _ui.value.copy(message = app.getString(com.layerbit.stave.R.string.studio_frozen, track.name))
+        }
     }
 
     // ---- beats: patterns, the live player, rendering, MIDI --------------------------------

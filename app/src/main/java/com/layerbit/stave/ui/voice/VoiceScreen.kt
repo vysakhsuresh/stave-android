@@ -20,6 +20,7 @@ import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -81,6 +82,31 @@ fun VoicePanel(vm: EditorViewModel, ui: EditorViewModel.Ui, modifier: Modifier =
             if (transport.recording) Text(stringResource(R.string.voice_recording, Timecode.display(voice.recordedMs, 1)), style = MaterialTheme.typography.titleMedium, color = StaveColors.Record, modifier = Modifier.padding(top = 8.dp))
             ToggleRow(stringResource(R.string.voice_monitor), voice.monitor, { vm.setMonitor(it) }, detail = stringResource(R.string.voice_monitor_detail), enabled = voice.armed, modifier = Modifier.padding(top = 4.dp))
             voice.dropped.takeIf { it > 0 }?.let { Text(stringResource(R.string.voice_dropped, it), style = MaterialTheme.typography.bodySmall, color = StaveColors.Hot) }
+        }
+        // ---- Looper ----
+        Panel(modifier = Modifier.fillMaxWidth()) {
+            val looper by vm.looper.collectAsState()
+            SectionHeading(stringResource(R.string.looper_title))
+            Text(stringResource(R.string.looper_hint), style = MaterialTheme.typography.bodySmall, color = StaveColors.Dim, modifier = Modifier.padding(vertical = 4.dp))
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(stringResource(R.string.looper_bars), style = MaterialTheme.typography.bodyMedium, color = StaveColors.Text)
+                ChipRow(listOf(1, 2, 4, 8).map { it to "$it" }, looper.bars, { vm.looperSet(it) }, modifier = Modifier.weight(1f), enabled = { !transport.recording })
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 6.dp)) {
+                if (!looper.active) SecondaryButton(stringResource(R.string.looper_set), onClick = { vm.looperSet(looper.bars) }, tall = false, modifier = Modifier.weight(1f))
+                else SecondaryButton(stringResource(R.string.looper_off), onClick = vm::looperOff, tall = false, modifier = Modifier.weight(1f), enabled = !transport.recording)
+                if (!transport.recording) PrimaryButton(stringResource(R.string.looper_record), onClick = { if (hasMic) vm.startRecording() else ask.launch(Manifest.permission.RECORD_AUDIO) }, danger = true, tall = false, modifier = Modifier.weight(1f), enabled = looper.active)
+                else PrimaryButton(stringResource(R.string.looper_stop), onClick = vm::stopRecording, tall = false, modifier = Modifier.weight(1f), enabled = looper.recordingLayer)
+            }
+            if (looper.layers > 0) Text(stringResource(R.string.looper_layers, looper.layers), style = MaterialTheme.typography.bodySmall, color = StaveColors.Muted, modifier = Modifier.padding(top = 6.dp))
+        }
+        // ---- Read aloud ----
+        Panel(modifier = Modifier.fillMaxWidth()) {
+            SectionHeading(stringResource(R.string.voice_read_aloud_title))
+            Text(stringResource(R.string.voice_read_aloud_hint), style = MaterialTheme.typography.bodySmall, color = StaveColors.Dim, modifier = Modifier.padding(vertical = 4.dp))
+            var line by remember { mutableStateOf("") }
+            OutlinedTextField(line, { line = it }, label = { Text(stringResource(R.string.voice_read_aloud_text)) }, modifier = Modifier.fillMaxWidth(), minLines = 2)
+            PrimaryButton(stringResource(R.string.voice_read_aloud), onClick = { vm.readAloud(line) }, tall = false, modifier = Modifier.fillMaxWidth().padding(top = 6.dp), enabled = line.isNotBlank() && ui.busy == null)
         }
         // ---- Words ----
         Panel(modifier = Modifier.fillMaxWidth()) {

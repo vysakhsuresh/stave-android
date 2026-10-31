@@ -40,6 +40,13 @@
     <uses-feature android:name="android.software.midi" android:required="false" />
     <uses-feature android:name="android.hardware.usb.host" android:required="false" />
 
+    <!-- Lets the phone's text-to-speech engine bind on Android 11+ (Read aloud); nothing else is queried. -->
+    <queries>
+        <intent>
+            <action android:name="android.intent.action.TTS_SERVICE" />
+        </intent>
+    </queries>
+
     <application
         android:name=".StaveApplication"
         android:allowBackup="false"

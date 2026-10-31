@@ -31,7 +31,7 @@ Built-not-seen is never called done.
 - [~] Edit history: undo/redo, gesture folding, `recordLate`, `amendAll`; suite (`ProjectChecks`)
 - [~] Region edits: split/trim/move/ripple delete/insert/copy/paste/crop/snap over the clip list; suite (`SessionEditsChecks`)
 - [~] Spectral editing: a box in time and frequency turned down with feathered edges, or filled in from the frames either side; the spectrogram the screen paints from the same STFT; suite (`SpectralEditChecks`)
-- [ ] Multiband compressor, transient shaper, leveller; suites
+- [~] Linkwitz-Riley crossover, three-band compressor, transient shaper, EQ match, width and correlation, the report (`MasteringChecks`); the leveller is Even out volume on the Voice tab
 - [~] Beat tracking (spectral flux, tempo prior, dynamic programming) carried from Squish; onsets for the slicer; the bar by the bass bands (`BeatsChecks`, `OnsetsChecks`)
 - [~] Chroma, chords (48 templates, Viterbi), key (Krumhansl), tap tempo and the grid (`ChromaChecks`, `ChordsChecks`, `KeyChecks`, `TempoChecks`)
 - [~] Transcript rules: Whisper bytes (a character cut across pieces joined), windows and their seam, words → padded cuts merged by gap, fillers, the transcript following a cut, silences; suite (`TranscriptChecks`)
@@ -63,21 +63,21 @@ Built-not-seen is never called done.
 - [~] Transcript editor: tap words (the sound under them becomes the selection), Delete words, Take out every um and uh; no search yet
 - [~] One-tap chain: Clean up voice (DC, denoise, de-ess, compress, loudness), Even out volume, Remove silences (adaptive threshold, min length, kept margin), Loudness to target; Duck under music is P4's (needs two tracks' levels)
 - [~] Chapter here (a chapter marker at the play-head; written into the file by Export); show notes and publish presets not yet
-- [ ] Read aloud (TTS door)
+- [~] Read aloud: a typed line through the phone's own speech engine (the manifest queries TTS_SERVICE), decoded from its WAV at the session's rate, landed at the play-head
 
 ## P4 — Multitrack studio (v0.3)
 - [~] Arrangement strip: tracks as lanes under one play-head, clips carried by a long press, snapped to the beat grid
 - [~] Mixer: a strip per track and the master (fader, pan, mute, solo, arm, meter), inserts with live parameters, sends and buses
 - [~] Automation: volume and pan points per track, played by the graph; Duck under speech writes them; no drawn lane yet
 - [~] Takes land on their own lanes; loop the selection; comping (choosing between lanes) not yet
-- [~] Bounce to a new track; every track exported as a stem; latency compensation and freeze not yet
+- [~] Bounce to a new track; every track exported as a stem; Freeze (the track alone through its inserts to one clip, inserts off, Undo unfreezes); latency compensation not yet
 - [ ] USB audio and MIDI interfaces
 
 ## P5 — Musician's tools (v0.4)
 - [~] Stems: a LiteRT runner over the UMX contract, chunked with progress, the four stems landing on their own tracks with the originals muted; the model itself is fetched by `tools/models/fetch_models.sh` (nothing is bundled yet), and a phone has not run it
 - [~] Read the song: tempo, beats and the bar, key and chords off the mix; ½ and 2× tempo and a bar shift; Mark every bar; the click following the beats; a practice copy slowed and transposed
 - [~] Tuner from the graph's input tap (YIN); a pitch trace is not drawn
-- [ ] Lyrics aligned; karaoke view
+- [~] Sing along: the transcript's words in lines following the play-head, the Vocals stem muted by a switch; alignment of typed lyrics to the sound not yet
 - [~] Notes to MIDI: the selection's melody as notes (YIN per hop, segmented), handed to the Beats tab as a pattern
 
 ## P6 — Beats and MIDI (v0.5)
@@ -86,12 +86,12 @@ Built-not-seen is never called done.
 - [~] Arpeggiator, swing, quantise, humanise, legato, transpose, double; MIDI files in and out; MIDI in/out/clock over USB not yet
 
 ## P7 — Vocal and live (v0.6)
-- [~] Tune: TD-PSOLA pitch correction to a scale (any note, major, minor, pentatonic in a key) with strength and retune time, over the selection (`PitchCorrectChecks`); twelve vocal effect presets from delay, chorus, flanger, tremolo, reverb, saturation and a crusher (`EffectsChecks`); live autotune, a looper and karaoke not yet
+- [~] Tune: TD-PSOLA pitch correction to a scale (any note, major, minor, pentatonic in a key) with strength and retune time, over the selection (`PitchCorrectChecks`); twelve vocal effect presets from delay, chorus, flanger, tremolo, reverb, saturation and a crusher (`EffectsChecks`); a looper (a loop of bars at the play-head, each take folded into layers on their own lanes); live autotune not built - it needs pitch tracking and shifting inside the C++ callback, which this sandbox cannot compile or hear
 
 ## P8 — Mastering (v0.7)
-- [~] Finish tab: Measure (integrated, range, true peak, sample peak, the distance to the target), the target, Tone and Glue, Master to the target in one step (tilt EQ, glue compressor, true-peak limiter, loudness); Undo is the A/B; EQ match and width not yet
+- [~] Finish tab: Measure (integrated, range, true peak, sample peak, the distance to the target), the target, Tone and Glue, Master to the target in one step; the report (correlation, balance, lows/mids/highs); Match a reference (its spectrum read off the file, the bands solved jointly, strength, Apply); Width; Three bands; Transients; Compare with before at matched loudness
 
 ## P9 — Polish and release (v1.0)
 - [ ] Accessibility sweep (zero NAF), locale sweep, RTL, font scale
 - [ ] Perf build frame times; graph CPU at 24 tracks
-- [ ] Store assets, F-Droid metadata, release notes, signed release
+- [~] fastlane listing text and changelog (`fastlane/metadata/android/en-US`), `release/CHANGELOG.md`; screenshots, the icon in the listing and a signed release wait for a phone and the owner's keystore

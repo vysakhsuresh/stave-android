@@ -66,3 +66,16 @@ back into the roadmap with what broke.
 45. Add a SoundFont (.sf2) from Downloads: its name becomes a chip, the preset arrows step through the bank's names, a key plays the preset; Remove takes it off and the pattern falls back to the kit with the message. Then `uiautomator dump` the tab: zero NAF - the grid is one named node, every pad and key a named button.
 46. Play loop while the main transport plays: the transport pauses (two outputs would drift); the AudioTrack output and the graph's are at the same level roughly (Pluck at velocity 100 against a -12 dBFS clip).
 
+## P3/P4/P5/P7 — read aloud, freeze, sing along, the looper
+47. Voice → Read aloud: type a sentence, Read it: the phone's engine speaks it into a clip at the play-head on a free lane, at the session's rate (play it: the pitch is right, not a semitone off from a rate mismatch); with the language chip on Hindi the Hindi voice is used, or the message names the missing voice.
+48. Studio → a track with an EQ insert → Freeze: a single clip the track's length replaces its clips, the inserts show off, the mix sounds the same before and after (null test by inverting a bounce of each); Undo brings the clips and the inserts back.
+49. Musician → Sing along: with a transcript, the words move with the play-head in lines of seven, the sung word lit; with stems separated, Mute the vocals silences the Vocals track and the switch reads its state.
+50. Voice → Looper: set 2 bars at the play-head (the selection and the transport loop follow), Record a layer, play two passes and a bit, Stop: two layers land on the Loop track on their own lanes starting at the loop's start, the late bit discarded, and the loop keeps running; a second Record adds layers on new lanes; Undo takes the last take's layers back as one step.
+
+## P8 — the Finish tab's additions
+51. Measure: the report's correlation reads near 1 on a mono file and lower on a wide mix; the balance reads centred on a centred mix; the sentence under it matches what you hear.
+52. Match a reference: pick a well-mastered track from the phone; the bands listed are a handful of dB at most; Apply the match and Measure again - the lows/mids/highs figures move toward the reference's; the project's media folder holds no copy of the reference afterwards.
+53. Width at mono then Apply: the report's correlation reads 1.00; Width 150% on a stereo mix widens it audibly without the centre moving.
+54. Three bands at Lows 60%: a boomy bass note is held while the vocal above it keeps its level; Transients Attack +60% on a drum loop sharpens the hits; Sustain -60% shortens the room.
+55. Master, then Compare with before: the switch plays the previous mix at the same loudness (the meter in another app or the master meter agrees within 1 dB) and the toggle's state is spoken by TalkBack.
+

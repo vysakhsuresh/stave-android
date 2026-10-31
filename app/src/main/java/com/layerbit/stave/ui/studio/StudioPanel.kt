@@ -158,6 +158,11 @@ private fun TrackDetail(vm: EditorViewModel, ui: EditorViewModel.Ui, t: Track) {
             OutlinedTextField(value = name, onValueChange = { name = it; vm.updateTrack(t.id, "Rename track", gesture = "name-${t.id}") { tr -> tr.copy(name = it) } }, label = { Text(stringResource(R.string.studio_rename)) }, singleLine = true, modifier = Modifier.weight(1f))
             SecondaryButton(stringResource(R.string.studio_remove), onClick = { vm.removeTrack(t.id) }, tall = false)
         }
+        if (t.kind == Track.Kind.AUDIO || t.kind == Track.Kind.MIDI) {
+            val frozen = ui.session.clipsOn(t.id).let { clips -> clips.isNotEmpty() && clips.all { c -> ui.session.source(c.sourceId)?.kind == com.layerbit.stave.engine.project.Source.Kind.FREEZE } }
+            Text(stringResource(R.string.studio_freeze_hint), style = MaterialTheme.typography.bodySmall, color = StaveColors.Dim, modifier = Modifier.padding(top = 8.dp))
+            SecondaryButton(stringResource(R.string.studio_freeze), onClick = { vm.freezeTrack(t.id) }, tall = false, modifier = Modifier.padding(top = 4.dp), enabled = !frozen && ui.session.clipsOn(t.id).isNotEmpty() && ui.busy == null)
+        }
         if (t.kind == Track.Kind.AUDIO) {
             Text(stringResource(R.string.studio_output), style = MaterialTheme.typography.bodyMedium, color = StaveColors.Text, modifier = Modifier.padding(top = 10.dp))
             ChipRow(options = listOf<Pair<String?, String>>(null to stringResource(R.string.studio_master)) + ui.session.buses.map { it.id to it.name }, selected = t.outputId, onSelect = { out -> vm.updateTrack(t.id, "Output") { it.copy(outputId = out) } }, modifier = Modifier.padding(vertical = 6.dp))

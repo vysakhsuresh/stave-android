@@ -535,6 +535,30 @@
     <string name="beats_midi_export_song">Export song</string>
     <string name="beats_midi_empty">That MIDI file has no notes in it.</string>
 
+    <string name="voice_read_aloud_title">Read aloud</string>
+    <string name="voice_read_aloud_hint">Type a line and the phone\'s own voice reads it into a clip at the play-head, in the language chosen above. Nothing leaves the phone.</string>
+    <string name="voice_read_aloud_text">What to say</string>
+    <string name="voice_read_aloud">Read it</string>
+    <string name="voice_reading">Reading aloud</string>
+    <string name="looper_title">Looper</string>
+    <string name="looper_hint">Set a loop of a few bars at the play-head. Record plays round it; Stop lays what you played as layers, one lane each. Undo takes the last layer back.</string>
+    <string name="looper_bars">Bars</string>
+    <string name="looper_set">Set the loop here</string>
+    <string name="looper_record">Record a layer</string>
+    <string name="looper_stop">Stop and lay it</string>
+    <string name="looper_off">Loop off</string>
+    <string name="looper_layers">%1$d layers</string>
+    <string name="music_karaoke">Sing along</string>
+    <string name="music_karaoke_hint">The words follow the play-head; mute the vocals once the song is pulled apart and sing over the rest.</string>
+    <string name="music_karaoke_none">Transcribe the song on the Voice tab to see its words here.</string>
+    <string name="music_mute_vocals">Mute the vocals</string>
+    <string name="music_karaoke_no_vocals">Separate the stems above first.</string>
+    <string name="studio_freeze">Freeze</string>
+    <string name="studio_freeze_hint">Renders this track through its inserts to one clip and switches them off; the sound stays, the CPU goes. Undo unfreezes.</string>
+    <string name="studio_freezing">Freezing the track</string>
+    <string name="studio_frozen">%1$s is frozen. Undo brings its clips and inserts back.</string>
+    <string name="studio_freeze_failed">The track could not be rendered.</string>
+
     <!-- Notifications -->
     <string name="notification_channel">Recording and playback</string>
     <string name="notification_export_channel">Exports</string>
