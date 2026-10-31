@@ -1183,7 +1183,10 @@ class EditorViewModel(private val app: StaveApplication, val projectId: String) 
         val looping: Boolean = false,
         val recording: Boolean = false,
         val tick: Long = 0,
-        val soundFonts: List<String> = emptyList()
+        val soundFonts: List<String> = emptyList(),
+        /** The piano roll's scale lock: rows outside the scale are hidden. "chromatic" shows every pitch. */
+        val scaleKind: String = "chromatic",
+        val scaleRoot: Int = 0
     )
     private val _beats = MutableStateFlow(BeatsState(soundFonts = app.soundFonts.list()))
     val beats: StateFlow<BeatsState> = _beats.asStateFlow()
@@ -1237,6 +1240,20 @@ class EditorViewModel(private val app: StaveApplication, val projectId: String) 
 
     fun setBeatsTempo(bpm: Double) { setTempo(bpm); refreshLoop() }
     fun displayName(uri: Uri): String = app.media.displayName(uri)
+
+    fun setScale(kind: String, root: Int) { _beats.value = _beats.value.copy(scaleKind = kind, scaleRoot = root.mod(12)) }
+
+    /** Whether a pitch is in the locked scale (every pitch when the lock is chromatic). The scales are the pitch corrector's. */
+    fun inScale(pitch: Int): Boolean {
+        val b = _beats.value
+        val scale = when (b.scaleKind) {
+            "major" -> com.layerbit.stave.engine.dsp.PitchCorrect.Scale.major(b.scaleRoot)
+            "minor" -> com.layerbit.stave.engine.dsp.PitchCorrect.Scale.minor(b.scaleRoot)
+            "pentatonic" -> com.layerbit.stave.engine.dsp.PitchCorrect.Scale.pentatonic(b.scaleRoot)
+            else -> return true
+        }
+        return scale.contains(pitch.mod(12))
+    }
 
     fun setDivision(d: Int) { _beats.value = _beats.value.copy(division = d, noteDivision = if (_beats.value.noteDivision > d) d else _beats.value.noteDivision); editPattern("Grid") { it.copy(stepDivision = d) } }
     fun setNoteDivision(d: Int) { _beats.value = _beats.value.copy(noteDivision = d) }

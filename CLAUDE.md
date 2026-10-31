@@ -94,6 +94,33 @@ before writing the fix.
 - **No Media3 player in the engine.** A studio mixes every track in one callback; Media3 plays
   one stream. The graph is C++ on Oboe.
 
+## Things this session learned (31 October), for the next stranger
+
+- **Negative tests run on a copy.** `cp -r engine/src/main/kotlin <scratch>/src`, `sed` the
+  fault in, `STAVE_ENGINE_SRC=<scratch>/src STAVE_JVM_OUT=<scratch>/out sh tools/jvm/run.sh
+  <suite>`, read the failure. Several can run at once in the background with their own `OUT`.
+  Three checks written that day did not bite on the first try (a fade check every sound met
+  anyway, a transient check on a fixture with no decay, a crossover alignment the suite's own
+  crossovers were too far apart to need): the negative test is what found each.
+- **A suite another session left failing is a question, not a nuisance.** Four were, when the
+  agents writing them hit a limit. Each turned out to be either the check reading the wrong
+  thing (Hann leakage taken for distortion; an echo's peak where its area was the quantity) or
+  the code wrong in a way the check had rightly caught (the onset floor, the downbeat on a
+  snare). Loosening a check to green is the one move that is never right.
+- **The Beats tab plays through its own AudioTrack**, not the graph (`beats/PatternPlayer`), so
+  starting its loop pauses the transport. `BUILD_NOTES.md` says why and what the first phone
+  build must settle.
+- **The log compression that serves a beat tracker erases accents.** Two kicks at 0.9 and 0.7
+  read 6.58 and 6.69 in log flux; the bar is found on linear bass magnitude instead
+  (`BeatDetector.fluxEnvelopes`).
+- **Compose scope members read as unresolved** in the sandbox's kotlinc log (`drawRoundRect`,
+  `tryAwaitRelease`, `viewConfiguration`): they belong in `tools/unresolved_baseline.txt`, one
+  name a line, once the call is known good.
+- **The app's structural compile** is `java -cp <compiler jars> K2JVMCompiler -cp
+  <stdlib>:<engine classes> -d <out> $(find app/src/main/java -name '*.kt') > log`, then the
+  four checkers over the log. Everything but MainActivity and StaveApplication's Android
+  overrides compiles; those two are the known cascade.
+
 ## Working agreement
 
 All work lands on `main` and is pushed when the suites pass. Commit messages say why. No model

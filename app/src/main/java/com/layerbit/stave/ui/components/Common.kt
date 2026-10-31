@@ -86,6 +86,8 @@ fun Panel(
     onClick: (() -> Unit)? = null,
     onLongClick: (() -> Unit)? = null,
     highlighted: Boolean = false,
+    /** When the panel is one of a set the person picks from: its selected state is spoken, and it is drawn highlighted when true. */
+    selected: Boolean? = null,
     /** A tint behind the panel: a success, a warning, a group's colour. */
     tint: Color? = null,
     inset: Dp = 16.dp,
@@ -98,7 +100,7 @@ fun Panel(
     val border = when {
         onClick != null && focused -> StaveColors.Band
         onClick != null && hovered -> StaveColors.BorderStrong
-        highlighted -> StaveColors.Band.copy(alpha = 0.6f)
+        highlighted || selected == true -> StaveColors.Band.copy(alpha = 0.6f)
         tint != null -> tint.copy(alpha = 0.35f)
         else -> StaveColors.Border
     }
@@ -109,8 +111,11 @@ fun Panel(
         .background(StaveColors.Surface)
         .then(if (tint != null) Modifier.background(surface) else Modifier)
         .border(if (onClick != null && focused) 2.dp else 1.dp, border, PanelShape)
+    // A panel that marks the current choice by its border alone must say so: `selectable`, so the
+    // mixer's strip reads "selected" and not just "button" (a thing you choose says it is chosen).
     val tappable = when {
         onClick == null -> base
+        selected != null -> base.selectable(selected = selected, interactionSource = interaction, indication = null, role = Role.Tab, onClick = onClick)
         onLongClick == null -> base.clickable(interactionSource = interaction, indication = null, onClick = onClick)
         else -> base.combinedClickable(interactionSource = interaction, indication = null, onClick = onClick, onLongClick = onLongClick)
     }

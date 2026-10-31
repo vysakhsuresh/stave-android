@@ -499,6 +499,11 @@
     <string name="beats_swing">Swing</string>
     <string name="beats_velocity">Velocity</string>
     <string name="beats_octave">Octave</string>
+    <string name="beats_scale">Scale lock</string>
+    <string name="beats_scale_chromatic">Every note</string>
+    <string name="beats_scale_major">Major</string>
+    <string name="beats_scale_minor">Minor</string>
+    <string name="beats_scale_pentatonic">Pentatonic</string>
     <string name="beats_grid_description">%1$s: %2$d notes over %3$d steps. Tap a step to toggle it; drag up or down on a note for its velocity.</string>
     <string name="beats_pads">Pads</string>
     <string name="beats_keys">Keys</string>

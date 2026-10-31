@@ -90,3 +90,14 @@ adds an `.sf2`/`.sf3` from a file; it is copied under `files/soundfonts/` and na
 through `SoundFontStore.presetNames`, which opens the bank once at 48 kHz to read the names.
 `SoundFontInstrument` has no "still sounding" from TSF (we export no `tsf_active_voice_count`),
 so a released note is counted as ringing for 3 s, which is what caps a render's tail.
+
+## Read aloud (the phone's text-to-speech)
+
+`voice/ReadAloud.kt` drives `android.speech.tts.TextToSpeech.synthesizeToFile`. Three things
+the first phone run settles: that the manifest's `<queries>` for `TTS_SERVICE` is enough for
+the engine to bind on Android 11+ (Squish needed exactly this); that the engine's WAV header is
+walked correctly (Google's engine writes 24 000 Hz 16-bit mono with a canonical header, Samsung's
+has been seen with a LIST chunk - the reader walks chunks rather than skipping 44 bytes); and
+the voice's pitch after the resample to the session's rate (a rate read wrong is a semitone
+off, which is what item 47 of `docs/PENDING_TESTS.md` listens for).
+

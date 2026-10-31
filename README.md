@@ -45,15 +45,19 @@ Consequences that shape the code:
 
 ## What it does
 
-| Pillar | Tools |
-|---|---|
-| Edit | Every format FFmpeg reads; 32-bit float; non-destructive edits with unlimited undo; waveform and **spectrogram editing** (a brush over a cough); de-click, de-clip, de-hum, de-ess, spectral de-noise and neural voice isolation; parametric and graphic EQ with the analyser behind the curve; compressor, multiband, limiter, gate, de-esser; time and pitch independently; fades, gain envelopes, normalise to peak or LUFS; markers, regions, chapters; export to every encoder, MP3 included |
-| Record | Low-latency monitoring with a measured round-trip; takes that survive a crash; a transcript from whisper.cpp in English, Hindi, Malayalam and every Whisper language; **edit the audio by editing the words**; remove silences and fillers; even out volume; loudness to podcast, streaming or broadcast targets; chapters written into the file |
-| Studio | Tracks limited by the phone, not a plan; buses, sends, automation on everything; punch and loop recording into take lanes; a sample-accurate native mix; freeze, bounce, stems |
-| Musician | Stems pulled apart on the phone, unlimited; chords with diagrams, key, BPM; slow a passage, loop it, mute the vocal, record your take over it; a tuner; lyrics aligned to the waveform; audio to MIDI |
-| Beats | Step sequencer, piano roll with scale lock, drum pads, a SoundFont player, synths, arpeggiator, MIDI in and out |
-| Vocal | Autotune live and on a graph; vocal effects; a looper; karaoke over the stems |
-| Finish | A mastering chain with platform targets, EQ match, true-peak limiting, dither; A/B at matched level |
+| Pillar | Built (executed on the JVM, awaiting a phone) | Not yet |
+|---|---|---|
+| Edit | Every format FFmpeg reads; 32-bit float; non-destructive edits with unlimited undo; the waveform at every zoom and a **spectrogram you can edit** (a box over a cough: turn down, remove, fill from around); de-click, de-clip, de-hum, de-ess, spectral de-noise; parametric EQ with the curve drawn from the filters themselves; compressor, limiter, gate; time and pitch independently; fades, gain envelopes, normalise to peak or LUFS; markers and chapters; export to every encoder, MP3 included, with tags and artwork | neural voice isolation; a graphic EQ sheet; regions on a sheet |
+| Voice | Monitoring with a measured round-trip; takes that survive a crash, on their own lanes; a transcript from whisper.cpp in English, Hindi, Malayalam and every Whisper language; **edit the sound by editing the words**; fillers and silences out; clean up voice, even out volume, loudness to a target; chapters; read a typed line aloud with the phone's own voice; a looper that lays each pass as a layer | search in the transcript |
+| Studio | Tracks limited by the phone, not a plan; a mixer with inserts, sends and buses; volume and pan automation; takes in lanes; a sample-accurate native mix; bounce, stems, freeze, duck under speech | drawn automation lanes; comping; punch in; USB interfaces |
+| Musician | Stems pulled apart on the phone (a LiteRT model, fetched by a script, not yet bundled); tempo, beats and bars, key and chords with the time each starts; slow a passage and change its key; a tuner; sing along with the words following the play-head and the vocal muted; your melody as notes | chord diagrams drawn; typed lyrics aligned to the sound |
+| Beats | A step sequencer that is also the piano roll, with a scale lock; pads and keys that record into the loop; a synthesised drum kit, subtractive and FM synths, any SoundFont you add; swing, quantise, humanise, legato, arpeggiator; a song of patterns; MIDI files in and out | a wavetable synth; MIDI over USB and MIDI clock |
+| Finish | Measure as a broadcast meter does; master to a platform target in one step; a report; match a reference track's tone; width; three-band compression; transients; A/B at matched loudness; dither on export | - |
+| Vocal | Pitch correction to a scale over a selection; twelve vocal effect presets | **live** autotune, which needs pitch tracking in the audio callback |
+
+Everything in the first column is built and its arithmetic is executed by the suites in
+`tools/jvm`; **none of it has been seen on a phone yet**. `docs/PENDING_TESTS.md` is the list of
+what a phone has to answer, in order, and `docs/DEVICE_FINDINGS.md` is what has been seen.
 
 `docs/FEATURES.md` lists what the current build does; `docs/ROADMAP.md` what is next;
 `docs/PENDING_TESTS.md` what is built but not yet seen on a phone.

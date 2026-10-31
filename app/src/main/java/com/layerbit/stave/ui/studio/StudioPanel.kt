@@ -109,7 +109,7 @@ fun StudioPanel(vm: EditorViewModel, ui: EditorViewModel.Ui, modifier: Modifier 
 
 @Composable
 private fun Strip(t: Track, selected: Boolean, heard: Boolean, peakL: Float, peakR: Float, onSelect: () -> Unit, onVolume: (Double) -> Unit, onVolumeDone: () -> Unit, onPan: (Double) -> Unit, onMute: () -> Unit, onSolo: () -> Unit, onArm: () -> Unit) {
-    Panel(modifier = Modifier.width(150.dp), onClick = onSelect, highlighted = selected, inset = 8.dp, tint = if (t.kind == Track.Kind.BUS) StaveColors.Running else null) {
+    Panel(modifier = Modifier.width(150.dp), onClick = onSelect, selected = selected, inset = 8.dp, tint = if (t.kind == Track.Kind.BUS) StaveColors.Running else null) {
         Text(t.name.ifBlank { if (t.kind == Track.Kind.BUS) "Bus" else "Track" }, style = MaterialTheme.typography.titleMedium, color = if (heard) StaveColors.Text else StaveColors.Dim, maxLines = 1, overflow = TextOverflow.Ellipsis)
         Row(horizontalArrangement = Arrangement.spacedBy(3.dp), modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp)) {
             LevelMeter(peakL, modifier = Modifier.weight(1f).height(8.dp), label = "${t.name} left")

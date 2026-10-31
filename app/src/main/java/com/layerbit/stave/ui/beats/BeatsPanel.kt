@@ -128,8 +128,10 @@ fun BeatsPanel(vm: EditorViewModel, ui: EditorViewModel.Ui, modifier: Modifier =
                     SecondaryButton("+", onClick = { vm.setBeatsTempo(bpm + 1) }, tall = false)
                 }
                 ToggleRow(stringResource(R.string.beats_record_pads), beats.recording, { vm.setRecording(it) }, detail = stringResource(R.string.beats_record_hint))
+                // Two octaves of pitches, or only the locked scale's: a scale lock turns a sixteen-row
+                // chromatic roll into the eight or so notes that can be wrong-free.
                 val rows = if (drums) KitSynth.Sound.entries.mapIndexed { i, s -> GridRow(DrumInstrument.BASE + i, s.label) }
-                           else ((beats.octave + 1) * 12 + 24 downTo (beats.octave + 1) * 12).map { p -> GridRow(p, noteName(p), isBlackKey(p)) }
+                           else ((beats.octave + 1) * 12 + 24 downTo (beats.octave + 1) * 12).filter { p -> vm.inScale(p) }.map { p -> GridRow(p, noteName(p), isBlackKey(p)) }
                 StepGrid(
                     pattern = pattern, rows = rows, division = beats.division, playTick = if (beats.looping) beats.tick else -1,
                     description = stringResource(R.string.beats_grid_description, pattern.name, pattern.notes.size, pattern.stepCount(beats.division)),
@@ -144,6 +146,9 @@ fun BeatsPanel(vm: EditorViewModel, ui: EditorViewModel.Ui, modifier: Modifier =
                 ValueSlider(stringResource(R.string.beats_swing), pattern.swing.toFloat(), 0f..1f, { vm.setSwing(it.toDouble()) }, format = Formats::percent, onCommit = vm::endGesture)
                 ValueSlider(stringResource(R.string.beats_velocity), beats.velocity.toFloat(), 1f..127f, { vm.setVelocity(it.toInt()) }, format = { String.format(Locale.getDefault(), "%d", it.toInt()) })
                 if (!drums) {
+                    SectionHeading(stringResource(R.string.beats_scale), modifier = Modifier.padding(top = 6.dp))
+                    ChipRow(listOf("chromatic" to stringResource(R.string.beats_scale_chromatic), "major" to stringResource(R.string.beats_scale_major), "minor" to stringResource(R.string.beats_scale_minor), "pentatonic" to stringResource(R.string.beats_scale_pentatonic)), beats.scaleKind, { vm.setScale(it, beats.scaleRoot) }, modifier = Modifier.padding(top = 4.dp))
+                    if (beats.scaleKind != "chromatic") ChipRow((0 until 12).map { it to noteName(it + 12).dropLast(1) }, beats.scaleRoot, { vm.setScale(beats.scaleKind, it) }, modifier = Modifier.padding(top = 4.dp))
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 4.dp)) {
                         SectionHeading(stringResource(R.string.beats_octave), modifier = Modifier.weight(1f))
                         SecondaryButton("−", onClick = { vm.setOctave(beats.octave - 1) }, tall = false, enabled = beats.octave > 1)
