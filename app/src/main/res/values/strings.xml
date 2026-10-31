@@ -82,9 +82,11 @@
     <string name="guide_voice_title">Edit the words</string>
     <string name="guide_voice_body">Transcribe a recording and the words appear under the waveform. Tap words to select that stretch of audio; delete them and the audio goes with them. Take out every um and uh in one tap.</string>
     <string name="guide_studio_title">Layer tracks</string>
-    <string name="guide_studio_body">Add as many tracks as the phone can play. Record over them, draw automation on anything, send to buses, and bounce the mix. Takes are kept in lanes so nothing you record is lost.</string>
+    <string name="guide_studio_body">Add as many tracks as the phone can play. Record over them into lanes, set volume and pan automation (Duck under speech writes it for you), send to buses, freeze a heavy track, and bounce the mix. Takes are kept in lanes so nothing you record is lost.</string>
     <string name="guide_music_title">Pull a song apart</string>
     <string name="guide_music_body">Separate vocals, drums, bass and the rest on the phone, with no upload and no monthly count. Read the chords, slow a passage, loop it, mute the vocal and record your own over it.</string>
+    <string name="guide_beats_title">Make a beat</string>
+    <string name="guide_beats_body">Tap steps on the grid or play the pads while the loop runs and they are written in. Drums, synths or any SoundFont you add; swing, quantise, an arpeggiator; a song of patterns rendered to tracks; MIDI files in and out.</string>
     <string name="guide_finish_title">Finish to a target</string>
     <string name="guide_finish_body">Pick where the sound is going — podcast, streaming, broadcast — and Stave brings it to that loudness with a true-peak ceiling. Export to MP3, FLAC, WAV, Opus, AAC or ALAC with chapters and artwork.</string>
     <string name="guide_privacy_title">Nothing leaves the phone</string>

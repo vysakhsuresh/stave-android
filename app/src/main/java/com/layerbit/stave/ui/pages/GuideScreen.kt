@@ -35,6 +35,7 @@ fun GuideScreen(modifier: Modifier = Modifier) {
         Triple(R.drawable.ic_mic, R.string.guide_voice_title, R.string.guide_voice_body),
         Triple(R.drawable.ic_studio, R.string.guide_studio_title, R.string.guide_studio_body),
         Triple(R.drawable.ic_stems, R.string.guide_music_title, R.string.guide_music_body),
+        Triple(R.drawable.ic_beats, R.string.guide_beats_title, R.string.guide_beats_body),
         Triple(R.drawable.ic_finish, R.string.guide_finish_title, R.string.guide_finish_body),
         Triple(R.drawable.ic_lock, R.string.guide_privacy_title, R.string.guide_privacy_body)
     )
