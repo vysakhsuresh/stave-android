@@ -36,24 +36,24 @@ object SnapshotEncoder {
         buf.putInt(session.tracks.size)
         for (t in session.tracks) {
             buf.put(when (t.kind) { Track.Kind.AUDIO -> 0; Track.Kind.MIDI -> 1; Track.Kind.BUS -> 2; Track.Kind.MASTER -> 3 }.toByte())
-            buf.putFloat(Gain.dbToLinear(t.volumeDb)).putFloat(t.pan.toFloat())
+            buf.putFloat(Gain.dbToLinear(t.volumeDb).toFloat()).putFloat(t.pan.toFloat())
             buf.put(flag(t.muted)).put(flag(t.solo)).put(flag(t.armed))
             buf.putInt(t.outputId?.let { trackIndex[it] } ?: -1)
             inserts(buf, t.inserts)
             buf.putShort(t.sends.size.toShort())
-            for (s in t.sends) { buf.putInt(trackIndex[s.toTrackId] ?: -1).putFloat(Gain.dbToLinear(s.gainDb)).put(flag(s.preFader)) }
+            for (s in t.sends) { buf.putInt(trackIndex[s.toTrackId] ?: -1).putFloat(Gain.dbToLinear(s.gainDb).toFloat()).put(flag(s.preFader)) }
         }
         val clips = session.clips.filter { it.sourceId in sourceIndex && it.trackId in trackIndex }
         buf.putInt(clips.size)
         for (c in clips) {
             buf.putInt(trackIndex[c.trackId]!!).putInt(sourceIndex[c.sourceId]!!)
-            buf.putLong(c.position).putLong(c.offset).putLong(c.length).putFloat(Gain.dbToLinear(c.gainDb))
+            buf.putLong(c.position).putLong(c.offset).putLong(c.length).putFloat(Gain.dbToLinear(c.gainDb).toFloat())
             buf.putLong(c.fadeIn.length).put(shape(c.fadeIn.shape)).putLong(c.fadeOut.length).put(shape(c.fadeOut.shape))
             buf.put(flag(c.muted)).put(flag(c.reversed)).putDouble(c.warp.stretch)
             buf.putShort(c.envelope.size.toShort())
             for (p in c.envelope) { buf.putLong(p.position).putFloat(p.gainDb.toFloat()) }
         }
-        buf.putFloat(Gain.dbToLinear(session.masterVolumeDb))
+        buf.putFloat(Gain.dbToLinear(session.masterVolumeDb).toFloat())
         inserts(buf, session.masterInserts)
         return buf.array().copyOf(buf.position())
     }

@@ -70,7 +70,7 @@ object ProjectJson {
         .put("fadeIn", fade(c.fadeIn)).put("fadeOut", fade(c.fadeOut)).put("muted", c.muted).put("reversed", c.reversed)
         .put("warp", JsonObject().putFinite("stretch", c.warp.stretch).putFinite("semitones", c.warp.semitones).put("formant", c.warp.preserveFormant))
         .put("envelope", JsonArray().also { a -> c.envelope.forEach { a.add(JsonArray().add(it.position).addFinite(it.gainDb)) } })
-        .put("lane", c.lane).put("colour", c.colour)
+        .put("lane", c.lane).put("colour", c.colour).putFinite("rateRatio", c.sourceRateRatio)
 
     private fun clipOf(o: JsonObject): Clip {
         val warp = o.obj("warp")
@@ -81,7 +81,7 @@ object ProjectJson {
             muted = o.bool("muted"), reversed = o.bool("reversed"),
             warp = if (warp == null) Warp() else Warp(warp.double("stretch", 1.0), warp.double("semitones", 0.0), warp.bool("formant", true)),
             envelope = o.arr("envelope")?.let { a -> (0 until a.size).mapNotNull { i -> a.arr(i)?.let { p -> EnvelopePoint(p.long(0), p.double(1)) } } } ?: emptyList(),
-            lane = o.int("lane"), colour = o.int("colour")
+            lane = o.int("lane"), colour = o.int("colour"), sourceRateRatio = o.double("rateRatio", 1.0)
         )
     }
 

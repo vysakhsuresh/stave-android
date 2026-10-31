@@ -22,7 +22,7 @@ object SessionEdits {
         val first = c.copy(id = Ids.next("c"), length = firstLength, fadeOut = Fade(), envelope = c.envelope.filter { it.position < firstLength })
         val second = c.copy(
             id = Ids.next("c"), position = at, length = c.length - firstLength,
-            offset = c.offset + (firstLength / c.warp.stretch).toLong(), fadeIn = Fade(),
+            offset = c.offset + c.sourceFrames(firstLength), fadeIn = Fade(),
             envelope = c.envelope.filter { it.position >= firstLength }.map { it.copy(position = it.position - firstLength) }
         )
         return session.copy(clips = session.clips.flatMap { if (it.id == clipId) listOf(first, second) else listOf(it) })
@@ -35,13 +35,13 @@ object SessionEdits {
     /** The clip's head moved to [newStart], keeping what it plays in place (the source offset moves with it). */
     fun trimStart(session: Session, clipId: String, newStart: Long): Session {
         val c = session.clip(clipId) ?: return session
-        val start = newStart.coerceIn(c.position - (c.offset * c.warp.stretch).toLong().coerceAtLeast(0), c.end - 1)
+        val start = newStart.coerceIn(c.position - c.timelineSamples(c.offset).coerceAtLeast(0), c.end - 1)
         val delta = start - c.position
         val source = session.source(c.sourceId)
-        val newOffset = c.offset + (delta / c.warp.stretch).toLong()
+        val newOffset = c.offset + c.sourceFrames(delta)
         if (newOffset < 0) return session
         val newLength = c.length - delta
-        if (source != null && newOffset + (newLength / c.warp.stretch).toLong() > source.frames) return session
+        if (source != null && newOffset + c.sourceFrames(newLength) > source.frames) return session
         return replace(session, c.copy(position = start, offset = newOffset, length = newLength, envelope = c.envelope.map { it.copy(position = it.position - delta) }.filter { it.position >= 0 }))
     }
 
@@ -49,7 +49,7 @@ object SessionEdits {
     fun trimEnd(session: Session, clipId: String, newEnd: Long): Session {
         val c = session.clip(clipId) ?: return session
         val source = session.source(c.sourceId)
-        val maxEnd = if (source == null) Long.MAX_VALUE else c.position + ((source.frames - c.offset) * c.warp.stretch).toLong()
+        val maxEnd = if (source == null) Long.MAX_VALUE else c.position + c.timelineSamples(source.frames - c.offset)
         val end = newEnd.coerceIn(c.position + 1, maxEnd)
         val newLength = end - c.position
         return replace(session, c.copy(length = newLength, envelope = c.envelope.filter { it.position < newLength }))
@@ -209,7 +209,7 @@ object SessionEdits {
         // A source at another rate is played at the session's rate by the graph's resampler, so its
         // timeline length is its frames scaled to the session's rate.
         val length = if (source.sampleRate == sessionRate) source.frames else source.frames * sessionRate / source.sampleRate
-        return Clip(Ids.next("c"), source.id, trackId, position, 0, length, name = source.name)
+        return Clip(Ids.next("c"), source.id, trackId, position, 0, length, name = source.name, sourceRateRatio = source.sampleRate.toDouble() / sessionRate)
     }
 
     fun minClipLength(sampleRate: Int): Long = max(1L, sampleRate / 1000L)   // a millisecond

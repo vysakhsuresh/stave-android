@@ -1,0 +1,23 @@
+# Names kotlinc cannot resolve without the Android SDK, and which are
+# not real mistakes. Regenerate with --write-baseline after a dependency change.
+ColumnScope
+START_NOT_STICKY
+android
+androidx
+application
+awaitPointerEvent
+contentResolver
+getParcelableArrayListExtra
+getParcelableExtra
+getString
+getSystemService
+item
+items
+mkdirs
+put
+putExtra
+registerForActivityResult
+setIntent
+setSound
+size
+startForeground

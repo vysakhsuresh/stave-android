@@ -1,0 +1,332 @@
+package com.layerbit.stave.ui.editor
+
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.dp
+import com.layerbit.stave.R
+import com.layerbit.stave.engine.dsp.CompressorSettings
+import com.layerbit.stave.engine.dsp.EqBand
+import com.layerbit.stave.engine.dsp.FadeShape
+import com.layerbit.stave.engine.dsp.FilterKind
+import com.layerbit.stave.engine.dsp.Gain
+import com.layerbit.stave.engine.dsp.LoudnessTarget
+import com.layerbit.stave.engine.dsp.ParametricEq
+import com.layerbit.stave.engine.dsp.Repair
+import com.layerbit.stave.engine.export.AudioFormat
+import com.layerbit.stave.engine.project.Marker
+import com.layerbit.stave.engine.text.Timecode
+import com.layerbit.stave.processing.OfflineTools
+import com.layerbit.stave.ui.components.ChipRow
+import com.layerbit.stave.ui.components.Formats
+import com.layerbit.stave.ui.components.PrimaryButton
+import com.layerbit.stave.ui.components.SecondaryButton
+import com.layerbit.stave.ui.components.SectionHeading
+import com.layerbit.stave.ui.components.ToggleRow
+import com.layerbit.stave.ui.components.ValueSlider
+import com.layerbit.stave.ui.components.formatBytes
+import com.layerbit.stave.ui.theme.StaveColors
+import kotlinx.coroutines.launch
+
+/** The Edit tab's sheets, one composable each; the rail picks. */
+@Composable
+fun EditSheetContent(sheet: EditSheet, vm: EditorViewModel, ui: EditorViewModel.Ui) {
+    when (sheet) {
+        EditSheet.SELECT -> SelectSheet(vm, ui)
+        EditSheet.GAIN -> GainSheet(vm, ui)
+        EditSheet.FADES -> FadesSheet(vm, ui)
+        EditSheet.REPAIR -> RepairSheet(vm, ui)
+        EditSheet.EQ -> EqSheet(vm, ui)
+        EditSheet.DYNAMICS -> DynamicsSheet(vm, ui)
+        EditSheet.TIME -> TimeSheet(vm, ui)
+        EditSheet.MARKERS -> MarkersSheet(vm, ui)
+        EditSheet.EXPORT -> ExportSheet(vm, ui)
+    }
+}
+
+@Composable
+private fun SelectionLine(ui: EditorViewModel.Ui) {
+    val s = ui.selection
+    val rate = ui.session.sampleRate
+    Text(
+        if (s == null) stringResource(R.string.editor_no_selection)
+        else "${Timecode.display(Timecode.ofSamples(s.first, rate), 2)} – ${Timecode.display(Timecode.ofSamples(s.last + 1, rate), 2)}",
+        style = MaterialTheme.typography.bodySmall, color = StaveColors.Dim, modifier = Modifier.padding(bottom = 8.dp)
+    )
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun SelectSheet(vm: EditorViewModel, ui: EditorViewModel.Ui) {
+    val has = ui.selection != null
+    SelectionLine(ui)
+    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        SecondaryButton(stringResource(R.string.edit_cut), onClick = vm::cutSelection, enabled = has, tall = false)
+        SecondaryButton(stringResource(R.string.edit_copy), onClick = vm::copySelection, enabled = has, tall = false)
+        SecondaryButton(stringResource(R.string.edit_paste), onClick = { vm.paste(true) }, enabled = ui.clipboard != null, tall = false)
+        SecondaryButton(stringResource(R.string.edit_delete), onClick = { vm.deleteSelection(true) }, enabled = has, tall = false)
+        SecondaryButton(stringResource(R.string.edit_delete_keep_gap), onClick = { vm.deleteSelection(false) }, enabled = has, tall = false)
+        SecondaryButton(stringResource(R.string.edit_silence), onClick = vm::silenceSelection, enabled = has, tall = false)
+        SecondaryButton(stringResource(R.string.edit_crop), onClick = vm::cropToSelection, enabled = has, tall = false)
+        SecondaryButton(stringResource(R.string.edit_split), onClick = vm::splitAtPlayhead, tall = false)
+        SecondaryButton(stringResource(R.string.edit_insert_silence), onClick = { vm.insertSilence(ui.session.sampleRate.toLong()) }, tall = false)
+        SecondaryButton(stringResource(R.string.edit_select_all), onClick = vm::selectAll, tall = false)
+        SecondaryButton(stringResource(R.string.edit_mute), onClick = vm::toggleMuteClips, tall = false)
+        SecondaryButton(stringResource(R.string.edit_reverse), onClick = vm::reverseClips, enabled = has, tall = false)
+        SecondaryButton(stringResource(R.string.edit_add_track), onClick = { vm.addTrack() }, tall = false)
+    }
+}
+
+@Composable
+private fun GainSheet(vm: EditorViewModel, ui: EditorViewModel.Ui) {
+    var change by remember { mutableStateOf(0f) }
+    var peakTarget by remember { mutableStateOf(-1f) }
+    var lufsTarget by remember { mutableStateOf(LoudnessTarget.byId(ui.exportSettings.loudnessTargetId).lufs.toFloat()) }
+    SelectionLine(ui)
+    ValueSlider(stringResource(R.string.gain_apply), change, -24f..24f, { change = it }, format = Formats::db)
+    PrimaryButton(stringResource(R.string.gain_apply_button), onClick = { vm.applyOffline("Gain ${Formats.db(change)}", OfflineTools.gain(change.toDouble())) }, enabled = change != 0f, tall = false, modifier = Modifier.fillMaxWidth())
+    Spacer(Modifier.height(12.dp))
+    ValueSlider(stringResource(R.string.gain_normalise_peak), peakTarget, -12f..0f, { peakTarget = it }, format = Formats::db)
+    SecondaryButton(stringResource(R.string.gain_normalise_button), onClick = { vm.applyOffline("Normalise peak", OfflineTools.normalisePeak(peakTarget.toDouble())) }, tall = false, modifier = Modifier.fillMaxWidth())
+    Spacer(Modifier.height(12.dp))
+    ValueSlider(stringResource(R.string.gain_normalise_lufs), lufsTarget, -30f..-6f, { lufsTarget = it }, format = { Formats.lufs(it.toDouble()) })
+    SecondaryButton(stringResource(R.string.gain_normalise_button), onClick = { vm.applyOffline("Normalise loudness", OfflineTools.normaliseLoudness(lufsTarget.toDouble(), -1.0)) }, tall = false, modifier = Modifier.fillMaxWidth())
+    Spacer(Modifier.height(12.dp))
+    SecondaryButton(stringResource(R.string.gain_dc), onClick = { vm.applyOffline("Remove DC", OfflineTools.dcRemove()) }, tall = false, modifier = Modifier.fillMaxWidth())
+}
+
+@Composable
+private fun FadesSheet(vm: EditorViewModel, ui: EditorViewModel.Ui) {
+    val rate = ui.session.sampleRate
+    var inMs by remember { mutableStateOf(500f) }
+    var outMs by remember { mutableStateOf(500f) }
+    var shape by remember { mutableStateOf(FadeShape.EQUAL_POWER) }
+    SelectionLine(ui)
+    Text(stringResource(R.string.fades_shape), style = MaterialTheme.typography.bodyMedium, color = StaveColors.Text)
+    ChipRow(options = FadeShape.entries.map { it to it.label }, selected = shape, onSelect = { shape = it }, modifier = Modifier.padding(vertical = 8.dp))
+    ValueSlider(stringResource(R.string.fades_in), inMs, 0f..10_000f, { inMs = it }, format = Formats::ms)
+    ValueSlider(stringResource(R.string.fades_out), outMs, 0f..10_000f, { outMs = it }, format = Formats::ms)
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 8.dp)) {
+        // On the clip: non-destructive, heard at once; the graph draws and plays them.
+        PrimaryButton(stringResource(R.string.fades_in), onClick = { vm.setFades((inMs * rate / 1000).toLong(), shape, null, null) }, tall = false, modifier = Modifier.weight(1f))
+        PrimaryButton(stringResource(R.string.fades_out), onClick = { vm.setFades(null, null, (outMs * rate / 1000).toLong(), shape) }, tall = false, modifier = Modifier.weight(1f))
+    }
+    SecondaryButton(stringResource(R.string.fades_render), onClick = {
+        vm.applyOffline("Fades", OfflineTools.Transform { chs, r -> chs.map { a -> a.copyOf().also { com.layerbit.stave.engine.dsp.Fades.fadeIn(it, (inMs * r / 1000).toInt(), shape); com.layerbit.stave.engine.dsp.Fades.fadeOut(it, (outMs * r / 1000).toInt(), shape) } } })
+    }, tall = false, modifier = Modifier.fillMaxWidth().padding(top = 8.dp))
+}
+
+@Composable
+private fun RepairSheet(vm: EditorViewModel, ui: EditorViewModel.Ui) {
+    val scope = rememberCoroutineScope()
+    var sensitivity by remember { mutableStateOf(0.5f) }
+    var hum by remember { mutableStateOf<Pair<Double, Double>?>(null) }
+    var humSearched by remember { mutableStateOf(false) }
+    var reduction by remember { mutableStateOf(18f) }
+    var strength by remember { mutableStateOf(0.8f) }
+    var learned by remember { mutableStateOf<List<FloatArray>?>(null) }
+    var deessHz by remember { mutableStateOf(6500f) }
+    SelectionLine(ui)
+    SectionHeading(stringResource(R.string.repair_declick))
+    Text(stringResource(R.string.repair_declick_hint), style = MaterialTheme.typography.bodySmall, color = StaveColors.Dim, modifier = Modifier.padding(vertical = 4.dp))
+    ValueSlider(stringResource(R.string.repair_sensitivity), sensitivity, 0f..1f, { sensitivity = it }, format = Formats::percent)
+    PrimaryButton(stringResource(R.string.repair_declick_button), onClick = { vm.applyOffline("Remove clicks", OfflineTools.declick(sensitivity)) }, tall = false, modifier = Modifier.fillMaxWidth())
+    Spacer(Modifier.height(14.dp))
+    SectionHeading(stringResource(R.string.repair_declip))
+    Text(stringResource(R.string.repair_declip_hint), style = MaterialTheme.typography.bodySmall, color = StaveColors.Dim, modifier = Modifier.padding(vertical = 4.dp))
+    SecondaryButton(stringResource(R.string.repair_declip_button), onClick = { vm.applyOffline("Repair clipping", OfflineTools.declip(0.985f)) }, tall = false, modifier = Modifier.fillMaxWidth())
+    Spacer(Modifier.height(14.dp))
+    SectionHeading(stringResource(R.string.repair_hum))
+    Text(stringResource(R.string.repair_hum_hint), style = MaterialTheme.typography.bodySmall, color = StaveColors.Dim, modifier = Modifier.padding(vertical = 4.dp))
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        SecondaryButton(stringResource(R.string.repair_hum_find), onClick = {
+            scope.launch { val g = vm.grabSelection(); hum = g?.let { Repair.findHum(it.channels.first(), it.sampleRate) }; humSearched = true }
+        }, enabled = ui.selection != null, tall = false, modifier = Modifier.weight(1f))
+        PrimaryButton(stringResource(R.string.repair_hum_remove), onClick = { hum?.let { h -> vm.applyOffline("Remove hum", OfflineTools.dehum(h.first, 8)) } }, enabled = hum != null, tall = false, modifier = Modifier.weight(1f))
+    }
+    if (humSearched) Text(hum?.let { stringResource(R.string.repair_hum_found, Formats.hz(it.first.toFloat()), Formats.dbPlain(it.second.toFloat())) } ?: stringResource(R.string.repair_hum_none), style = MaterialTheme.typography.bodySmall, color = StaveColors.Muted, modifier = Modifier.padding(top = 4.dp))
+    Spacer(Modifier.height(14.dp))
+    SectionHeading(stringResource(R.string.repair_noise))
+    Text(stringResource(R.string.repair_noise_hint), style = MaterialTheme.typography.bodySmall, color = StaveColors.Dim, modifier = Modifier.padding(vertical = 4.dp))
+    ValueSlider(stringResource(R.string.repair_noise_reduction), reduction, 6f..40f, { reduction = it }, format = Formats::dbPlain)
+    ValueSlider(stringResource(R.string.repair_noise_strength), strength, 0f..1f, { strength = it }, format = Formats::percent)
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        SecondaryButton(stringResource(R.string.repair_noise_learn), onClick = { scope.launch { learned = vm.grabSelection()?.channels } }, enabled = ui.selection != null, tall = false, modifier = Modifier.weight(1f))
+        PrimaryButton(stringResource(R.string.repair_noise_button), onClick = { vm.applyOffline("Reduce noise", OfflineTools.denoise(reduction.toDouble(), strength, learned)) }, tall = false, modifier = Modifier.weight(1f))
+    }
+    learned?.let { Text(stringResource(R.string.repair_noise_learned, Timecode.display(it.first().size * 1000L / ui.session.sampleRate, 1)), style = MaterialTheme.typography.bodySmall, color = StaveColors.Good, modifier = Modifier.padding(top = 4.dp)) }
+    Spacer(Modifier.height(14.dp))
+    SectionHeading(stringResource(R.string.repair_deess))
+    ValueSlider(stringResource(R.string.eq_frequency), deessHz, 3000f..10_000f, { deessHz = it }, format = Formats::hz)
+    SecondaryButton(stringResource(R.string.repair_deess_button), onClick = { vm.applyOffline("Soften S", OfflineTools.deess(deessHz.toDouble(), -24.0)) }, tall = false, modifier = Modifier.fillMaxWidth())
+}
+
+@Composable
+private fun EqSheet(vm: EditorViewModel, ui: EditorViewModel.Ui) {
+    var bands by remember { mutableStateOf(listOf(EqBand(FilterKind.HIGH_PASS, 80.0), EqBand(FilterKind.PEAKING, 1000.0, 0.0, 1.0), EqBand(FilterKind.HIGH_SHELF, 8000.0, 0.0, 0.7))) }
+    var selected by remember { mutableStateOf(1) }
+    SelectionLine(ui)
+    EqCurve(bands, ui.session.sampleRate, selected, onSelect = { selected = it }, modifier = Modifier.fillMaxWidth().height(120.dp))
+    ChipRow(options = listOf("flat" to stringResource(R.string.eq_preset_flat), "voice" to stringResource(R.string.eq_preset_voice), "bright" to stringResource(R.string.eq_preset_tilt_bright), "warm" to stringResource(R.string.eq_preset_tilt_warm)), selected = "", onSelect = { id ->
+        bands = when (id) { "voice" -> ParametricEq.VOICE_PRESET; "bright" -> ParametricEq.tilt(3.0); "warm" -> ParametricEq.tilt(-3.0); else -> listOf(EqBand(FilterKind.PEAKING, 1000.0, 0.0, 1.0)) }
+        selected = 0
+    }, modifier = Modifier.padding(vertical = 8.dp))
+    val band = bands.getOrNull(selected)
+    if (band != null) {
+        Text(stringResource(R.string.eq_kind), style = MaterialTheme.typography.bodyMedium, color = StaveColors.Text)
+        ChipRow(options = FilterKind.entries.map { it to kindLabel(it) }, selected = band.kind, onSelect = { k -> bands = bands.mapIndexed { i, b -> if (i == selected) b.copy(kind = k) else b } }, modifier = Modifier.padding(vertical = 6.dp))
+        ValueSlider(stringResource(R.string.eq_frequency), logSlider(band.hz), 0f..1f, { v -> bands = bands.mapIndexed { i, b -> if (i == selected) b.copy(hz = logValue(v)) else b } }, format = { Formats.hz(logValue(it).toFloat()) })
+        ValueSlider(stringResource(R.string.eq_gain), band.gainDb.toFloat(), -18f..18f, { v -> bands = bands.mapIndexed { i, b -> if (i == selected) b.copy(gainDb = v.toDouble()) else b } }, format = Formats::db, enabled = band.kind in setOf(FilterKind.PEAKING, FilterKind.LOW_SHELF, FilterKind.HIGH_SHELF))
+        ValueSlider(stringResource(R.string.eq_q), band.q.toFloat(), 0.1f..10f, { v -> bands = bands.mapIndexed { i, b -> if (i == selected) b.copy(q = v.toDouble()) else b } }, format = Formats::q)
+    }
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 6.dp)) {
+        SecondaryButton(stringResource(R.string.eq_add_band), onClick = { bands = bands + EqBand(FilterKind.PEAKING, 2000.0, 0.0, 1.0); selected = bands.size - 1 }, enabled = bands.size < 16, tall = false, modifier = Modifier.weight(1f))
+        SecondaryButton(stringResource(R.string.eq_remove_band), onClick = { if (bands.size > 1) { bands = bands.filterIndexed { i, _ -> i != selected }; selected = selected.coerceIn(0, bands.size - 1) } }, enabled = bands.size > 1, tall = false, modifier = Modifier.weight(1f))
+    }
+    PrimaryButton(stringResource(R.string.eq_apply), onClick = { vm.applyOffline("EQ", OfflineTools.eq(bands)) }, tall = false, modifier = Modifier.fillMaxWidth().padding(top = 8.dp))
+}
+
+@Composable
+private fun kindLabel(k: FilterKind): String = when (k) {
+    FilterKind.LOW_PASS -> "Low-pass"; FilterKind.HIGH_PASS -> "High-pass"; FilterKind.BAND_PASS -> "Band-pass"; FilterKind.NOTCH -> "Notch"
+    FilterKind.ALL_PASS -> "All-pass"; FilterKind.PEAKING -> "Bell"; FilterKind.LOW_SHELF -> "Low shelf"; FilterKind.HIGH_SHELF -> "High shelf"
+}
+
+private fun logSlider(hz: Double): Float = (kotlin.math.ln(hz / 20.0) / kotlin.math.ln(1000.0)).toFloat().coerceIn(0f, 1f)
+private fun logValue(v: Float): Double = 20.0 * Math.pow(1000.0, v.toDouble())
+
+@Composable
+private fun DynamicsSheet(vm: EditorViewModel, ui: EditorViewModel.Ui) {
+    var threshold by remember { mutableStateOf(-18f) }
+    var ratio by remember { mutableStateOf(3f) }
+    var knee by remember { mutableStateOf(6f) }
+    var attack by remember { mutableStateOf(10f) }
+    var release by remember { mutableStateOf(120f) }
+    var makeup by remember { mutableStateOf(0f) }
+    var ceiling by remember { mutableStateOf(-1f) }
+    var gateThreshold by remember { mutableStateOf(-45f) }
+    var gateRange by remember { mutableStateOf(60f) }
+    SelectionLine(ui)
+    SectionHeading(stringResource(R.string.dyn_compressor))
+    ValueSlider(stringResource(R.string.dyn_threshold), threshold, -60f..0f, { threshold = it }, format = Formats::dbPlain)
+    ValueSlider(stringResource(R.string.dyn_ratio), ratio, 1f..20f, { ratio = it }, format = Formats::ratio)
+    ValueSlider(stringResource(R.string.dyn_knee), knee, 0f..18f, { knee = it }, format = Formats::dbPlain)
+    ValueSlider(stringResource(R.string.dyn_attack), attack, 0.1f..200f, { attack = it }, format = Formats::ms)
+    ValueSlider(stringResource(R.string.dyn_release), release, 10f..2000f, { release = it }, format = Formats::ms)
+    ValueSlider(stringResource(R.string.dyn_makeup), makeup, 0f..24f, { makeup = it }, format = Formats::db)
+    PrimaryButton(stringResource(R.string.dyn_apply), onClick = { vm.applyOffline("Compress", OfflineTools.compress(CompressorSettings(threshold.toDouble(), ratio.toDouble(), knee.toDouble(), attack.toDouble(), release.toDouble(), makeup.toDouble()))) }, tall = false, modifier = Modifier.fillMaxWidth())
+    Spacer(Modifier.height(14.dp))
+    SectionHeading(stringResource(R.string.dyn_limiter))
+    ValueSlider(stringResource(R.string.dyn_ceiling), ceiling, -12f..0f, { ceiling = it }, format = Formats::dbPlain)
+    SecondaryButton(stringResource(R.string.dyn_apply), onClick = { vm.applyOffline("Limit", OfflineTools.limit(ceiling.toDouble(), 60.0)) }, tall = false, modifier = Modifier.fillMaxWidth())
+    Spacer(Modifier.height(14.dp))
+    SectionHeading(stringResource(R.string.dyn_gate))
+    ValueSlider(stringResource(R.string.dyn_threshold), gateThreshold, -80f..-10f, { gateThreshold = it }, format = Formats::dbPlain)
+    ValueSlider(stringResource(R.string.dyn_range), gateRange, 6f..90f, { gateRange = it }, format = Formats::dbPlain)
+    SecondaryButton(stringResource(R.string.dyn_apply), onClick = { vm.applyOffline("Gate", OfflineTools.gate(gateThreshold.toDouble(), gateRange.toDouble(), 150.0)) }, tall = false, modifier = Modifier.fillMaxWidth())
+}
+
+@Composable
+private fun TimeSheet(vm: EditorViewModel, ui: EditorViewModel.Ui) {
+    var stretch by remember { mutableStateOf(1f) }
+    var semitones by remember { mutableStateOf(0f) }
+    var formant by remember { mutableStateOf(true) }
+    var speed by remember { mutableStateOf(1f) }
+    SelectionLine(ui)
+    ValueSlider(stringResource(R.string.time_stretch), stretch, 0.25f..4f, { stretch = it }, format = Formats::times)
+    ValueSlider(stringResource(R.string.time_pitch), semitones, -24f..24f, { semitones = it }, format = Formats::semitones)
+    ToggleRow(stringResource(R.string.time_formant), formant, { formant = it })
+    PrimaryButton(stringResource(R.string.time_apply), onClick = { vm.applyOffline("Time and pitch", OfflineTools.timePitch(stretch.toDouble(), semitones.toDouble(), formant)) }, enabled = stretch != 1f || semitones != 0f, tall = false, modifier = Modifier.fillMaxWidth())
+    Spacer(Modifier.height(14.dp))
+    ValueSlider(stringResource(R.string.time_speed), speed, 0.25f..4f, { speed = it }, format = Formats::times)
+    SecondaryButton(stringResource(R.string.time_speed_apply), onClick = { vm.applyOffline("Speed", OfflineTools.speed(speed.toDouble())) }, enabled = speed != 1f, tall = false, modifier = Modifier.fillMaxWidth())
+}
+
+@Composable
+private fun MarkersSheet(vm: EditorViewModel, ui: EditorViewModel.Ui) {
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        PrimaryButton(stringResource(R.string.markers_add), onClick = { vm.addMarker() }, tall = false, modifier = Modifier.weight(1f))
+        SecondaryButton(stringResource(R.string.markers_add_chapter), onClick = { vm.addMarker(Marker.Kind.CHAPTER) }, tall = false, modifier = Modifier.weight(1f))
+    }
+    Spacer(Modifier.height(8.dp))
+    if (ui.session.markers.isEmpty()) Text(stringResource(R.string.markers_none), style = MaterialTheme.typography.bodySmall, color = StaveColors.Dim)
+    for (m in ui.session.markers) {
+        var name by remember(m.id) { mutableStateOf(m.name) }
+        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(Timecode.display(Timecode.ofSamples(m.position, ui.session.sampleRate), 1), style = com.layerbit.stave.ui.theme.Numerals, color = if (m.kind == Marker.Kind.CHAPTER) StaveColors.Running else StaveColors.Hot, modifier = Modifier.width(64.dp))
+            OutlinedTextField(value = name, onValueChange = { name = it; vm.renameMarker(m.id, it) }, singleLine = true, modifier = Modifier.weight(1f), textStyle = MaterialTheme.typography.bodyMedium)
+            SecondaryButton(stringResource(if (m.kind == Marker.Kind.CHAPTER) R.string.markers_chapter else R.string.markers_marker), onClick = { vm.setMarkerKind(m.id, if (m.kind == Marker.Kind.CHAPTER) Marker.Kind.MARKER else Marker.Kind.CHAPTER) }, tall = false)
+            SecondaryButton(stringResource(R.string.app_delete), onClick = { vm.removeMarker(m.id) }, tall = false)
+        }
+    }
+}
+
+@Composable
+private fun ExportSheet(vm: EditorViewModel, ui: EditorViewModel.Ui) {
+    val s = ui.exportSettings
+    val fmt = s.format
+    val context = LocalContext.current
+    val seconds = ui.session.length.toDouble() / ui.session.sampleRate
+    val estimate = fmt.estimateBytes(seconds, s.bitrateKbps, s.outputRate(ui.session.sampleRate), s.outputChannels(2), s.depth)
+    Text(stringResource(R.string.export_format), style = MaterialTheme.typography.bodyMedium, color = StaveColors.Text)
+    ChipRow(options = AudioFormat.all.map { it.id to it.label }, selected = s.formatId, onSelect = { id -> val f = AudioFormat.byId(id); vm.setExportSettings(s.copy(formatId = id, bitrateKbps = f.defaultBitrate.takeIf { it > 0 } ?: s.bitrateKbps, depth = f.depths.firstOrNull { it == s.depth } ?: f.depths.firstOrNull() ?: 16)) }, modifier = Modifier.padding(vertical = 6.dp))
+    Text(fmt.note, style = MaterialTheme.typography.bodySmall, color = StaveColors.Dim)
+    if (fmt.bitrates.isNotEmpty()) {
+        Text(stringResource(R.string.export_bitrate), style = MaterialTheme.typography.bodyMedium, color = StaveColors.Text, modifier = Modifier.padding(top = 10.dp))
+        ChipRow(options = fmt.bitrates.map { it to "$it" }, selected = s.bitrateKbps, onSelect = { vm.setExportSettings(s.copy(bitrateKbps = it)) }, modifier = Modifier.padding(vertical = 6.dp))
+    }
+    if (fmt.depths.isNotEmpty()) {
+        Text(stringResource(R.string.export_depth), style = MaterialTheme.typography.bodyMedium, color = StaveColors.Text, modifier = Modifier.padding(top = 10.dp))
+        ChipRow(options = fmt.depths.map { it to (if (it == 32) "32-bit float" else "$it-bit") }, selected = s.depth, onSelect = { vm.setExportSettings(s.copy(depth = it)) }, modifier = Modifier.padding(vertical = 6.dp))
+    }
+    Text(stringResource(R.string.export_rate), style = MaterialTheme.typography.bodyMedium, color = StaveColors.Text, modifier = Modifier.padding(top = 10.dp))
+    ChipRow(options = listOf(0 to stringResource(R.string.export_rate_keep), 44_100 to "44.1 kHz", 48_000 to "48 kHz", 96_000 to "96 kHz"), selected = s.sampleRate, onSelect = { vm.setExportSettings(s.copy(sampleRate = it)) }, modifier = Modifier.padding(vertical = 6.dp), enabled = { r -> fmt.rates.isEmpty() || r == 0 || r in fmt.rates })
+    Text(stringResource(R.string.export_channels), style = MaterialTheme.typography.bodyMedium, color = StaveColors.Text, modifier = Modifier.padding(top = 10.dp))
+    ChipRow(options = listOf(0 to stringResource(R.string.export_channels_keep), 1 to stringResource(R.string.export_mono)), selected = s.channels, onSelect = { vm.setExportSettings(s.copy(channels = it)) }, modifier = Modifier.padding(vertical = 6.dp))
+    ToggleRow(stringResource(R.string.export_normalise), s.normaliseToTarget, { vm.setExportSettings(s.copy(normaliseToTarget = it)) })
+    if (s.normaliseToTarget) ChipRow(options = LoudnessTarget.all.map { it.id to it.label }, selected = s.loudnessTargetId, onSelect = { vm.setExportSettings(s.copy(loudnessTargetId = it)) }, modifier = Modifier.padding(vertical = 6.dp))
+    OutlinedTextField(value = s.title, onValueChange = { vm.setExportSettings(s.copy(title = it)) }, label = { Text(stringResource(R.string.export_title)) }, singleLine = true, modifier = Modifier.fillMaxWidth().padding(top = 6.dp))
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 6.dp)) {
+        OutlinedTextField(value = s.artist, onValueChange = { vm.setExportSettings(s.copy(artist = it)) }, label = { Text(stringResource(R.string.export_artist)) }, singleLine = true, modifier = Modifier.weight(1f))
+        OutlinedTextField(value = s.album, onValueChange = { vm.setExportSettings(s.copy(album = it)) }, label = { Text(stringResource(R.string.export_album)) }, singleLine = true, modifier = Modifier.weight(1f))
+    }
+    if (fmt.chapters) ToggleRow(stringResource(R.string.export_chapters), s.writeChapters, { vm.setExportSettings(s.copy(writeChapters = it)) })
+    Text(stringResource(R.string.export_estimate, formatBytes(estimate)), style = MaterialTheme.typography.bodySmall, color = StaveColors.Dim, modifier = Modifier.padding(top = 6.dp))
+    PrimaryButton(stringResource(R.string.export_button), onClick = { vm.export(context.getString(R.string.editor_untitled)) }, enabled = ui.session.length > 0 && ui.busy == null, modifier = Modifier.fillMaxWidth().padding(top = 8.dp))
+    ui.lastExport?.let { r ->
+        Spacer(Modifier.height(10.dp))
+        Text(stringResource(R.string.export_done), style = MaterialTheme.typography.titleMedium, color = StaveColors.Good)
+        Text(stringResource(R.string.export_done_detail, formatBytes(r.bytes), Formats.lufs(r.integratedLufs), Formats.dbtp(r.truePeakDbtp)), style = MaterialTheme.typography.bodySmall, color = StaveColors.Muted)
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 8.dp)) {
+            SecondaryButton(stringResource(R.string.export_share), onClick = {
+                val uri = androidx.core.content.FileProvider.getUriForFile(context, context.packageName + ".files", r.file)
+                val send = android.content.Intent(android.content.Intent.ACTION_SEND).setType(fmt.mime).putExtra(android.content.Intent.EXTRA_STREAM, uri).addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                context.startActivity(android.content.Intent.createChooser(send, null))
+            }, tall = false, modifier = Modifier.weight(1f))
+            SecondaryButton(stringResource(R.string.export_open), onClick = {
+                val uri = r.mediaUri ?: androidx.core.content.FileProvider.getUriForFile(context, context.packageName + ".files", r.file)
+                runCatching { context.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW).setDataAndType(uri, fmt.mime).addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)) }
+            }, tall = false, modifier = Modifier.weight(1f))
+        }
+    }
+}

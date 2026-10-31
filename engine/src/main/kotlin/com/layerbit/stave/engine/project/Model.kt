@@ -61,12 +61,18 @@ data class Clip(
     val envelope: List<EnvelopePoint> = emptyList(),
     /** Which take lane the clip sits in on its track; 0 is the main lane. */
     val lane: Int = 0,
-    val colour: Int = 0
+    val colour: Int = 0,
+    /** The source's rate over the session's: a 44.1k file in a 48k session is 0.91875 source frames a timeline sample. */
+    val sourceRateRatio: Double = 1.0
 ) {
     val end: Long get() = position + length
     val range: LongRange get() = position until end
-    /** Source frames the clip covers, after the stretch is undone. */
-    val sourceLength: Long get() = (length / warp.stretch).toLong()
+    /** Timeline samples to the source frames they cover: through the rate ratio and the stretch. */
+    fun sourceFrames(timelineSamples: Long): Long = (timelineSamples * sourceRateRatio / warp.stretch).toLong()
+    /** Source frames to the timeline samples they take. */
+    fun timelineSamples(sourceFrames: Long): Long = (sourceFrames * warp.stretch / sourceRateRatio).toLong()
+    /** Source frames the clip covers, after the stretch and the rate ratio are undone. */
+    val sourceLength: Long get() = sourceFrames(length)
     fun contains(timelineSample: Long): Boolean = timelineSample >= position && timelineSample < end
     fun overlaps(from: Long, to: Long): Boolean = position < to && end > from
 }

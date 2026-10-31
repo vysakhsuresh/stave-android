@@ -1,4 +1,9 @@
-/** Every suite, in the order they run. RunnerChecks holds this list honest against the files. */
+/**
+ * Every suite, in the order they run. RunnerChecks holds this list honest against the files.
+ * The lists are split by area so work on one area adds to its own file and never collides with
+ * another's: MusicSuites (analysis: beats, chroma, chords, key), SequencerSuites (patterns,
+ * MIDI, synth), VoiceSuites (transcript, segmenter).
+ */
 object Registry {
     val all: List<Suite> = listOf(
         FftChecks,
@@ -16,6 +21,6 @@ object Registry {
         JsonChecks,
         ProjectChecks,
         SessionEditsChecks,
-        RunnerChecks
-    )
+        ExportChecks
+    ) + MusicSuites.all + SequencerSuites.all + VoiceSuites.all + listOf(RunnerChecks)
 }

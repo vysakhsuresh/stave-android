@@ -12,6 +12,7 @@ object RunnerChecks : Suite {
         val dir = listOf(File("tools/jvm"), File("../tools/jvm")).firstOrNull { it.isDirectory }
             ?: throw CheckFailed("tools/jvm not found from ${File(".").absolutePath}")
         val files = dir.listFiles { f -> f.name.endsWith("Checks.kt") }!!.map { it.name.removeSuffix(".kt") }.filter { it != "Checks" }.toSet()
+        // The four list files are not suites.
         val registered = Registry.all.map { it::class.simpleName!! }.toSet()
         val unregistered = files - registered
         val missing = registered - files

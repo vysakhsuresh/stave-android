@@ -13,7 +13,7 @@ Built-not-seen is never called done.
 - [~] `CLAUDE.md`, `README.md`, `ARCHITECTURE.md`, `BUILD_NOTES.md`, `THIRD_PARTY_NOTICES.md`, docs/
 - [~] `tools/jvm/run.sh` + Registry + RunnerChecks; the Squish checkers adapted
 - [~] CI: android.yml (engine, checks, build, manifest), native.yml, whisper.yml, release.yml
-- [ ] Shell: Home (projects), Guide, Contact, About, Settings; Share/Open-with arrivals
+- [~] Shell: Home (projects), Guide, Contact, About, Settings; Share/Open-with arrivals
 
 ## P1 — Engine core (pure Kotlin, executed)
 - [~] FFT, windows, STFT with exact reconstruction (`FftChecks`)
@@ -27,9 +27,9 @@ Built-not-seen is never called done.
 - [~] YIN pitch, note names (`PitchChecks`)
 - [~] Peak pyramid, fixed-play-head time window, ruler (`PeaksChecks`)
 - [~] Timecode for screen and file (`TimecodeChecks`)
-- [ ] Project model: sources, clips, tracks, markers, regions; JSON codec with `putFinite`; round trip suite
-- [ ] Edit history: undo/redo, gesture folding, `recordLate`; suite
-- [ ] Region edits: cut/copy/paste/trim/silence/split/join over the clip list; suite
+- [~] Project model: sources, clips, tracks, markers, regions; JSON codec with `putFinite`; round trip suite (`ProjectChecks`)
+- [~] Edit history: undo/redo, gesture folding, `recordLate`, `amendAll`; suite (`ProjectChecks`)
+- [~] Region edits: split/trim/move/ripple delete/insert/copy/paste/crop/snap over the clip list; suite (`SessionEditsChecks`)
 - [ ] Spectral editing geometry: a brush or lasso in time-frequency to bin masks; suite
 - [ ] Multiband compressor, transient shaper, leveller; suites
 - [ ] Beat tracking (onsets, tempo, dynamic programming) carried from Squish; suite
@@ -37,25 +37,25 @@ Built-not-seen is never called done.
 - [ ] Transcript rules: words → cuts, fillers per line, silence removal, alignment; suite
 - [ ] Sequencer model: patterns, steps, notes, swing, humanise, arpeggiator, quantise; MIDI file read/write; suite
 - [ ] Synth DSP reference: PolyBLEP oscillators, ADSR, SVF, FM operator; suite
-- [ ] Export arithmetic: format table, bitrate and size estimates, chapter writing (ID3v2.4, MP4 chpl); suite
+- [~] Export arithmetic: format table, bitrate and size estimates, file names (`ExportChecks`); chapters are written by libstaveav from the markers
 
 ## P1b — Native
-- [ ] CMake: `libstave.so` from graph/, Rubber Band single, TinySoundFont; Oboe via prefab
-- [ ] Graph: snapshot triple-buffer, clip readers with read-ahead, track inserts, buses, master, meters, metronome
-- [ ] Input stream, monitoring, loopback latency
-- [ ] `av/staveav.c`: probe, decode to float, encode (every encoder in the build), metadata and art, chapters
-- [ ] `whisper/stavewhisper.cpp`: bytes surface, windows
-- [ ] JNI objects in `native/`; `AvHandles.failed`
+- [~] CMake: `libstave.so` from graph/, Rubber Band single, TinySoundFont; Oboe via prefab — **written, never compiled** (no NDK in the sandbox): the first laptop build will find what the sandbox could not
+- [~] Graph: snapshot swapped atomically, memory-mapped sources, track inserts, buses, sends, master, meters, metronome, looping, offline render
+- [~] Input stream, monitoring ring, take recorder with a crash-safe WAV; loopback click scheduled (the measurement itself is P3)
+- [~] `av/staveav.c`: probe, decode to float, encode (every encoder in the build), tags, cover art, chapters — unbuilt until `native.yml` runs
+- [~] `whisper/stavewhisper.cpp`: bytes surface — unbuilt until `whisper.yml` runs
+- [~] JNI objects in `native/`; `AvHandles.failed` is `== 0`
 
 ## P2 — Wave editor (v0.1)
-- [ ] Projects: ProjectStore, autosave, snapshots, bin
-- [ ] Waveform canvas: peaks at every zoom, samples when fine, selection, fixed play-head, pinch/scroll/fling
+- [~] Projects: ProjectStore, atomic save, ten-minute snapshots, bin with a 30-day sweep
+- [~] Waveform canvas: peaks at every zoom, selection with edge handles, fixed play-head, two-finger scroll and zoom, double tap to fit — samples-when-fine not yet (zoom stops at the peak buckets)
 - [ ] Spectrogram canvas and the spectral brush
-- [ ] Edit sheet, Repair sheet, EQ sheet (curve + analyser), Dynamics sheet, Time & Pitch sheet, Fades
-- [ ] Markers, regions, chapters
-- [ ] Export sheet: format, rate, depth, dither, loudness target, metadata, art; batch
-- [ ] Library of exports; Share; "Open with"
-- [ ] Guide, Contact, About, Settings complete
+- [~] Edit, Gain, Fades, Repair (clicks, clipping, hum, noise, S), EQ (curve from the same coefficients), Dynamics, Time & pitch sheets — each an offline render to a new source, undoable
+- [~] Markers and chapters (regions are in the model, not yet on a sheet)
+- [~] Export sheet: format, bitrate, depth, rate, mono, loudness target, tags, chapters, estimate; published to Music/Stave; Share and Open — no batch yet
+- [ ] Library of exports across projects
+- [~] Guide, Contact, About, Settings complete
 
 ## P3 — Recorder and podcast desk (v0.2)
 - [ ] Recorder screen with true-peak meter, input chain, count-in, takes
