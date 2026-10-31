@@ -58,6 +58,7 @@ object Routes {
     const val SETTINGS = "settings"
     const val GUIDE = "guide"
     const val CONTACT = "contact"
+    const val LIBRARY = "library"
     const val EDITOR = "editor?project={project}&tool={tool}"
 
     fun editor(project: String, tool: String? = null): String =
@@ -82,7 +83,8 @@ fun StaveApp(
     onSettingsChange: ((Settings) -> Settings) -> Unit,
     arrivalTicket: Int,
     arrival: Arrival?,
-    onPickSounds: (tool: String?) -> Unit
+    onPickSounds: (tool: String?) -> Unit,
+    onPickModel: () -> Unit = {}
 ) {
     val navController = rememberNavController()
     val context = LocalContext.current
@@ -146,8 +148,12 @@ fun StaveApp(
                     onGuide = { navController.navigate(Routes.GUIDE) },
                     onContact = { navController.navigate(Routes.CONTACT) },
                     onSettings = { navController.navigate(Routes.SETTINGS) },
-                    onAbout = { navController.navigate(Routes.ABOUT) }
+                    onAbout = { navController.navigate(Routes.ABOUT) },
+                    onLibrary = { navController.navigate(Routes.LIBRARY) }
                 )
+            }
+            composable(Routes.LIBRARY) {
+                Column { StaveTopBar(title = stringResource(R.string.library_title), subtitle = stringResource(R.string.library_subtitle), onBack = { navController.popBackStack() }); com.layerbit.stave.ui.library.LibraryScreen() }
             }
             composable(Routes.GUIDE) {
                 Column { StaveTopBar(title = stringResource(R.string.guide_title), onBack = { navController.popBackStack() }); GuideScreen() }
@@ -169,7 +175,8 @@ fun StaveApp(
                     StaveTopBar(title = stringResource(R.string.app_settings), onBack = { navController.popBackStack() })
                     SettingsScreen(
                         settings = settings, projectBytes = projectBytes, scratchBytes = scratchBytes, projectCount = projects.size, onChange = onSettingsChange,
-                        onClearScratch = { scope.launch(Dispatchers.IO) { stave.projects.clearScratch(); scratchBytes = 0 } }
+                        onClearScratch = { scope.launch(Dispatchers.IO) { stave.projects.clearScratch(); scratchBytes = 0 } },
+                        onPickModel = onPickModel
                     )
                 }
             }

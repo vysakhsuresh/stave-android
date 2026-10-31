@@ -46,9 +46,12 @@ fun SettingsScreen(
     projectCount: Int,
     onChange: ((Settings) -> Settings) -> Unit,
     onClearScratch: () -> Unit,
+    onPickModel: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
+    val app = context.applicationContext as com.layerbit.stave.StaveApplication
+    val present = remember { mutableStateOf(app.models.present()) }
     var crash by remember { mutableStateOf(CrashLog.read(context)) }
     Box(modifier.fillMaxSize()) {
         AmbientBackdrop(strength = 0.6f)
@@ -96,6 +99,14 @@ fun SettingsScreen(
             }
             item {
                 Panel(modifier = rise(3).fillMaxWidth()) {
+                    SectionHeading(stringResource(R.string.settings_models))
+                    Text(stringResource(R.string.settings_models_detail), style = MaterialTheme.typography.bodySmall, color = StaveColors.Dim, modifier = Modifier.padding(top = 8.dp))
+                    Text(if (present.value.isEmpty()) stringResource(R.string.settings_models_none) else stringResource(R.string.settings_models_present, present.value.joinToString { it.label }), style = MaterialTheme.typography.bodyMedium, color = StaveColors.Text, modifier = Modifier.padding(top = 8.dp))
+                    SecondaryButton(stringResource(R.string.settings_models_import), onClick = onPickModel, modifier = Modifier.fillMaxWidth().padding(top = 10.dp), tall = false)
+                }
+            }
+            item {
+                Panel(modifier = rise(4).fillMaxWidth()) {
                     SectionHeading(stringResource(R.string.settings_crash))
                     Text(if (crash == null) stringResource(R.string.settings_crash_none) else stringResource(R.string.settings_crash_detail), style = MaterialTheme.typography.bodySmall, color = StaveColors.Dim, modifier = Modifier.padding(top = 8.dp))
                     if (crash != null) {

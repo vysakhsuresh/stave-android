@@ -38,6 +38,15 @@ class MainActivity : ComponentActivity() {
     }
     private var pendingTool: String? = null
 
+    /** A speech model file (ggml-*.bin) from the document picker, copied in under its own name. */
+    private val pickModel = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri == null) return@registerForActivityResult
+        val name = stave.media.displayName(uri)
+        val imported = stave.models.import(name) { dest -> contentResolver.openInputStream(uri)?.use { input -> dest.outputStream().use { input.copyTo(it) } } }
+        val text = if (imported != null) getString(com.layerbit.stave.R.string.settings_models_imported, imported.label) else getString(com.layerbit.stave.R.string.settings_models_unknown)
+        android.widget.Toast.makeText(this, text, android.widget.Toast.LENGTH_LONG).show()
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
@@ -54,7 +63,8 @@ class MainActivity : ComponentActivity() {
                         onSettingsChange = { transform -> stave.settings.update(transform) },
                         arrivalTicket = ticket,
                         arrival = arrival,
-                        onPickSounds = { tool -> pendingTool = tool; pickSounds.launch(arrayOf("audio/*", "video/*")) }
+                        onPickSounds = { tool -> pendingTool = tool; pickSounds.launch(arrayOf("audio/*", "video/*")) },
+                        onPickModel = { pickModel.launch(arrayOf("*/*")) }
                     )
                 }
             }

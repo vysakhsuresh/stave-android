@@ -41,3 +41,9 @@ back into the roadmap with what broke.
 26. Two tracks (voice and music), Duck under speech on the music: the music's volume automation dips where the voice speaks (the points count shows), and the mix plays the dip.
 27. Bounce to a new track makes a stereo clip equal to the mix (null test: invert the bounce, mute nothing, the master meter should read near silence - the inversion tool is on the Gain sheet as "invert" when added; until then compare by ear).
 28. Finish: Measure reads a sensible LUFS; Master to Streaming brings a -23 LUFS mix to -14 within 0.5 LU and a true peak at or under -1 dBTP (read Measure again).
+
+## P7 — tune and effects
+29. A flat sung line, Tune to C major at full strength, 0 ms: the notes snap (robotic on purpose); at 60%, 120 ms the line is quietly in tune. Listen for grain noise on long vowels - PSOLA's known artefact; if it is heard, the grain window in `PitchCorrect.psola` is the thing to widen.
+30. Each of the twelve effect presets on a spoken line: none clips (the Export sheet's true peak), each sounds like its name.
+31. Settings → Add a model file with ggml-small-q5_1.bin from Downloads: "Better speech model added" shows and Transcribe uses it (slower, better Hindi).
+32. Library: every export of every project listed newest first; Share hands the file to another app; Delete removes the private copy and leaves Music/Stave's.

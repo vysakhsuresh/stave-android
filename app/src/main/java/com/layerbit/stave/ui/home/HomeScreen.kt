@@ -90,7 +90,8 @@ fun HomeScreen(
     onGuide: () -> Unit,
     onContact: () -> Unit,
     onSettings: () -> Unit,
-    onAbout: () -> Unit
+    onAbout: () -> Unit,
+    onLibrary: () -> Unit = {}
 ) {
     var renaming by remember { mutableStateOf<ProjectStore.Entry?>(null) }
     Box(Modifier.fillMaxSize()) {
@@ -102,6 +103,8 @@ fun HomeScreen(
                         Text(stringResource(R.string.app_name), style = MaterialTheme.typography.headlineMedium, color = StaveColors.Text)
                         Text(stringResource(R.string.app_tagline), style = MaterialTheme.typography.bodyMedium, color = StaveColors.Muted)
                     }
+                    RoundIconButton(iconRes = R.drawable.ic_finish, contentDescription = stringResource(R.string.home_library), onClick = onLibrary)
+                    Spacer(Modifier.width(6.dp))
                     RoundIconButton(iconRes = R.drawable.ic_guide, contentDescription = stringResource(R.string.home_guide), onClick = onGuide)
                     Spacer(Modifier.width(6.dp))
                     RoundIconButton(iconRes = R.drawable.ic_contact, contentDescription = stringResource(R.string.home_contact), onClick = onContact)

@@ -54,7 +54,7 @@ Built-not-seen is never called done.
 - [~] Edit, Gain, Fades, Repair (clicks, clipping, hum, noise, S), EQ (curve from the same coefficients), Dynamics, Time & pitch sheets — each an offline render to a new source, undoable
 - [~] Markers and chapters (regions are in the model, not yet on a sheet)
 - [~] Export sheet: format, bitrate, depth, rate, mono, loudness target, tags, chapters, estimate; published to Music/Stave; Share and Open — no batch yet
-- [ ] Library of exports across projects
+- [~] Library of exports across projects (open, share, delete the private copy)
 - [~] Guide, Contact, About, Settings complete
 
 ## P3 — Recorder and podcast desk (v0.2)
@@ -86,7 +86,7 @@ Built-not-seen is never called done.
 - [ ] Arpeggiator, groove; MIDI in/out/clock; MIDI files
 
 ## P7 — Vocal and live (v0.6)
-- [ ] Autotune live and on a note graph; vocal effect presets; looper; karaoke over stems
+- [~] Tune: TD-PSOLA pitch correction to a scale (any note, major, minor, pentatonic in a key) with strength and retune time, over the selection (`PitchCorrectChecks`); twelve vocal effect presets from delay, chorus, flanger, tremolo, reverb, saturation and a crusher (`EffectsChecks`); live autotune, a looper and karaoke not yet
 
 ## P8 — Mastering (v0.7)
 - [~] Finish tab: Measure (integrated, range, true peak, sample peak, the distance to the target), the target, Tone and Glue, Master to the target in one step (tilt EQ, glue compressor, true-peak limiter, loudness); Undo is the A/B; EQ match and width not yet

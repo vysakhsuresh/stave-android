@@ -401,6 +401,19 @@
     <string name="fx_title">Effects</string>
     <string name="fx_apply">Apply %1$s</string>
 
+    <!-- Library -->
+    <string name="library_title">Library</string>
+    <string name="library_subtitle">Every export, from every project</string>
+    <string name="library_empty">Nothing exported yet. Export from a project and it lands here and in Music/Stave.</string>
+    <string name="library_from">from %1$s</string>
+    <string name="library_delete_title">Delete this export?</string>
+    <string name="library_delete_body">The private copy goes. The copy in Music/Stave stays until you delete it there.</string>
+    <string name="home_library">Library</string>
+    <string name="settings_models_present">On this phone: %1$s</string>
+    <string name="settings_models_none">No speech model on this phone.</string>
+    <string name="settings_models_imported">%1$s added.</string>
+    <string name="settings_models_unknown">That file is not a model Stave knows. It wants ggml-base-q5_1.bin or ggml-small-q5_1.bin.</string>
+
     <!-- Notifications -->
     <string name="notification_channel">Recording and playback</string>
     <string name="notification_export_channel">Exports</string>
