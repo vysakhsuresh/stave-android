@@ -27,6 +27,7 @@ class StaveApplication : Application() {
     val media: MediaImport by lazy { MediaImport(this) }
     val models: ModelStore by lazy { ModelStore(this) }
     val stems: StemsRunner by lazy { StemsRunner(this, models) }
+    val soundFonts: com.layerbit.stave.beats.SoundFontStore by lazy { com.layerbit.stave.beats.SoundFontStore(this) }
     /** One graph for the process: opened by the first editor, kept while the app lives. */
     val transport: Transport by lazy { Transport(applicationScope) }
 

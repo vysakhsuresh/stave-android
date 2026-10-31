@@ -67,3 +67,26 @@ The things most likely to need a touch, and what they lean on.
   Android. The version catalog is `gradle/libs.versions.toml` and `tools/check_dependencies.py`
   holds the import-to-alias table against it.
 - Flavours `play` (asset pack) and `full` (models inside); CI builds `full`.
+
+## The pattern player (AudioTrack, not the graph)
+
+The Beats tab's loop and pads play through `beats/PatternPlayer.kt`, a thread writing 256-frame
+blocks to an `AudioTrack` (float, stereo, `PERFORMANCE_MODE_LOW_LATENCY`), not through the Oboe
+graph. The graph plays sources from files; a pattern under the finger changes every tap and is
+heard on the next pass with nothing written to disk. The cost is a second output: starting the
+loop pauses the transport (`startLoop`), because two clocks drift. "Render to a track" goes
+through `engine/sequencer/Render.kt`'s `PatternRenderer`, which the player shares its
+arithmetic with (`events` and the within-block scheduling), so the clip is what was heard.
+
+Things the first phone build settles: whether `AudioTrack.write(float[], …, WRITE_BLOCKING)`
+keeps up at 256 frames on the moto (if it underruns, double `BLOCK`); whether the thread's
+`MAX_PRIORITY` is enough or `Process.setThreadPriority(THREAD_PRIORITY_URGENT_AUDIO)` is
+needed; and the pad's press-to-sound latency, which is a block plus the track's own buffer.
+
+## SoundFonts (TinySoundFont through `SoundFontNative`)
+
+Nothing is bundled: a usable General MIDI bank is 30 MB and someone else's licence. The person
+adds an `.sf2`/`.sf3` from a file; it is copied under `files/soundfonts/` and named by preset
+through `SoundFontStore.presetNames`, which opens the bank once at 48 kHz to read the names.
+`SoundFontInstrument` has no "still sounding" from TSF (we export no `tsf_active_voice_count`),
+so a released note is counted as ringing for 3 s, which is what caps a render's tail.

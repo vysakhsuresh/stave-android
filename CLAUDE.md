@@ -56,13 +56,16 @@ before writing the fix.
 
 - `engine/` is pure Kotlin: DSP (`dsp/`), the waveform pyramid and the time window (`wave/`),
   the project model and history (`project/`), transcript rules (`transcript/`), music analysis
-  (`music/`), the sequencer (`sequencer/`), export arithmetic (`export/`). Nothing in it
+  (`music/`), the sequencer and its renderer (`sequencer/`), the synths and the drum
+  machine (`synth/`), export arithmetic (`export/`). Nothing in it
   imports `android.*`; `run.sh` and `RunnerChecks` both refuse it.
 - `app/src/main/cpp/` is the realtime half: the Oboe render graph (`graph/`), libstaveav's JNI
   (`av/`, FFmpeg built in CI into `jniLibs`), whisper.cpp's JNI (`whisper/`), Rubber Band and
   TinySoundFont. `ARCHITECTURE.md` draws it.
 - `app/src/main/java/com/layerbit/stave/` is Compose and the doors: `ui/`, `audio/` (the
-  service, the device list), `files/`, `export/`, `models/` (the asset-pack and imported models).
+  service, the device list), `files/`, `export/`, `models/` (the asset-pack and imported models),
+  `beats/` (instruments by id, SoundFonts, the pattern player on its own AudioTrack),
+  `stems/` (the LiteRT runner), `voice/` (Whisper).
 
 ## Conventions worth not rediscovering (carried from Squish, each one cost a day there)
 

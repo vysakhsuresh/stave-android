@@ -136,7 +136,7 @@ fun EditorScreen(vm: EditorViewModel, onBack: () -> Unit, onAddSounds: () -> Uni
                 EditorTab.STUDIO -> Box(Modifier.heightIn(max = 400.dp)) { com.layerbit.stave.ui.studio.StudioPanel(vm, ui) }
                 EditorTab.MUSIC -> Box(Modifier.heightIn(max = 400.dp)) { com.layerbit.stave.ui.music.MusicPanel(vm, ui) }
                 EditorTab.FINISH -> Box(Modifier.heightIn(max = 400.dp)) { com.layerbit.stave.ui.finish.FinishPanel(vm, ui) }
-                else -> ComingPanel(tab)
+                EditorTab.BEATS -> Box(Modifier.heightIn(max = 520.dp)) { com.layerbit.stave.ui.beats.BeatsPanel(vm, ui) }
             }
         }
         ui.message?.let { m ->
@@ -198,11 +198,3 @@ private fun ToolRail(open: EditSheet?, onSheet: (EditSheet?) -> Unit) {
 }
 
 /** A pillar whose engine exists and whose screen does not yet: says so, honestly, with the version. */
-@Composable
-private fun ComingPanel(tab: EditorTab) {
-    val version = when (tab) { EditorTab.VOICE -> "v0.2"; EditorTab.STUDIO -> "v0.3"; EditorTab.MUSIC -> "v0.4"; EditorTab.BEATS -> "v0.5"; EditorTab.FINISH -> "v0.7"; EditorTab.EDIT -> "" }
-    Panel(modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 6.dp)) {
-        Text(stringResource(tab.titleRes), style = MaterialTheme.typography.titleMedium, color = StaveColors.Text)
-        Text(stringResource(R.string.editor_coming, version), style = MaterialTheme.typography.bodySmall, color = StaveColors.Dim, modifier = Modifier.padding(top = 4.dp))
-    }
-}

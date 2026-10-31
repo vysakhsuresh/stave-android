@@ -32,11 +32,11 @@ Built-not-seen is never called done.
 - [~] Region edits: split/trim/move/ripple delete/insert/copy/paste/crop/snap over the clip list; suite (`SessionEditsChecks`)
 - [~] Spectral editing: a box in time and frequency turned down with feathered edges, or filled in from the frames either side; the spectrogram the screen paints from the same STFT; suite (`SpectralEditChecks`)
 - [ ] Multiband compressor, transient shaper, leveller; suites
-- [ ] Beat tracking (onsets, tempo, dynamic programming) carried from Squish; suite
-- [ ] Chroma, chords (templates + Viterbi), key (Krumhansl); suite
+- [~] Beat tracking (spectral flux, tempo prior, dynamic programming) carried from Squish; onsets for the slicer; the bar by the bass bands (`BeatsChecks`, `OnsetsChecks`)
+- [~] Chroma, chords (48 templates, Viterbi), key (Krumhansl), tap tempo and the grid (`ChromaChecks`, `ChordsChecks`, `KeyChecks`, `TempoChecks`)
 - [~] Transcript rules: Whisper bytes (a character cut across pieces joined), windows and their seam, words → padded cuts merged by gap, fillers, the transcript following a cut, silences; suite (`TranscriptChecks`)
-- [ ] Sequencer model: patterns, steps, notes, swing, humanise, arpeggiator, quantise; MIDI file read/write; suite
-- [ ] Synth DSP reference: PolyBLEP oscillators, ADSR, SVF, FM operator; suite
+- [~] Sequencer model: patterns in ticks, steps, notes with ratchets and probability, swing, humanise, legato, arpeggiator, quantise, the arrangement; MIDI files read and written; the pattern renderer (`PatternChecks`, `MidiChecks`, `RenderChecks`)
+- [~] Synths: PolyBLEP oscillators, ADSR, SVF, a subtractive and a four-operator FM synth, a sampler voice, a sixteen-pad drum machine, the slicer, the synthesised starter kit (`SynthChecks`, `DrumsChecks`, `KitSynthChecks`)
 - [~] Export arithmetic: format table, bitrate and size estimates, file names (`ExportChecks`); chapters are written by libstaveav from the markers
 
 ## P1b — Native
@@ -66,24 +66,24 @@ Built-not-seen is never called done.
 - [ ] Read aloud (TTS door)
 
 ## P4 — Multitrack studio (v0.3)
-- [ ] Arrangement strip: tracks, clips, carry by long press, snapping to grid and beats
-- [ ] Mixer: faders, pans, meters, inserts, sends, buses
-- [ ] Automation lanes, drawn and recorded
-- [ ] Punch/loop into take lanes; comping
-- [ ] Latency compensation, freeze, bounce, stems
+- [~] Arrangement strip: tracks as lanes under one play-head, clips carried by a long press, snapped to the beat grid
+- [~] Mixer: a strip per track and the master (fader, pan, mute, solo, arm, meter), inserts with live parameters, sends and buses
+- [~] Automation: volume and pan points per track, played by the graph; Duck under speech writes them; no drawn lane yet
+- [~] Takes land on their own lanes; loop the selection; comping (choosing between lanes) not yet
+- [~] Bounce to a new track; every track exported as a stem; latency compensation and freeze not yet
 - [ ] USB audio and MIDI interfaces
 
 ## P5 — Musician's tools (v0.4)
-- [ ] Stems: UMX int8 bundled; HT-Demucs pack; chunked inference with progress
-- [ ] Chords, key, BPM, smart click, section loop, pitch and speed
-- [ ] Tuner (CREPE), pitch trace
+- [~] Stems: a LiteRT runner over the UMX contract, chunked with progress, the four stems landing on their own tracks with the originals muted; the model itself is fetched by `tools/models/fetch_models.sh` (nothing is bundled yet), and a phone has not run it
+- [~] Read the song: tempo, beats and the bar, key and chords off the mix; ½ and 2× tempo and a bar shift; Mark every bar; the click following the beats; a practice copy slowed and transposed
+- [~] Tuner from the graph's input tap (YIN); a pitch trace is not drawn
 - [ ] Lyrics aligned; karaoke view
-- [ ] Audio-to-MIDI (Basic Pitch)
+- [~] Notes to MIDI: the selection's melody as notes (YIN per hop, segmented), handed to the Beats tab as a pattern
 
 ## P6 — Beats and MIDI (v0.5)
-- [ ] Step sequencer, piano roll, arrangement of patterns
-- [ ] Drum sampler, SoundFont player, subtractive, FM and wavetable synths; starter bank
-- [ ] Arpeggiator, groove; MIDI in/out/clock; MIDI files
+- [~] Step sequencer and piano roll in one grid (steps toggled, velocity by a drag, probability and ratchets drawn), pads and keys that record into the loop, patterns in the project file, the song as placements, rendered to tracks
+- [~] Drum machine on the synthesised starter kit, a SoundFont player for banks the person adds, seven subtractive and five FM presets; a wavetable synth not yet
+- [~] Arpeggiator, swing, quantise, humanise, legato, transpose, double; MIDI files in and out; MIDI in/out/clock over USB not yet
 
 ## P7 — Vocal and live (v0.6)
 - [~] Tune: TD-PSOLA pitch correction to a scale (any note, major, minor, pentatonic in a key) with strength and retune time, over the selection (`PitchCorrectChecks`); twelve vocal effect presets from delay, chorus, flanger, tremolo, reverb, saturation and a crusher (`EffectsChecks`); live autotune, a looper and karaoke not yet

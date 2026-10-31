@@ -1,6 +1,8 @@
 package com.layerbit.stave.engine.project
 
 import com.layerbit.stave.engine.dsp.FadeShape
+import com.layerbit.stave.engine.sequencer.Arrangement
+import com.layerbit.stave.engine.sequencer.Pattern
 import kotlin.math.max
 import kotlin.math.min
 
@@ -172,9 +174,14 @@ data class Session(
     val selectedTrackId: String? = null,
     val masterVolumeDb: Double = 0.0,
     val masterInserts: List<Insert> = emptyList(),
+    /** The Beats tab's patterns, their song order, and the instrument each pattern plays on (by [Pattern.id]; see the app's Instruments for the ids). */
+    val patterns: List<Pattern> = emptyList(),
+    val arrangement: Arrangement = Arrangement(),
+    val instruments: Map<String, String> = emptyMap(),
     val version: Int = VERSION
 ) {
     val length: Long get() = clips.maxOfOrNull { it.end } ?: 0L
+    fun pattern(id: String): Pattern? = patterns.firstOrNull { it.id == id }
     val durationMs: Long get() = if (sampleRate <= 0) 0 else length * 1000 / sampleRate
     fun source(id: String): Source? = sources.firstOrNull { it.id == id }
     fun track(id: String): Track? = tracks.firstOrNull { it.id == id }

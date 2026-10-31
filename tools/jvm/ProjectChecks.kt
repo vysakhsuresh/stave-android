@@ -30,10 +30,14 @@ object ProjectChecks : Suite {
         val t2 = Track("t2", "Music", outputId = "b1")
         val c1 = Clip("c1", "s1", "t1", 10_000, 500, 200_000, "Intro", -2.0, Fade(4800, FadeShape.S_CURVE), Fade(2400, FadeShape.LINEAR), false, true, Warp(1.5, -2.0, false), listOf(EnvelopePoint(0, 0.0), EnvelopePoint(100_000, -12.0)), lane = 1, colour = 7)
         val c2 = Clip("c2", "s2", "t2", 0, 0, 4_800_000)
+        val pattern = com.layerbit.stave.engine.sequencer.Pattern("p1", "Beat A", notes = listOf(com.layerbit.stave.engine.sequencer.Note("n1", 36, 110, 0, 240), com.layerbit.stave.engine.sequencer.Note("n2", 42, 80, 480, 240, probability = 0.5, ratchet = 2)), swing = 0.3)
         return Session("My podcast", "voice", 48_000, listOf(src, src2), listOf(t1, t2, bus), listOf(c1, c2),
             listOf(Marker("m1", 96_000, "Chapter 1", Marker.Kind.CHAPTER)), listOf(Region("r1", 0, 48_000, "Intro")),
             listOf(TempoEntry(0, 118.5), TempoEntry(960_000, 140.0, 3)), 0L until 96_000L, 12_345, 1000L until 2000L, "t1", -1.0,
-            listOf(Insert("mi", "limiter", true, mapOf("ceiling" to -1.0))))
+            listOf(Insert("mi", "limiter", true, mapOf("ceiling" to -1.0))),
+            patterns = listOf(pattern, pattern.copy(id = "p2", name = "Beat B", notes = emptyList())),
+            arrangement = com.layerbit.stave.engine.sequencer.Arrangement(listOf(com.layerbit.stave.engine.sequencer.Placement("p1", 0, 2), com.layerbit.stave.engine.sequencer.Placement("p2", 7680))),
+            instruments = mapOf("p1" to "drums:starter", "p2" to "synth:pluck"))
     }
 
     override fun run() {

@@ -161,6 +161,7 @@ class EditorViewModel(private val app: StaveApplication, val projectId: String) 
     override fun onCleared() {
         saveJob?.cancel()
         runCatching { files.save(session) }
+        player?.close()
         transport.pause()
         if (transport.state.value.recording) transport.stopRecording()
         transport.closeInput()
@@ -773,7 +774,7 @@ class EditorViewModel(private val app: StaveApplication, val projectId: String) 
     // ---- musician: stems, practice, analysis ------------------------------------------------
 
     /** A chord as the card shows it; filled by the analysis (engine/music) once it is wired. */
-    data class ChordShown(val name: String, val startMs: Long, val endMs: Long)
+    data class ChordShown(val name: String, val startMs: Long, val endMs: Long, val pitches: List<Int> = emptyList())
     data class Analysis(val bpm: Double, val confidence: Float, val beatsMs: List<Long>, val downbeatOffset: Int, val key: String?, val chords: List<ChordShown>)
     data class MusicState(val separating: Float? = null, val stemsDone: Boolean = false, val analysis: Analysis? = null, val clickFollows: Boolean = false)
     private val _music = MutableStateFlow(MusicState())
@@ -898,7 +899,9 @@ class EditorViewModel(private val app: StaveApplication, val projectId: String) 
                     val chroma = com.layerbit.stave.engine.music.Chroma.frames(mono, rate, hopMs = CHORD_HOP_MS)
                     val key = if (chroma.isEmpty()) null else com.layerbit.stave.engine.music.Key.detect(chroma)
                     val chords = com.layerbit.stave.engine.music.Chords.detect(chroma).map { span ->
-                        ChordShown(span.chord.name(), offsetMs + span.startFrame.toLong() * CHORD_HOP_MS, offsetMs + span.endFrame.toLong() * CHORD_HOP_MS)
+                        // Voiced from the root in the octave above middle C's bass: the pitches the Beats tab's "Chords to pattern" plays.
+                        val pitches = span.chord.pitchClasses().sorted().let { pcs -> pcs.map { pc -> 48 + ((pc - span.root).mod(12)) + span.root } }
+                        ChordShown(span.chord.name(), offsetMs + span.startFrame.toLong() * CHORD_HOP_MS, offsetMs + span.endFrame.toLong() * CHORD_HOP_MS, if (span.quality == com.layerbit.stave.engine.music.Quality.NONE) emptyList() else pitches)
                     }
                     Analysis(
                         bpm = beats.bpm.toDouble(),
@@ -930,6 +933,346 @@ class EditorViewModel(private val app: StaveApplication, val projectId: String) 
         val a = _music.value.analysis ?: return
         _music.value = _music.value.copy(analysis = a.copy(downbeatOffset = (a.downbeatOffset + 1).mod(4)))
     }
+
+    // ---- beats: patterns, the live player, rendering, MIDI --------------------------------
+
+    /**
+     * What the Beats tab shows beyond the session's own patterns: which pattern is open, the
+     * grid's division, the length a tapped note gets, whether the loop runs and where its
+     * play-head is, whether pad hits are being written in, and the keyboard's octave.
+     */
+    data class BeatsState(
+        val patternId: String? = null,
+        val division: Int = 16,
+        val noteDivision: Int = 16,
+        val velocity: Int = 100,
+        val octave: Int = 4,
+        val looping: Boolean = false,
+        val recording: Boolean = false,
+        val tick: Long = 0,
+        val soundFonts: List<String> = emptyList()
+    )
+    private val _beats = MutableStateFlow(BeatsState(soundFonts = app.soundFonts.list()))
+    val beats: StateFlow<BeatsState> = _beats.asStateFlow()
+    private var player: com.layerbit.stave.beats.PatternPlayer? = null
+    private var playerInstrumentId: String? = null
+    private var tickJob: Job? = null
+
+    val currentPattern: com.layerbit.stave.engine.sequencer.Pattern? get() = _beats.value.patternId?.let { session.pattern(it) } ?: session.patterns.firstOrNull()
+    val bpm: Double get() = session.tempo.first().bpm
+    fun instrumentOf(pattern: com.layerbit.stave.engine.sequencer.Pattern): String = session.instruments[pattern.id] ?: com.layerbit.stave.beats.Instruments.DRUMS
+    fun instrumentLabel(id: String): String = com.layerbit.stave.beats.Instruments.label(id, app.soundFonts)
+    fun soundFontPresets(file: String): List<String> = app.soundFonts.presetNames(file)
+
+    private fun patterns(next: List<com.layerbit.stave.engine.sequencer.Pattern>, label: String, gesture: String? = null, instruments: Map<String, String> = session.instruments) {
+        commit(session.copy(patterns = next, instruments = instruments), label, gesture)
+        refreshLoop()
+    }
+    private fun editPattern(label: String, gesture: String? = null, edit: (com.layerbit.stave.engine.sequencer.Pattern) -> com.layerbit.stave.engine.sequencer.Pattern) {
+        val p = currentPattern ?: return
+        val next = edit(p)
+        if (next == p) return
+        patterns(session.patterns.map { if (it.id == p.id) next else it }, label, gesture)
+    }
+
+    fun selectPattern(id: String) { _beats.value = _beats.value.copy(patternId = id); refreshLoop(); refreshInstrument() }
+
+    fun newPattern(instrument: String = currentPattern?.let { instrumentOf(it) } ?: com.layerbit.stave.beats.Instruments.DRUMS) {
+        val letters = "ABCDEFGHJKLMNPQRSTUVWXYZ"
+        val taken = session.patterns.map { it.name }.toSet()
+        val name = letters.map { "Pattern $it" }.firstOrNull { it !in taken } ?: "Pattern ${session.patterns.size + 1}"
+        val p = com.layerbit.stave.engine.sequencer.Pattern(Ids.next("p"), name, stepDivision = _beats.value.division)
+        patterns(session.patterns + p, "New pattern", instruments = session.instruments + (p.id to instrument))
+        selectPattern(p.id)
+    }
+
+    fun deletePattern() {
+        val p = currentPattern ?: return
+        val s = session
+        commit(s.copy(patterns = s.patterns - p, instruments = s.instruments - p.id, arrangement = s.arrangement.copy(placements = s.arrangement.placements.filter { it.patternId != p.id })), "Delete pattern")
+        _beats.value = _beats.value.copy(patternId = session.patterns.firstOrNull()?.id)
+        refreshLoop(); refreshInstrument()
+    }
+
+    fun renamePattern(name: String) { editPattern("Rename pattern") { it.copy(name = name.trim().ifBlank { it.name }) } }
+
+    fun setInstrument(id: String) {
+        val p = currentPattern ?: run { newPattern(id); return }
+        commit(session.copy(instruments = session.instruments + (p.id to id)), "Instrument")
+        refreshInstrument()
+    }
+
+    fun setBeatsTempo(bpm: Double) { setTempo(bpm); refreshLoop() }
+    fun displayName(uri: Uri): String = app.media.displayName(uri)
+
+    fun setDivision(d: Int) { _beats.value = _beats.value.copy(division = d, noteDivision = if (_beats.value.noteDivision > d) d else _beats.value.noteDivision); editPattern("Grid") { it.copy(stepDivision = d) } }
+    fun setNoteDivision(d: Int) { _beats.value = _beats.value.copy(noteDivision = d) }
+    fun setVelocity(v: Int) { _beats.value = _beats.value.copy(velocity = v.coerceIn(1, 127)) }
+    fun setOctave(o: Int) { _beats.value = _beats.value.copy(octave = o.coerceIn(1, 7)) }
+
+    /** The pattern's length in bars; notes past the new end are kept in the file and silent until it grows again. */
+    fun setBars(bars: Int) { editPattern("Pattern length") { it.copy(lengthTicks = com.layerbit.stave.engine.sequencer.Ticks.PER_BAR * bars.coerceIn(1, 16)) } }
+    fun setSwing(amount: Double) { editPattern("Swing", gesture = "swing") { it.copy(swing = amount.coerceIn(0.0, 1.0)) } }
+
+    /** A tap on the grid: off if a note starts in that step, else a note of the chosen length at the chosen velocity. */
+    fun toggleStep(pitch: Int, step: Int) {
+        val b = _beats.value
+        editPattern("Step") { p ->
+            val inStep = p.notesInStep(pitch, step, b.division)
+            if (inStep.isNotEmpty()) p.copy(notes = p.notes - inStep.toSet())
+            else {
+                val grid = com.layerbit.stave.engine.sequencer.Ticks.perStep(b.division)
+                val length = com.layerbit.stave.engine.sequencer.Ticks.perStep(b.noteDivision).coerceAtMost(p.lengthTicks - step * grid).coerceAtLeast(1)
+                p.adding(listOf(com.layerbit.stave.engine.sequencer.Note("", pitch, b.velocity, step * grid, length)))
+            }
+        }
+    }
+
+    fun setStepVelocity(pitch: Int, step: Int, velocity: Int) {
+        editPattern("Velocity", gesture = "vel-$pitch-$step") { p ->
+            val inStep = p.notesInStep(pitch, step, _beats.value.division).map { it.id }.toSet()
+            p.copy(notes = p.notes.map { if (it.id in inStep) it.copy(velocity = velocity.coerceIn(1, 127)) else it })
+        }
+    }
+
+    fun removeNote(id: String) { editPattern("Remove note") { p -> p.copy(notes = p.notes.filter { it.id != id }) } }
+    fun quantiseNotes(strength: Double) { editPattern("Quantise") { p -> p.copy(notes = com.layerbit.stave.engine.sequencer.NoteEdits.quantise(p.notes, _beats.value.division, strength)) } }
+    fun humaniseNotes() { editPattern("Humanise") { p -> p.copy(notes = com.layerbit.stave.engine.sequencer.NoteEdits.humanise(p.notes, com.layerbit.stave.engine.sequencer.Ticks.PER_QUARTER / 24, 12, System.nanoTime())) } }
+    fun transposeNotes(semitones: Int) { editPattern("Transpose") { p -> p.copy(notes = com.layerbit.stave.engine.sequencer.NoteEdits.transpose(p.notes, semitones)) } }
+    fun legatoNotes() { editPattern("Legato") { p -> p.copy(notes = com.layerbit.stave.engine.sequencer.NoteEdits.legato(p.notes, p.lengthTicks)) } }
+    fun duplicatePattern() { editPattern("Double the pattern") { p -> if (p.lengthTicks * 2 > com.layerbit.stave.engine.sequencer.Ticks.PER_BAR * 16) p else p.duplicate() } }
+    fun clearPattern() { editPattern("Clear pattern") { p -> p.copy(notes = emptyList()) } }
+
+    /** An arpeggio of the held or given pitches over the whole pattern, replacing its notes. */
+    fun arpeggiate(pitches: List<Int>, mode: com.layerbit.stave.engine.sequencer.Arpeggiator.Mode, octaves: Int) {
+        if (pitches.isEmpty()) return
+        editPattern("Arpeggio") { p -> p.copy(notes = com.layerbit.stave.engine.sequencer.Arpeggiator.arpeggiate(pitches, mode, _beats.value.division, octaves, p.lengthTicks, _beats.value.velocity, 0.9)) }
+    }
+
+    /** The song's chords (Musician tab) as held chords in a new pattern, a bar each in the file's own time. */
+    fun chordsToPattern() {
+        val a = _music.value.analysis ?: return
+        val chords = a.chords.filter { it.pitches.isNotEmpty() }
+        if (chords.isEmpty()) { _ui.value = _ui.value.copy(message = app.getString(com.layerbit.stave.R.string.beats_no_chords)); return }
+        val bpm = if (a.bpm > 0) a.bpm else bpm
+        val origin = chords.first().startMs
+        val notes = ArrayList<com.layerbit.stave.engine.sequencer.Note>()
+        var n = 0
+        for (c in chords.take(64)) {
+            val start = com.layerbit.stave.engine.sequencer.TicksTime.secondsToTicks((c.startMs - origin) / 1000.0, bpm)
+            val end = com.layerbit.stave.engine.sequencer.TicksTime.secondsToTicks((c.endMs - origin) / 1000.0, bpm)
+            for (p in c.pitches) notes += com.layerbit.stave.engine.sequencer.Note("c${++n}", p, 90, start, (end - start).coerceAtLeast(com.layerbit.stave.engine.sequencer.Ticks.perStep(16)))
+        }
+        val reach = notes.maxOf { it.endTick }
+        val bars = ((reach + com.layerbit.stave.engine.sequencer.Ticks.PER_BAR - 1) / com.layerbit.stave.engine.sequencer.Ticks.PER_BAR).coerceIn(1, 64)
+        val p = com.layerbit.stave.engine.sequencer.Pattern(Ids.next("p"), "Chords", bars * com.layerbit.stave.engine.sequencer.Ticks.PER_BAR, notes)
+        patterns(session.patterns + p, "Chords to pattern", instruments = session.instruments + (p.id to "synth:pad"))
+        selectPattern(p.id)
+    }
+
+    /** The notes heard on the Musician tab become a pattern on a synth, starting from the first note. */
+    fun takePendingNotes() {
+        val heard = pendingNotes ?: return
+        pendingNotes = null
+        if (heard.isEmpty()) return
+        val rate = session.sampleRate
+        val origin = heard.minOf { it.start }
+        val notes = heard.mapIndexed { i, n ->
+            val start = com.layerbit.stave.engine.sequencer.TicksTime.secondsToTicks((n.start - origin).toDouble() / rate, bpm)
+            val end = com.layerbit.stave.engine.sequencer.TicksTime.secondsToTicks((n.end - origin).toDouble() / rate, bpm)
+            com.layerbit.stave.engine.sequencer.Note("m${i + 1}", n.midi.coerceIn(0, 127), n.velocity.coerceIn(1, 127), start, (end - start).coerceAtLeast(com.layerbit.stave.engine.sequencer.Ticks.perStep(32)))
+        }
+        val reach = notes.maxOf { it.endTick }
+        val bars = ((reach + com.layerbit.stave.engine.sequencer.Ticks.PER_BAR - 1) / com.layerbit.stave.engine.sequencer.Ticks.PER_BAR).coerceIn(1, 64)
+        val p = com.layerbit.stave.engine.sequencer.Pattern(Ids.next("p"), "Melody", bars * com.layerbit.stave.engine.sequencer.Ticks.PER_BAR, notes)
+        patterns(session.patterns + p, "Notes to MIDI", instruments = session.instruments + (p.id to "synth:lead"))
+        selectPattern(p.id)
+    }
+    val hasPendingNotes: Boolean get() = !pendingNotes.isNullOrEmpty()
+
+    // -- the live player
+
+    private fun ensurePlayer(): com.layerbit.stave.beats.PatternPlayer {
+        val existing = player
+        if (existing != null) return existing
+        val p = com.layerbit.stave.beats.PatternPlayer(session.sampleRate)
+        player = p
+        refreshInstrument()
+        return p
+    }
+
+    private fun refreshInstrument() {
+        val pl = player ?: return
+        val id = currentPattern?.let { instrumentOf(it) } ?: com.layerbit.stave.beats.Instruments.DRUMS
+        if (id == playerInstrumentId && pl.instrument != null) return
+        val made = com.layerbit.stave.beats.Instruments.create(id, session.sampleRate, app.soundFonts)
+        if (made == null && com.layerbit.stave.beats.Instruments.isSoundFont(id)) _ui.value = _ui.value.copy(message = app.getString(com.layerbit.stave.R.string.beats_soundfont_missing))
+        pl.instrument = made ?: com.layerbit.stave.beats.Instruments.create(com.layerbit.stave.beats.Instruments.DRUMS, session.sampleRate, null)
+        playerInstrumentId = id
+    }
+
+    private fun refreshLoop() {
+        val pl = player ?: return
+        val p = currentPattern
+        if (p == null) { pl.setLoop(null); return }
+        val tempo = bpm
+        pl.setLoop(com.layerbit.stave.beats.PatternPlayer.Loop(p.lengthTicks, tempo) { i -> p.realise(i.toLong()) })
+    }
+
+    fun toggleLoop() { if (_beats.value.looping) stopLoop() else startLoop() }
+
+    fun startLoop() {
+        if (currentPattern == null) newPattern()
+        if (transport.state.value.playing) transport.pause()
+        val pl = ensurePlayer()
+        refreshInstrument(); refreshLoop()
+        pl.startLoop()
+        _beats.value = _beats.value.copy(looping = true)
+        tickJob?.cancel()
+        tickJob = viewModelScope.launch { while (true) { _beats.value = _beats.value.copy(tick = pl.tick); delay(33) } }
+    }
+
+    fun stopLoop() {
+        tickJob?.cancel(); tickJob = null
+        player?.stopLoop()
+        _beats.value = _beats.value.copy(looping = false, tick = 0, recording = false)
+    }
+
+    fun setRecording(on: Boolean) { _beats.value = _beats.value.copy(recording = on); if (on && !_beats.value.looping) startLoop() }
+
+    /** A pad or key pressed: heard at once, and written at the play-head when recording (snapped to the grid). */
+    fun padDown(pitch: Int, velocity: Int = _beats.value.velocity) {
+        val pl = ensurePlayer()
+        refreshInstrument()
+        pl.hit(pitch, velocity)
+        val b = _beats.value
+        if (b.recording && b.looping) {
+            val p = currentPattern ?: return
+            val grid = com.layerbit.stave.engine.sequencer.Ticks.perStep(b.division)
+            val at = (Math.round(pl.tick.toDouble() / grid) * grid).mod(p.lengthTicks)
+            val step = (at / grid).toInt()
+            if (p.notesInStep(pitch, step, b.division).isEmpty()) {
+                editPattern("Record step", gesture = "record") { it.adding(listOf(com.layerbit.stave.engine.sequencer.Note("", pitch, velocity, at, com.layerbit.stave.engine.sequencer.Ticks.perStep(b.noteDivision).coerceAtMost(p.lengthTicks - at)))) }
+            }
+        }
+    }
+    fun padUp(pitch: Int) { player?.release(pitch) }
+
+    // -- rendering to the timeline
+
+    /** The pattern, played [repeats] times through its instrument, as a clip on a new track at the play-head. */
+    fun renderPatternToTrack(repeats: Int = 1) {
+        val p = currentPattern ?: return
+        val notes = com.layerbit.stave.engine.sequencer.Arrangement(listOf(com.layerbit.stave.engine.sequencer.Placement(p.id, 0, repeats.coerceIn(1, 64)))).flatten(listOf(p), 0L)
+        renderNotes(notes, p.lengthTicks * repeats, instrumentOf(p), p.name)
+    }
+
+    /** The whole song (the arrangement) rendered pattern by pattern onto one new track each. */
+    fun renderSongToTrack() {
+        val s = session
+        if (s.arrangement.placements.isEmpty()) return
+        val byInstrument = s.arrangement.placements.groupBy { pl -> s.pattern(pl.patternId)?.let { instrumentOf(it) } ?: com.layerbit.stave.beats.Instruments.DRUMS }
+        val length = s.arrangement.lengthTicks(s.patterns.associateBy { it.id })
+        for ((instrument, placements) in byInstrument) {
+            val notes = com.layerbit.stave.engine.sequencer.Arrangement(placements).flatten(s.patterns, 0L)
+            renderNotes(notes, length, instrument, "Song · ${instrumentLabel(instrument)}")
+        }
+    }
+
+    private fun renderNotes(notes: List<com.layerbit.stave.engine.sequencer.Note>, lengthTicks: Long, instrumentId: String, label: String) {
+        val s = session
+        val rate = s.sampleRate
+        val tempo = bpm
+        val at = _ui.value.window.playhead
+        _ui.value = _ui.value.copy(busy = Busy(app.getString(com.layerbit.stave.R.string.beats_rendering), 0f))
+        viewModelScope.launch {
+            val result = runCatching {
+                withContext(Dispatchers.Default) {
+                    val instrument = com.layerbit.stave.beats.Instruments.create(instrumentId, rate, app.soundFonts) ?: com.layerbit.stave.beats.Instruments.create(com.layerbit.stave.beats.Instruments.DRUMS, rate, null)!!
+                    try {
+                        val stereo = com.layerbit.stave.engine.sequencer.PatternRenderer.render(notes, lengthTicks, tempo, rate, instrument)
+                        val chs = OfflineTools.deinterleave(stereo, 2)
+                        val parent = s.sources.firstOrNull() ?: Source("mix", "Mix", "", rate, 2, s.length)
+                        OfflineTools.writeSource(files, chs, rate, parent, label).copy(kind = Source.Kind.RENDER, name = label)
+                    } finally { (instrument as? AutoCloseable)?.close() }
+                }
+            }
+            _ui.value = _ui.value.copy(busy = null)
+            result.onSuccess { source ->
+                withContext(Dispatchers.IO) { peaksFor(source) }
+                val track = Track(Ids.next("t"), label, Track.Kind.MIDI)
+                history.recordLate("Render $label") { cur -> SessionEdits.add(SessionEdits.addTrack(cur.copy(sources = cur.sources + source), track), SessionEdits.clipFor(source, track.id, at, cur.sampleRate)) }
+                after()
+                selectTrack(track.id)
+                _ui.value = _ui.value.copy(message = app.getString(com.layerbit.stave.R.string.beats_rendered, label))
+            }.onFailure { e -> _ui.value = _ui.value.copy(message = e.message ?: "Render failed") }
+        }
+    }
+
+    // -- the song
+
+    fun addToSong(repeats: Int = 1) {
+        val p = currentPattern ?: return
+        val s = session
+        val end = s.arrangement.lengthTicks(s.patterns.associateBy { it.id })
+        commit(s.copy(arrangement = s.arrangement.copy(placements = s.arrangement.placements + com.layerbit.stave.engine.sequencer.Placement(p.id, end, repeats.coerceIn(1, 64)))), "Add to song")
+    }
+    fun removeFromSong(index: Int) {
+        val s = session
+        val kept = s.arrangement.placements.filterIndexed { i, _ -> i != index }
+        // Close the gap: the placements that followed move up by what was taken out.
+        val removed = s.arrangement.placements.getOrNull(index) ?: return
+        val length = s.pattern(removed.patternId)?.lengthTicks?.times(removed.repeats) ?: 0L
+        val moved = kept.map { if (it.startTick > removed.startTick) it.copy(startTick = (it.startTick - length).coerceAtLeast(0)) else it }
+        commit(s.copy(arrangement = s.arrangement.copy(placements = moved)), "Remove from song")
+    }
+    fun setSongRepeats(index: Int, repeats: Int) {
+        val s = session
+        val old = s.arrangement.placements.getOrNull(index) ?: return
+        val length = s.pattern(old.patternId)?.lengthTicks ?: return
+        val delta = (repeats.coerceIn(1, 64) - old.repeats) * length
+        val next = s.arrangement.placements.mapIndexed { i, pl -> when { i == index -> pl.copy(repeats = repeats.coerceIn(1, 64)); pl.startTick > old.startTick -> pl.copy(startTick = (pl.startTick + delta).coerceAtLeast(0)); else -> pl } }
+        commit(s.copy(arrangement = s.arrangement.copy(placements = next)), "Song repeats")
+    }
+
+    // -- MIDI files and SoundFonts
+
+    /** A Standard MIDI File's tracks as patterns (the file's tempo becomes the session's when it has one). Returns how many patterns landed. */
+    fun importMidi(bytes: ByteArray): Int {
+        val file = runCatching { com.layerbit.stave.engine.sequencer.MidiFile.read(bytes) }.getOrElse { e -> _ui.value = _ui.value.copy(message = e.message ?: "Not a MIDI file"); return 0 }
+        val made = file.toPatterns().map { it.copy(id = Ids.next("p")) }
+        if (made.isEmpty()) { _ui.value = _ui.value.copy(message = app.getString(com.layerbit.stave.R.string.beats_midi_empty)); return 0 }
+        val s = session
+        val tempo = file.tempoBpm.takeIf { it > 20 && it < 300 }
+        val instruments = made.associate { p -> p.id to (if (p.notes.all { it.channel == 9 }) com.layerbit.stave.beats.Instruments.DRUMS else "synth:keys") }
+        commit(s.copy(patterns = s.patterns + made, instruments = s.instruments + instruments, tempo = if (tempo != null) listOf(com.layerbit.stave.engine.project.TempoEntry(0, tempo, s.tempo.first().beatsPerBar)) else s.tempo), "Import MIDI")
+        selectPattern(made.first().id)
+        return made.size
+    }
+
+    /** The current pattern as a one-track MIDI file at the session's tempo, or the whole song when [song]. */
+    fun exportMidiBytes(song: Boolean): ByteArray? {
+        val s = session
+        return if (song) {
+            if (s.arrangement.placements.isEmpty()) return null
+            val notes = s.arrangement.flatten(s.patterns, 0L)
+            com.layerbit.stave.engine.sequencer.Pattern("song", s.name.ifBlank { "Song" }, s.arrangement.lengthTicks(s.patterns.associateBy { it.id }), notes).toMidiFile(bpm).write()
+        } else currentPattern?.toMidiFile(bpm)?.write()
+    }
+
+    fun importSoundFont(name: String, copy: (java.io.File) -> Unit) {
+        viewModelScope.launch {
+            val saved = runCatching { withContext(Dispatchers.IO) { app.soundFonts.import(name, copy) } }
+            saved.onSuccess { file ->
+                val presets = app.soundFonts.presetNames(file)
+                _beats.value = _beats.value.copy(soundFonts = app.soundFonts.list())
+                if (presets.isEmpty()) { app.soundFonts.remove(file); _beats.value = _beats.value.copy(soundFonts = app.soundFonts.list()); _ui.value = _ui.value.copy(message = app.getString(com.layerbit.stave.R.string.beats_soundfont_bad)) }
+                else setInstrument(com.layerbit.stave.beats.Instruments.soundFontId(file, 0))
+            }.onFailure { e -> _ui.value = _ui.value.copy(message = e.message ?: "Could not add the SoundFont") }
+        }
+    }
+
+    fun removeSoundFont(name: String) { app.soundFonts.remove(name); _beats.value = _beats.value.copy(soundFonts = app.soundFonts.list()) }
 
     private companion object { const val CHORD_HOP_MS = 100 }
 }

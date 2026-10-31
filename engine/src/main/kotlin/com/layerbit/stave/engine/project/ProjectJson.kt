@@ -4,6 +4,8 @@ import com.layerbit.stave.engine.dsp.FadeShape
 import com.layerbit.stave.engine.json.Json
 import com.layerbit.stave.engine.json.JsonArray
 import com.layerbit.stave.engine.json.JsonObject
+import com.layerbit.stave.engine.sequencer.Arrangement
+import com.layerbit.stave.engine.sequencer.SequencerJson
 
 /**
  * The project file. Hand-written both ways; every float through putFinite; every field read
@@ -33,6 +35,9 @@ object ProjectJson {
         .put("selectedTrack", s.selectedTrackId)
         .putFinite("masterVolumeDb", s.masterVolumeDb)
         .put("masterInserts", JsonArray.ofObjects(s.masterInserts.map(::insert)))
+        .put("patterns", JsonArray.ofObjects(s.patterns.map { SequencerJson.write(it) }))
+        .put("arrangement", SequencerJson.write(s.arrangement))
+        .put("instruments", JsonObject().also { o -> for ((id, instrument) in s.instruments.toSortedMap()) o.put(id, instrument) })
 
     fun decode(o: JsonObject): Session = Session(
         name = o.string("name") ?: "",
@@ -50,6 +55,9 @@ object ProjectJson {
         selectedTrackId = o.string("selectedTrack"),
         masterVolumeDb = o.double("masterVolumeDb", 0.0),
         masterInserts = o.arr("masterInserts")?.objects()?.map(::insertOf) ?: emptyList(),
+        patterns = o.arr("patterns")?.objects()?.map { SequencerJson.readPattern(it) }?.filter { it.id.isNotEmpty() } ?: emptyList(),
+        arrangement = o.obj("arrangement")?.let { SequencerJson.readArrangement(it) } ?: Arrangement(),
+        instruments = o.obj("instruments")?.let { io -> io.names().mapNotNull { k -> io.string(k)?.let { k to it } }.toMap() } ?: emptyMap(),
         version = o.int("version", 1)
     )
 

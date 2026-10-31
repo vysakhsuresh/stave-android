@@ -22,3 +22,6 @@ setSound
 size
 startForeground
 drawImage
+drawRoundRect
+tryAwaitRelease
+viewConfiguration

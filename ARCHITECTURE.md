@@ -6,6 +6,8 @@ Stave is three layers, with the arrows pointing one way.
  ┌──────────────────────────────────────────────────────────────────────┐
  │ :app  (Compose, Android)                                              │
  │   ui/            screens, sheets, the waveform canvas, the mixer       │
+ │   beats/         instruments by id, the SoundFont store, the pattern   │
+ │                  player (its own AudioTrack, see BUILD_NOTES)          │
  │   audio/         AudioService (foreground), Devices, Transport         │
  │   files/         ProjectStore, PeakStore, MediaDoor (picker, Share)    │
  │   export/        RenderService, Encoders (libstaveav, MediaCodec)      │
@@ -22,8 +24,9 @@ Stave is three layers, with the arrows pointing one way.
  │   project/  session, history, json │   │   av/      libstaveav JNI      │
  │   transcript/ words → cuts         │   │            (FFmpeg, in CI)     │
  │   music/    chords, key, beats     │   │   whisper/ whisper.cpp JNI     │
- │   sequencer/ patterns, MIDI        │   │   rubberband/, tsf/ (vendored) │
- │   export/   formats, targets       │   └────────────────────────────────┘
+ │   sequencer/ patterns, MIDI, render │   │   rubberband/, tsf/ (vendored) │
+ │   synth/    oscillators, FM, drums │   └────────────────────────────────┘
+ │   export/   formats, targets       │
  └────────────────────────────────────┘
 ```
 

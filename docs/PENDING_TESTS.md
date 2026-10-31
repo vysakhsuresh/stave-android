@@ -47,3 +47,22 @@ back into the roadmap with what broke.
 30. Each of the twelve effect presets on a spoken line: none clips (the Export sheet's true peak), each sounds like its name.
 31. Settings → Add a model file with ggml-small-q5_1.bin from Downloads: "Better speech model added" shows and Transcribe uses it (slower, better Hindi).
 32. Library: every export of every project listed newest first; Share hands the file to another app; Delete removes the private copy and leaves Music/Stave's.
+
+## P5 — the Musician tab
+33. Open a song with drums, Musician → Read the song: the tempo lands within a BPM of the known one, the beats sit on the hits, the key reads right for a song you know, the chords change where the song changes; ½ tempo and 2× tempo move the figure and the beat list together; Mark every bar puts a marker on every downbeat and "Bar starts a beat later" moves them a beat; the click follows the song's beats when the toggle is on.
+34. The tuner: play an A and it reads A4 within 2 cents; the needle settles rather than jitters; nothing while the input is not armed.
+35. Stems with a UMX model under `files/models/`: the four stems land on four tracks, the originals muted, and the mix of the four sounds like the song; the progress climbs; memory does not blow on a four-minute song (watch `dumpsys meminfo`).
+36. Select a sung phrase, Notes to MIDI: the Beats tab opens with a banner; Make a pattern of it gives a Melody pattern on Lead whose notes are the sung ones to a semitone.
+
+## P6 — the Beats tab
+37. New pattern, tap kick on steps 1, 5, 9, 13 and hat on every step, Play loop: it plays in time at the session's tempo with the play-head column moving; the loop keeps time for a minute against the metronome of another app; nothing clicks at the loop point.
+38. A step tapped while the loop plays is heard on the next pass; a drag up on a note raises its velocity (louder on the next pass) and Undo takes the drag back as one step.
+39. Record the pads on, hit pads while the loop plays: each hit is written to the nearest step and plays from the next bar; a hit between steps lands on the nearer one.
+40. Switch the instrument to Pluck: the grid becomes the piano roll; the keys play at once on press and stop on release; the octave buttons move the roll and the keys together.
+41. Swing at 60% delays every other 16th audibly; Quantise after Humanise puts the notes back; Legato joins a line; Arpeggio over a chord entered on the grid runs up it at the grid's rate.
+42. Render to a track ×4: a four-bar clip lands on a new MIDI track at the play-head and plays the same as the loop did; the file's first hit is on its first sample (zoom in).
+43. Add two patterns to the song, ×2 and ×1, Render the song: one track per instrument, the second pattern starting where the first's repeats end; Export song writes a .mid that another app opens with both at the right bar.
+44. Import a MIDI file with drums on channel 10 and a piano track: two patterns, the first on Drums, the second on Keys, at the file's tempo.
+45. Add a SoundFont (.sf2) from Downloads: its name becomes a chip, the preset arrows step through the bank's names, a key plays the preset; Remove takes it off and the pattern falls back to the kit with the message. Then `uiautomator dump` the tab: zero NAF - the grid is one named node, every pad and key a named button.
+46. Play loop while the main transport plays: the transport pauses (two outputs would drift); the AudioTrack output and the graph's are at the same level roughly (Pluck at velocity 100 against a -12 dBFS clip).
+

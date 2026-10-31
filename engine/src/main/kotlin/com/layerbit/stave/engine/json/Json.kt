@@ -15,6 +15,8 @@ class JsonObject {
 
     val keys: Set<String> get() = map.keys
     fun has(name: String): Boolean = map.containsKey(name)
+    /** The keys, in the order they were put (or read). */
+    fun names(): List<String> = map.keys.toList()
     fun raw(name: String): Any? = map[name]
 
     fun put(name: String, value: String?): JsonObject { if (value == null) map.remove(name) else map[name] = value; return this }
