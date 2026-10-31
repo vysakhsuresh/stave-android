@@ -1,5 +1,7 @@
 package com.layerbit.stave.ui.finish
 
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -29,6 +31,7 @@ import com.layerbit.stave.ui.components.Panel
 import com.layerbit.stave.ui.components.PrimaryButton
 import com.layerbit.stave.ui.components.SecondaryButton
 import com.layerbit.stave.ui.components.SectionHeading
+import com.layerbit.stave.ui.components.ToggleRow
 import com.layerbit.stave.ui.components.ValueSlider
 import com.layerbit.stave.ui.theme.StaveColors
 import java.util.Locale
@@ -73,6 +76,71 @@ fun FinishPanel(vm: com.layerbit.stave.ui.editor.EditorViewModel, ui: com.layerb
             ValueSlider(stringResource(R.string.finish_glue), glue, 0f..1f, { glue = it }, format = Formats::percent)
             Text(stringResource(R.string.finish_master_hint), style = MaterialTheme.typography.bodySmall, color = StaveColors.Dim, modifier = Modifier.padding(vertical = 6.dp))
             PrimaryButton(stringResource(R.string.finish_master, target.label), onClick = { vm.master(tone.toDouble(), glue.toDouble()) }, modifier = Modifier.fillMaxWidth(), enabled = ui.session.length > 0 && ui.busy == null)
+            if (finish.abGainDb != null && ui.canUndo) {
+                ToggleRow(stringResource(R.string.finish_compare), finish.comparing, { vm.compareBefore(it) }, detail = stringResource(R.string.finish_compare_hint, Formats.db(finish.abGainDb.toFloat())))
+            }
+        }
+
+        // ---- the report ----
+        finish.report?.let { rep ->
+            Panel(modifier = Modifier.fillMaxWidth()) {
+                SectionHeading(stringResource(R.string.finish_report))
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp)) {
+                    LabelledValue(stringResource(R.string.finish_correlation), String.format(Locale.getDefault(), "%.2f", rep.correlation), Modifier.weight(1f), numeric = true)
+                    LabelledValue(stringResource(R.string.finish_balance), if (kotlin.math.abs(rep.balanceDb) < 0.05) stringResource(R.string.finish_centred) else Formats.db(rep.balanceDb.toFloat()), Modifier.weight(1f), numeric = true)
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxWidth()) {
+                    LabelledValue(stringResource(R.string.finish_lows), Formats.dbPlain(rep.lowDb.toFloat()), Modifier.weight(1f), numeric = true)
+                    LabelledValue(stringResource(R.string.finish_mids), Formats.dbPlain(rep.midDb.toFloat()), Modifier.weight(1f), numeric = true)
+                    LabelledValue(stringResource(R.string.finish_highs), Formats.dbPlain(rep.highDb.toFloat()), Modifier.weight(1f), numeric = true)
+                }
+                val note = when {
+                    rep.correlation < 0.2 -> stringResource(R.string.finish_note_wide)
+                    rep.lowDb > rep.midDb + 6 -> stringResource(R.string.finish_note_bassy)
+                    rep.highDb > rep.midDb + 3 -> stringResource(R.string.finish_note_bright)
+                    kotlin.math.abs(rep.dcOffset) > 0.01 -> stringResource(R.string.finish_note_dc)
+                    else -> stringResource(R.string.finish_note_fine)
+                }
+                Text(note, style = MaterialTheme.typography.bodySmall, color = StaveColors.Dim, modifier = Modifier.padding(top = 6.dp))
+            }
+        }
+
+        // ---- match a reference ----
+        Panel(modifier = Modifier.fillMaxWidth()) {
+            SectionHeading(stringResource(R.string.finish_match))
+            Text(stringResource(R.string.finish_match_hint), style = MaterialTheme.typography.bodySmall, color = StaveColors.Dim, modifier = Modifier.padding(vertical = 4.dp))
+            val pickReference = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri -> if (uri != null) vm.pickReference(uri) }
+            var strength by remember { mutableStateOf(1f) }
+            SecondaryButton(finish.referenceName?.let { stringResource(R.string.finish_reference_named, it) } ?: stringResource(R.string.finish_pick_reference), onClick = { pickReference.launch(arrayOf("audio/*")) }, tall = false, modifier = Modifier.fillMaxWidth(), enabled = ui.busy == null)
+            if (finish.referenceProfile != null) {
+                ValueSlider(stringResource(R.string.finish_match_strength), strength, 0f..1f, { strength = it }, format = Formats::percent, onCommit = { vm.matchToReference(strength.toDouble()) })
+                if (finish.matchBands.isEmpty()) Text(stringResource(R.string.finish_match_nothing), style = MaterialTheme.typography.bodySmall, color = StaveColors.Muted, modifier = Modifier.padding(top = 4.dp))
+                else Text(finish.matchBands.joinToString("  ") { b -> Formats.hz(b.hz.toFloat()) + " " + Formats.db(b.gainDb.toFloat()) }, style = MaterialTheme.typography.bodySmall, color = StaveColors.Muted, modifier = Modifier.padding(top = 4.dp))
+                PrimaryButton(stringResource(R.string.finish_apply_match), onClick = vm::applyMatch, tall = false, modifier = Modifier.fillMaxWidth().padding(top = 6.dp), enabled = finish.matchBands.isNotEmpty() && ui.busy == null)
+            }
+        }
+
+        // ---- width, bands, transients ----
+        Panel(modifier = Modifier.fillMaxWidth()) {
+            SectionHeading(stringResource(R.string.finish_shape))
+            var width by remember { mutableStateOf(1f) }
+            ValueSlider(stringResource(R.string.finish_width), width, 0f..2f, { width = it }, format = { w -> if (w < 0.05f) "mono" else Formats.percent(w) })
+            SecondaryButton(stringResource(R.string.finish_apply_width), onClick = { vm.applyWidth(width.toDouble()) }, tall = false, modifier = Modifier.fillMaxWidth(), enabled = ui.session.length > 0 && ui.busy == null && kotlin.math.abs(width - 1f) > 0.02f)
+            Spacer(Modifier.height(10.dp))
+            SectionHeading(stringResource(R.string.finish_multiband))
+            Text(stringResource(R.string.finish_multiband_hint), style = MaterialTheme.typography.bodySmall, color = StaveColors.Dim, modifier = Modifier.padding(vertical = 4.dp))
+            var low by remember { mutableStateOf(0f) }; var mid by remember { mutableStateOf(0f) }; var high by remember { mutableStateOf(0f) }
+            ValueSlider(stringResource(R.string.finish_lows), low, 0f..1f, { low = it }, format = Formats::percent)
+            ValueSlider(stringResource(R.string.finish_mids), mid, 0f..1f, { mid = it }, format = Formats::percent)
+            ValueSlider(stringResource(R.string.finish_highs), high, 0f..1f, { high = it }, format = Formats::percent)
+            SecondaryButton(stringResource(R.string.finish_apply_multiband), onClick = { vm.applyMultiband(low.toDouble(), mid.toDouble(), high.toDouble()) }, tall = false, modifier = Modifier.fillMaxWidth(), enabled = ui.session.length > 0 && ui.busy == null && (low + mid + high) > 0.02f)
+            Spacer(Modifier.height(10.dp))
+            SectionHeading(stringResource(R.string.finish_transients))
+            Text(stringResource(R.string.finish_transients_hint), style = MaterialTheme.typography.bodySmall, color = StaveColors.Dim, modifier = Modifier.padding(vertical = 4.dp))
+            var attack by remember { mutableStateOf(0f) }; var sustain by remember { mutableStateOf(0f) }
+            ValueSlider(stringResource(R.string.finish_attack), attack, -1f..1f, { attack = it }, format = Formats::percent)
+            ValueSlider(stringResource(R.string.finish_sustain), sustain, -1f..1f, { sustain = it }, format = Formats::percent)
+            SecondaryButton(stringResource(R.string.finish_apply_transients), onClick = { vm.applyTransients(attack.toDouble(), sustain.toDouble()) }, tall = false, modifier = Modifier.fillMaxWidth(), enabled = ui.session.length > 0 && ui.busy == null && (kotlin.math.abs(attack) + kotlin.math.abs(sustain)) > 0.02f)
         }
     }
 }

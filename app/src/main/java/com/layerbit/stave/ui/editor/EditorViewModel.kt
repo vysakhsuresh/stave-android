@@ -610,7 +610,18 @@ class EditorViewModel(private val app: StaveApplication, val projectId: String) 
 
     // ---- finish: measure and master --------------------------------------------------------
 
-    data class FinishState(val targetId: String = "streaming", val reading: com.layerbit.stave.engine.dsp.LoudnessReading? = null)
+    data class FinishState(
+        val targetId: String = "streaming",
+        val reading: com.layerbit.stave.engine.dsp.LoudnessReading? = null,
+        val report: com.layerbit.stave.engine.dsp.MasteringReport? = null,
+        /** The reference's name and profile for EQ match, once one is picked. */
+        val referenceName: String? = null,
+        val referenceProfile: DoubleArray? = null,
+        val matchBands: List<com.layerbit.stave.engine.dsp.EqBand> = emptyList(),
+        /** The last master's before-and-after loudness, so A/B can be level-matched. */
+        val abGainDb: Double? = null,
+        val comparing: Boolean = false
+    )
     private val _finish = MutableStateFlow(FinishState(targetId = app.settings.current.loudnessTargetId))
     val finish: StateFlow<FinishState> = _finish.asStateFlow()
 
@@ -623,12 +634,87 @@ class EditorViewModel(private val app: StaveApplication, val projectId: String) 
             val chs = mixdown(0, s.length)
             _ui.value = _ui.value.copy(busy = null)
             if (chs == null) return@launch
-            val reading = withContext(Dispatchers.Default) {
-                val meter = com.layerbit.stave.engine.dsp.LoudnessMeter(s.sampleRate, 2)
-                meter.process(com.layerbit.stave.processing.OfflineTools.interleave(chs))
-                meter.reading()
+            val report = withContext(Dispatchers.Default) { com.layerbit.stave.engine.dsp.MasteringReport.of(chs, s.sampleRate) }
+            _finish.value = _finish.value.copy(reading = report.loudness, report = report)
+        }
+    }
+
+    /**
+     * A reference track, decoded through the FFmpeg door into this project's media folder for
+     * as long as it takes to read its long-term spectrum, then deleted; the profile and the
+     * bands that move the mix toward it stay in the Finish state until another is picked.
+     */
+    fun pickReference(uri: Uri) {
+        val s = session
+        _ui.value = _ui.value.copy(busy = Busy(app.getString(com.layerbit.stave.R.string.finish_reading_reference), 0f))
+        viewModelScope.launch {
+            val result = runCatching {
+                val source = app.media.import(uri, files, s.sampleRate) { p -> _ui.value = _ui.value.copy(busy = Busy(app.getString(com.layerbit.stave.R.string.finish_reading_reference), p)) }
+                try {
+                    withContext(Dispatchers.Default) {
+                        val f = files.sourceFile(source.file)
+                        // The middle minute is enough for a long-term spectrum and keeps a ten-minute reference quick.
+                        val take = minOf(source.frames, 60L * source.sampleRate).toInt()
+                        val from = ((source.frames - take) / 2).coerceAtLeast(0)
+                        val inter = RawAudio.read(f, source.channels, from, take)
+                        val mono = FloatArray(take) { i -> var m = 0f; for (c in 0 until source.channels) m += inter[i * source.channels + c]; m / source.channels }
+                        source.name to com.layerbit.stave.engine.dsp.EqMatch.profile(mono, source.sampleRate)
+                    }
+                } finally { withContext(Dispatchers.IO) { files.sourceFile(source.file).delete() } }
             }
-            _finish.value = _finish.value.copy(reading = reading)
+            _ui.value = _ui.value.copy(busy = null)
+            result.onSuccess { (name, profile) -> _finish.value = _finish.value.copy(referenceName = name, referenceProfile = profile, matchBands = emptyList()); matchToReference(1.0) }
+                .onFailure { e -> _ui.value = _ui.value.copy(message = e.message ?: "Could not read the reference") }
+        }
+    }
+
+    /** The bands that move the mix toward the reference by [strength], shown on the card; Apply match renders them. */
+    fun matchToReference(strength: Double) {
+        val ref = _finish.value.referenceProfile ?: return
+        val s = session
+        viewModelScope.launch {
+            val chs = mixdown(0, s.length) ?: return@launch
+            val bands = withContext(Dispatchers.Default) {
+                val n = chs[0].size
+                val mono = FloatArray(n) { i -> (chs[0][i] + chs.getOrElse(1) { chs[0] }[i]) * 0.5f }
+                com.layerbit.stave.engine.dsp.EqMatch.match(com.layerbit.stave.engine.dsp.EqMatch.profile(mono, s.sampleRate), ref, s.sampleRate, strength)
+            }
+            _finish.value = _finish.value.copy(matchBands = bands)
+        }
+    }
+
+    fun applyMatch() {
+        val bands = _finish.value.matchBands
+        if (bands.isEmpty()) return
+        select(null)
+        applyOffline("Match EQ to ${_finish.value.referenceName ?: "reference"}", com.layerbit.stave.processing.OfflineTools.eq(bands)) { measureMix() }
+    }
+
+    fun applyWidth(amount: Double) { select(null); applyOffline("Width", com.layerbit.stave.processing.OfflineTools.width(amount)) { measureMix() } }
+
+    /** Three bands of gentle compression, each amount 0..1 setting how much its band is held. */
+    fun applyMultiband(low: Double, mid: Double, high: Double) {
+        fun band(a: Double) = if (a < 0.02) CompressorSettings(ratio = 1.0, thresholdDb = -60.0, kneeDb = 0.0) else CompressorSettings(thresholdDb = -22.0 + 8.0 * (1 - a), ratio = 1.5 + 2.5 * a, kneeDb = 9.0, attackMs = 15.0, releaseMs = 180.0, autoMakeup = true)
+        select(null)
+        applyOffline("Multiband", com.layerbit.stave.processing.OfflineTools.multiband(150.0, 3000.0, listOf(band(low), band(mid), band(high)))) { measureMix() }
+    }
+
+    fun applyTransients(attack: Double, sustain: Double) { select(null); applyOffline("Transients", com.layerbit.stave.processing.OfflineTools.transients(attack, sustain)) { measureMix() } }
+
+    /**
+     * A/B at matched loudness: on, the graph plays the session Undo would go back to, its master
+     * brought up or down by the last master's loudness change, so the ear compares colour and
+     * dynamics and not level; off, the current session. Nothing is recorded in the history.
+     */
+    fun compareBefore(on: Boolean) {
+        val before = history.previous
+        if (on && before != null && transport.available) {
+            val gain = _finish.value.abGainDb ?: 0.0
+            transport.setSession(before.copy(masterVolumeDb = before.masterVolumeDb + gain), files.dir)
+            _finish.value = _finish.value.copy(comparing = true)
+        } else {
+            _finish.value = _finish.value.copy(comparing = false)
+            pushToGraph()
         }
     }
 
@@ -641,7 +727,17 @@ class EditorViewModel(private val app: StaveApplication, val projectId: String) 
         if (glue > 0.02) steps += T.compress(CompressorSettings(thresholdDb = -24.0 + 8.0 * (1 - glue), ratio = 1.5 + 1.5 * glue, kneeDb = 12.0, attackMs = 30.0, releaseMs = 250.0))
         steps += T.normaliseLoudness(target.lufs, target.truePeakDbtp)
         select(null)
-        applyOffline("Master to ${target.label}", chain(*steps.toTypedArray())) { measureMix() }
+        val before = _finish.value.reading?.integratedLufs
+        applyOffline("Master to ${target.label}", chain(*steps.toTypedArray())) {
+            // The after-loudness lands with the next measurement; the A/B gain is the difference.
+            measureMix()
+            viewModelScope.launch {
+                val s = session
+                val chs = mixdown(0, s.length) ?: return@launch
+                val after = withContext(Dispatchers.Default) { val m = com.layerbit.stave.engine.dsp.LoudnessMeter(s.sampleRate, 2); m.process(com.layerbit.stave.processing.OfflineTools.interleave(chs)); m.reading().integratedLufs }
+                if (before != null && before > -90 && after > -90) _finish.value = _finish.value.copy(abGainDb = after - before, comparing = false)
+            }
+        }
     }
 
     // ---- spectral view and edits -------------------------------------------------------------

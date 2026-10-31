@@ -28,6 +28,8 @@ class History(initial: Session, private val limit: Int = 200) {
 
     /** The label of what Undo would take back, or null. */
     val undoLabel: String? get() = past.lastOrNull()?.label
+    /** The session Undo would go back to - the "before" of an A/B - or null at the start. */
+    val previous: Session? get() = past.lastOrNull()?.session
     val redoLabel: String? get() = future.lastOrNull()?.label
     val canUndo: Boolean get() = past.isNotEmpty()
     val canRedo: Boolean get() = future.isNotEmpty()

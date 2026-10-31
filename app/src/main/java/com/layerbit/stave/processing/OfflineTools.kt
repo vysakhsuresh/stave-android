@@ -161,6 +161,19 @@ object OfflineTools {
         val inter = interleave(chs); Compressor(rate, chs.size, settings).process(inter); deinterleave(inter, chs.size)
     }
 
+    fun multiband(lowHz: Double, highHz: Double, bands: List<CompressorSettings>) = Transform { chs, rate ->
+        val inter = interleave(chs); com.layerbit.stave.engine.dsp.MultibandCompressor(rate, chs.size, lowHz, highHz, bands).process(inter); deinterleave(inter, chs.size)
+    }
+
+    fun transients(attack: Double, sustain: Double) = Transform { chs, rate ->
+        val inter = interleave(chs); com.layerbit.stave.engine.dsp.TransientShaper(rate, chs.size, attack, sustain).process(inter); deinterleave(inter, chs.size)
+    }
+
+    /** Mid/side width on a stereo pair; a mono source is left alone, there being no side to scale. */
+    fun width(amount: Double) = Transform { chs, _ ->
+        if (chs.size < 2) chs else { val l = chs[0].copyOf(); val r = chs[1].copyOf(); com.layerbit.stave.engine.dsp.Stereo.width(l, r, amount); listOf(l, r) + chs.drop(2) }
+    }
+
     fun limit(ceilingDb: Double, releaseMs: Double) = Transform { chs, rate ->
         val inter = interleave(chs); val lim = Limiter(rate, chs.size, ceilingDb, 5.0, releaseMs); lim.process(inter); deinterleave(shiftBack(inter, lim.latency, chs.size), chs.size)
     }
