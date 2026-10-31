@@ -1,0 +1,63 @@
+name: Android quality checks
+on:
+  push:
+    branches: [main]
+    paths-ignore: ['**/*.md']
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: android-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  engine:
+    name: Pure engine (no Android SDK)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: actions/cache@v4
+        with:
+          path: ~/.stave-kt
+          key: stave-kt-2.2.21
+      - name: Compile engine/ without android.* and run every suite
+        run: bash tools/jvm/run.sh
+      - name: Static checks over the app's Kotlin
+        run: |
+          python3 tools/check_nesting.py
+          python3 tools/check_modifier_imports.py
+          python3 tools/check_dependencies.py
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Install Android SDK packages
+        run: '"$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-36" "build-tools;36.0.0" "platform-tools" "ndk;27.2.12479018" "cmake;3.22.1"'
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Engine tests, lint, debug APK and release bundle
+        run: ./gradlew :engine:test testFullDebugUnitTest lintFullDebug assembleFullDebug bundleFullRelease --console plain
+      - name: Failed unit tests, with their messages
+        if: failure()
+        run: find . -path '*/build/test-results/*' -name '*.xml' -exec grep -h -B1 -A6 '<failure' {} \; 2>/dev/null | head -160
+      - name: Verify merged privacy manifests (debug and release)
+        run: python3 tools/verify_manifest.py
+      - name: Record runtime dependencies
+        run: ./gradlew :app:dependencies --configuration fullReleaseRuntimeClasspath --console plain > app/build/reports/runtime-dependencies.txt
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: stave-apk-and-reports
+          path: |
+            app/build/outputs/apk/full/debug/*.apk
+            app/build/outputs/bundle/fullRelease/*.aab
+            app/build/reports/

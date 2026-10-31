@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
+    <shortcut android:shortcutId="record" android:enabled="true" android:icon="@drawable/ic_shortcut_record"
+        android:shortcutShortLabel="@string/shortcut_record_short" android:shortcutLongLabel="@string/shortcut_record_long">
+        <intent android:action="android.intent.action.VIEW" android:data="stave://tool/record" android:targetPackage="com.layerbit.stave" android:targetClass="com.layerbit.stave.MainActivity" />
+    </shortcut>
+    <shortcut android:shortcutId="edit" android:enabled="true" android:icon="@drawable/ic_shortcut_edit"
+        android:shortcutShortLabel="@string/shortcut_edit_short" android:shortcutLongLabel="@string/shortcut_edit_long">
+        <intent android:action="android.intent.action.VIEW" android:data="stave://tool/edit" android:targetPackage="com.layerbit.stave" android:targetClass="com.layerbit.stave.MainActivity" />
+    </shortcut>
+    <shortcut android:shortcutId="stems" android:enabled="true" android:icon="@drawable/ic_shortcut_stems"
+        android:shortcutShortLabel="@string/shortcut_stems_short" android:shortcutLongLabel="@string/shortcut_stems_long">
+        <intent android:action="android.intent.action.VIEW" android:data="stave://tool/stems" android:targetPackage="com.layerbit.stave" android:targetClass="com.layerbit.stave.MainActivity" />
+    </shortcut>
+</shortcuts>

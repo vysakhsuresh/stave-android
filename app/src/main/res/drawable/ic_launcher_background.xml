@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  The family's ink, lit from the lower right by Signal's green. The whole 108dp canvas: masks
+  take the outer third, so nothing here is a shape.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android" xmlns:aapt="http://schemas.android.com/aapt"
+    android:width="108dp" android:height="108dp"
+    android:viewportWidth="108" android:viewportHeight="108">
+    <path android:pathData="M0,0 H108 V108 H0 Z">
+        <aapt:attr name="android:fillColor">
+            <gradient android:type="linear" android:startX="0" android:startY="0" android:endX="108" android:endY="108">
+                <item android:offset="0" android:color="#FF1B2438" />
+                <item android:offset="1" android:color="#FF070A12" />
+            </gradient>
+        </aapt:attr>
+    </path>
+    <path android:pathData="M0,0 H108 V108 H0 Z">
+        <aapt:attr name="android:fillColor">
+            <gradient android:type="radial" android:centerX="80" android:centerY="86" android:gradientRadius="62">
+                <item android:offset="0" android:color="#4AC8FF4D" />
+                <item android:offset="1" android:color="#00C8FF4D" />
+            </gradient>
+        </aapt:attr>
+    </path>
+</vector>

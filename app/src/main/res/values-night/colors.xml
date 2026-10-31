@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Mirrors StaveColors.Background in the DARK palette. Change both together. -->
+    <color name="window_background">#070A12</color>
+</resources>

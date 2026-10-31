@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  The Stave mark: five lines, the middle one broken by a waveform drawn in Signal. The lines say
+  "music is written here"; the wave says it is sound, not notes. Everything sits inside the
+  33dp safe radius, so no launcher mask clips it. The About screen draws this layer on its own.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp" android:height="108dp"
+    android:viewportWidth="108" android:viewportHeight="108">
+    <path android:pathData="M34,38 H74" android:strokeColor="#FFB8C2D9" android:strokeWidth="2.4" android:strokeLineCap="round" />
+    <path android:pathData="M34,46 H74" android:strokeColor="#FFB8C2D9" android:strokeWidth="2.4" android:strokeLineCap="round" />
+    <path android:pathData="M34,54 H41 M67,54 H74" android:strokeColor="#FFB8C2D9" android:strokeWidth="2.4" android:strokeLineCap="round" />
+    <path android:pathData="M34,62 H74" android:strokeColor="#FFB8C2D9" android:strokeWidth="2.4" android:strokeLineCap="round" />
+    <path android:pathData="M34,70 H74" android:strokeColor="#FFB8C2D9" android:strokeWidth="2.4" android:strokeLineCap="round" />
+    <path android:pathData="M43,54 L46,54 L48.5,45 L51.5,63 L54.5,41 L57.5,67 L60.5,48 L63,58 L65,54 L67,54"
+        android:strokeColor="#FFC8FF4D" android:strokeWidth="3.4" android:strokeLineCap="round" android:strokeLineJoin="round" />
+</vector>

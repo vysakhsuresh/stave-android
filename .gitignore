@@ -1,0 +1,23 @@
+*.iml
+.gradle/
+.kotlin/
+/local.properties
+/.idea/
+.DS_Store
+/build
+/captures
+*.apk
+*.aab
+/app/build
+/app/.cxx
+/app/release
+/engine/build
+/tools/out
+__pycache__/
+/native-work
+/whisper-work
+
+# Real signing credentials - never commit these.
+/keystore.properties
+*.jks
+*.keystore

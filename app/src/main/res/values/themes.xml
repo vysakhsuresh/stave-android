@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!--
+      The platform theme exists only to paint the window before Compose takes over. Its
+      background matches StaveColors.Background so a cold start does not flash; the real theme
+      lives in ui/theme/Theme.kt. @color/window_background is light here and dark in
+      values-night, which is what the platform resolves for the SYSTEM default.
+    -->
+    <style name="Theme.Stave" parent="android:Theme.Material.NoActionBar">
+        <item name="android:windowBackground">@color/window_background</item>
+        <item name="android:navigationBarColor">@color/window_background</item>
+        <item name="android:statusBarColor">@color/window_background</item>
+        <item name="android:fontFamily">@font/space_grotesk</item>
+    </style>
+</resources>

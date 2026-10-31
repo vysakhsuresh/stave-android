@@ -1,0 +1,50 @@
+# Builds libstaveav.so (tools/native/build.sh) for the four Android ABIs: FFmpeg's audio
+# demuxers, decoders, encoders and resampler behind the JNI wrapper in app/src/main/cpp/av.
+# The libraries are committed under app/src/main/jniLibs from the artifacts
+# (tools/native/fetch.sh), so a Gradle build never needs this workflow.
+name: native
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'app/src/main/cpp/av/**'
+      - 'tools/native/build.sh'
+      - '.github/workflows/native.yml'
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        abi: [arm64-v8a, armeabi-v7a, x86_64, x86]
+    env:
+      NDK_VERSION: 27.2.12479018
+    steps:
+      - uses: actions/checkout@v4
+      - name: Tools
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq nasm ninja-build pkg-config cmake
+          NDK="$ANDROID_SDK_ROOT/ndk/$NDK_VERSION"
+          if [ ! -d "$NDK" ]; then
+            yes | "$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager" "ndk;$NDK_VERSION" > /dev/null
+          fi
+          echo "ANDROID_NDK_ROOT=$NDK" >> "$GITHUB_ENV"
+      - name: Dependency key
+        id: key
+        run: echo "deps=$(grep -E '^[A-Z0-9_]+_VERSION=' tools/native/build.sh | sha1sum | cut -c1-12)" >> "$GITHUB_OUTPUT"
+      - uses: actions/cache@v4
+        with:
+          path: |
+            native-work/prefix/${{ matrix.abi }}
+            native-work/src/*.tar.*
+          key: native-${{ matrix.abi }}-${{ steps.key.outputs.deps }}-${{ env.NDK_VERSION }}
+      - name: Build
+        run: bash tools/native/build.sh ${{ matrix.abi }} "$PWD/native-work"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: staveav-${{ matrix.abi }}
+          path: native-work/out/${{ matrix.abi }}/
+          if-no-files-found: error

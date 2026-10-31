@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  What FileProvider may hand out: the app's own exports (for Share), its scratch renders and the
+  crash log the user chooses to send. Never a private source copy, and never a path that could
+  reach the user's storage.
+-->
+<paths>
+    <files-path name="exports" path="exports/" />
+    <cache-path name="work" path="work/" />
+    <files-path name="crashes" path="crashes/" />
+</paths>
