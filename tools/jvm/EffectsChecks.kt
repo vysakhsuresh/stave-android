@@ -26,9 +26,15 @@ object EffectsChecks : Suite {
         val out = FloatArray(rate) { i -> d.process(if (i == 0) 1f else 0f) }
         near(out[0], 0.5f, 1e-6f, "the dry half of the impulse")
         val t1 = (0.1 * rate).toInt(); val t2 = (0.2 * rate).toInt()
-        val e1 = out.copyOfRange(t1 - 2, t1 + 3).maxOf { abs(it) }; val e2 = out.copyOfRange(t2 - 2, t2 + 3).maxOf { abs(it) }
+        val e1 = out.copyOfRange(t1 - 2, t1 + 3).maxOf { abs(it) }
         check(e1 > 0.4f && e1 < 0.6f) { "first echo near 0.5: $e1" }
-        check(abs(e2 / e1 - 0.5f) < 0.1f) { "the second is half the first: $e2 / $e1" }
+        // The repeats go through the damping filter, and a second-order low-pass even at
+        // 20 kHz spreads an impulse over a few samples (its first tap is 0.69), so the
+        // second echo's *peak* is not half the first's - its area is, since the filter's
+        // gain at DC is one. Measuring the peak here once read the damping as a feedback
+        // fault.
+        val a1 = out.copyOfRange(t1 - 8, t1 + 12).sum(); val a2 = out.copyOfRange(t2 - 8, t2 + 12).sum()
+        check(abs(a2 / a1 - 0.5f) < 0.03f) { "the second echo's area is half the first's: $a2 / $a1" }
         check(out.copyOfRange(t1 + 50, t2 - 50).maxOf { abs(it) } < 0.05f) { "quiet between echoes" }
 
         section("chorus and tremolo keep the level roughly, reverb has a tail that decays")

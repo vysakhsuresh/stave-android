@@ -5,6 +5,7 @@ import com.layerbit.stave.files.CrashLog
 import com.layerbit.stave.files.Handoff
 import com.layerbit.stave.files.MediaImport
 import com.layerbit.stave.models.ModelStore
+import com.layerbit.stave.stems.StemsRunner
 import com.layerbit.stave.audio.Transport
 import com.layerbit.stave.files.ProjectStore
 import com.layerbit.stave.prefs.StaveSettings
@@ -25,6 +26,7 @@ class StaveApplication : Application() {
     val handoff: Handoff by lazy { Handoff() }
     val media: MediaImport by lazy { MediaImport(this) }
     val models: ModelStore by lazy { ModelStore(this) }
+    val stems: StemsRunner by lazy { StemsRunner(this, models) }
     /** One graph for the process: opened by the first editor, kept while the app lives. */
     val transport: Transport by lazy { Transport(applicationScope) }
 

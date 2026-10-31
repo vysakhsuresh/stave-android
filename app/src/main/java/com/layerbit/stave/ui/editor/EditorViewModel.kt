@@ -18,6 +18,7 @@ import com.layerbit.stave.engine.transcript.Word
 import com.layerbit.stave.engine.transcript.WordCuts
 import com.layerbit.stave.files.RawAudio
 import com.layerbit.stave.voice.WhisperRunner
+import com.layerbit.stave.ui.components.Formats
 import com.layerbit.stave.engine.export.ExportSettings
 import com.layerbit.stave.engine.project.Clip
 import com.layerbit.stave.engine.project.History
@@ -768,4 +769,167 @@ class EditorViewModel(private val app: StaveApplication, val projectId: String) 
         val preset = com.layerbit.stave.engine.dsp.VocalPresets.byId(presetId) ?: return
         applyOffline(preset.label, com.layerbit.stave.processing.OfflineTools.Transform { chs, rate -> com.layerbit.stave.engine.dsp.VocalPresets.apply(preset, chs, rate) })
     }
+
+    // ---- musician: stems, practice, analysis ------------------------------------------------
+
+    /** A chord as the card shows it; filled by the analysis (engine/music) once it is wired. */
+    data class ChordShown(val name: String, val startMs: Long, val endMs: Long)
+    data class Analysis(val bpm: Double, val confidence: Float, val beatsMs: List<Long>, val downbeatOffset: Int, val key: String?, val chords: List<ChordShown>)
+    data class MusicState(val separating: Float? = null, val stemsDone: Boolean = false, val analysis: Analysis? = null, val clickFollows: Boolean = false)
+    private val _music = MutableStateFlow(MusicState())
+    val music: StateFlow<MusicState> = _music.asStateFlow()
+    val stemsAvailable: Boolean get() = app.stems.available
+
+    /** The mix pulled into four stems, each a source on its own track; the original tracks are muted so the stems play alone. */
+    fun separateStems() {
+        val s = session
+        if (s.length <= 0) return
+        _music.value = _music.value.copy(separating = 0f, stemsDone = false)
+        viewModelScope.launch {
+            val result = runCatching {
+                val chs = mixdown(0, s.length) ?: throw IllegalStateException("Nothing to separate.")
+                app.stems.separate(chs, s.sampleRate) { p -> _music.value = _music.value.copy(separating = p) }
+            }
+            _music.value = _music.value.copy(separating = null)
+            result.onSuccess { r ->
+                if (r == null) { _ui.value = _ui.value.copy(message = app.getString(com.layerbit.stave.R.string.music_stems_none)); return@onSuccess }
+                val sources = ArrayList<Source>(); val tracks = ArrayList<Track>(); val clips = ArrayList<Clip>()
+                withContext(Dispatchers.IO) {
+                    for ((name, chs) in r.stems) {
+                        val parent = s.sources.firstOrNull() ?: Source("mix", "Mix", "", s.sampleRate, 2, s.length)
+                        val source = com.layerbit.stave.processing.OfflineTools.writeSource(files, chs, r.sampleRate, parent, name).copy(kind = Source.Kind.STEM, name = name.replaceFirstChar { it.uppercase() })
+                        peaksFor(source)
+                        val track = Track(Ids.next("t"), source.name)
+                        sources += source; tracks += track
+                        clips += SessionEdits.clipFor(source, track.id, 0, s.sampleRate)
+                    }
+                }
+                history.recordLate("Separate stems") { cur ->
+                    var next = cur.copy(sources = cur.sources + sources, tracks = cur.tracks.map { t -> if (t.kind == Track.Kind.AUDIO) t.copy(muted = true) else t } + tracks)
+                    for (c in clips) next = SessionEdits.add(next, c)
+                    next
+                }
+                after()
+                _music.value = _music.value.copy(stemsDone = true)
+            }.onFailure { e -> _ui.value = _ui.value.copy(message = e.message ?: "Separation failed") }
+        }
+    }
+
+    /** The selection (or everything) slowed and transposed as a new source on a new track: the original stays. */
+    fun practiceCopy(speed: Double, semitones: Double) {
+        val s = session
+        val range = _ui.value.selection ?: (0L until s.length)
+        if (range.last <= range.first) return
+        _ui.value = _ui.value.copy(busy = Busy("Making a practice copy", 0f))
+        viewModelScope.launch {
+            val chs = mixdown(range.first, range.last + 1)
+            if (chs == null) { _ui.value = _ui.value.copy(busy = null); return@launch }
+            val source = withContext(Dispatchers.Default) {
+                val stretched = com.layerbit.stave.processing.OfflineTools.stretch(chs, s.sampleRate, 1.0 / speed, semitones, true)
+                val parent = s.sources.firstOrNull() ?: Source("mix", "Mix", "", s.sampleRate, 2, s.length)
+                com.layerbit.stave.processing.OfflineTools.writeSource(files, stretched, s.sampleRate, parent, "Practice ${Formats.times(speed.toFloat())} ${if (semitones != 0.0) String.format(java.util.Locale.ROOT, "%+d st", semitones.toInt()) else ""}".trim()).also { withContext(Dispatchers.IO) { peaksFor(it) } }
+            }
+            _ui.value = _ui.value.copy(busy = null)
+            val track = Track(Ids.next("t"), source.name)
+            history.recordLate("Practice copy") { cur -> SessionEdits.add(SessionEdits.addTrack(cur.copy(sources = cur.sources + source), track), SessionEdits.clipFor(source, track.id, range.first, cur.sampleRate)) }
+            after()
+            selectTrack(track.id)
+        }
+    }
+
+    /** The selection's melody as notes, handed to the Beats tab as a pattern. */
+    fun notesToMidi() {
+        val s = session
+        val range = _ui.value.selection ?: return
+        _ui.value = _ui.value.copy(busy = Busy("Hearing the notes", 0f))
+        viewModelScope.launch {
+            val chs = mixdown(range.first, range.last + 1)
+            _ui.value = _ui.value.copy(busy = null)
+            if (chs == null) return@launch
+            val mono = FloatArray(chs[0].size) { (chs[0][it] + chs[1][it]) * 0.5f }
+            val notes = withContext(Dispatchers.Default) { com.layerbit.stave.engine.dsp.MelodyNotes.extract(mono, s.sampleRate) }
+            if (notes.isEmpty()) { _ui.value = _ui.value.copy(message = "No clear notes heard in the selection."); return@launch }
+            pendingNotes = notes.map { it.copy(start = it.start + range.first, end = it.end + range.first) }
+            _ui.value = _ui.value.copy(message = "${notes.size} notes heard - open the Beats tab to see them.", tab = EditorTab.BEATS)
+        }
+    }
+
+    /** Notes the Beats tab picks up as a pattern (sample positions on the timeline). */
+    var pendingNotes: List<com.layerbit.stave.engine.dsp.MelodyNotes.Note>? = null
+
+    fun setClickFollowsBeats(on: Boolean) {
+        _music.value = _music.value.copy(clickFollows = on)
+        val a = _music.value.analysis ?: return
+        if (on && a.bpm > 0) { setTempo(a.bpm); transport.setMetronome(true, a.bpm, 4, 0.5f) } else transport.setMetronome(false, session.tempo.first().bpm, 4, 0.5f)
+    }
+
+    fun markBars() {
+        val a = _music.value.analysis ?: return
+        if (a.beatsMs.isEmpty()) return
+        var s = session
+        val rate = s.sampleRate
+        var bar = 1
+        for ((i, ms) in a.beatsMs.withIndex()) if ((i - a.downbeatOffset).mod(4) == 0) { s = SessionEdits.addMarker(s, ms * rate / 1000, "Bar ${bar++}"); if (bar > 400) break }
+        commit(s, "Mark bars")
+    }
+
+    /**
+     * Tempo, beats and bar from the beat tracker, key and chords from the chroma, all off the
+     * mix (or the selection, when there is one) on the Default dispatcher; the card fills in
+     * when they land. Everything here is engine arithmetic executed on the JVM (BeatsChecks,
+     * ChordsChecks, KeyChecks); what a phone adds is only the time it takes.
+     */
+    fun analyseSong() {
+        val s = session
+        if (s.length <= 0 || _ui.value.busy != null) return
+        val range = _ui.value.selection?.takeIf { it.last - it.first > s.sampleRate } ?: (0L until s.length)
+        _ui.value = _ui.value.copy(busy = Busy(app.getString(com.layerbit.stave.R.string.music_analysing), 0f))
+        viewModelScope.launch {
+            val chs = mixdown(range.first, range.last + 1)
+            if (chs == null) { _ui.value = _ui.value.copy(busy = null); return@launch }
+            val result = runCatching {
+                withContext(Dispatchers.Default) {
+                    val n = chs[0].size
+                    val mono = FloatArray(n)
+                    for (a in chs) for (i in 0 until n) mono[i] += a[i] / chs.size
+                    val rate = s.sampleRate
+                    val offsetMs = range.first * 1000 / rate
+                    val beats = com.layerbit.stave.engine.music.BeatDetector.detect(mono, rate)
+                    val chroma = com.layerbit.stave.engine.music.Chroma.frames(mono, rate, hopMs = CHORD_HOP_MS)
+                    val key = if (chroma.isEmpty()) null else com.layerbit.stave.engine.music.Key.detect(chroma)
+                    val chords = com.layerbit.stave.engine.music.Chords.detect(chroma).map { span ->
+                        ChordShown(span.chord.name(), offsetMs + span.startFrame.toLong() * CHORD_HOP_MS, offsetMs + span.endFrame.toLong() * CHORD_HOP_MS)
+                    }
+                    Analysis(
+                        bpm = beats.bpm.toDouble(),
+                        confidence = beats.confidence,
+                        beatsMs = beats.beatsMs.map { it + offsetMs },
+                        downbeatOffset = beats.downbeatOffset,
+                        key = key?.takeIf { it.confidence > 0.2f }?.name(),
+                        chords = chords
+                    )
+                }
+            }
+            _ui.value = _ui.value.copy(busy = null)
+            result.onSuccess { a -> _music.value = _music.value.copy(analysis = a) }
+                .onFailure { e -> _ui.value = _ui.value.copy(message = e.message ?: "Analysis failed") }
+        }
+    }
+
+    /** Half the tempo or twice it: the question a slow track with busy hi-hats leaves open, answered by the person. */
+    fun tempoOctave(up: Boolean) {
+        val a = _music.value.analysis ?: return
+        val map = com.layerbit.stave.engine.music.BeatMap(a.beatsMs, a.bpm.toFloat(), a.confidence, a.downbeatOffset)
+        val moved = if (up) map.doubled() else map.halved()
+        _music.value = _music.value.copy(analysis = a.copy(bpm = moved.bpm.toDouble(), beatsMs = moved.beatsMs, downbeatOffset = moved.downbeatOffset))
+        if (_music.value.clickFollows) setClickFollowsBeats(true)
+    }
+
+    /** The bar starts one beat later: for the song whose loudest hit is not its downbeat. */
+    fun shiftDownbeat() {
+        val a = _music.value.analysis ?: return
+        _music.value = _music.value.copy(analysis = a.copy(downbeatOffset = (a.downbeatOffset + 1).mod(4)))
+    }
+
+    private companion object { const val CHORD_HOP_MS = 100 }
 }

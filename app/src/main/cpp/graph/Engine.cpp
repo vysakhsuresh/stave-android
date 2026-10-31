@@ -23,6 +23,12 @@ public:
         float old = engine->inPeak.load(std::memory_order_relaxed);
         while (peak > old && !engine->inPeak.compare_exchange_weak(old, peak)) {}
         engine->recorder.push(in, frames);
+        // Into the analysis tap, as mono.
+        if (!engine->tap.empty()) {
+            size_t cap = engine->tap.size(); size_t h = engine->tapHead.load(std::memory_order_relaxed);
+            for (int f = 0; f < frames; f++) { float m = 0; for (int c = 0; c < ch; c++) m += in[f * ch + c]; engine->tap[h] = m / ch; h = (h + 1) % cap; }
+            engine->tapHead.store(h, std::memory_order_release);
+        }
         // Into the monitor ring, as stereo.
         size_t cap = engine->inRing.size();
         if (cap > 0) {
@@ -114,6 +120,7 @@ bool Engine::openInput(int channels, int preset) {
     inChannels = channels < 1 ? 1 : (channels > 2 ? 2 : channels);
     inRing.assign((size_t) rate * 2, 0.0f);   // a second of stereo
     inHead = 0; inTail = 0;
+    tap.assign(8192, 0.0f); tapHead = 0;
     oboe::AudioStreamBuilder b;
     b.setDirection(oboe::Direction::Input)
      ->setPerformanceMode(oboe::PerformanceMode::LowLatency)
@@ -136,6 +143,16 @@ void Engine::closeInput() {
     std::lock_guard<std::mutex> g(streamLock);
     if (!in) return;
     in->requestStop(); in->close(); in.reset();
+}
+
+int Engine::readInputTap(float* out, int capacity) {
+    if (tap.empty()) return 0;
+    size_t cap = tap.size(); size_t h = tapHead.load(std::memory_order_acquire);
+    int n = std::min((size_t) capacity, cap);
+    // The newest sample is at h-1; copy the last n in order.
+    size_t start = (h + cap - (size_t) n) % cap;
+    for (int i = 0; i < n; i++) out[i] = tap[(start + i) % cap];
+    return n;
 }
 
 bool Engine::startRecording(const std::string& path) { return recorder.start(path, rate, inChannels); }

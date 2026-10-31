@@ -72,6 +72,13 @@ JNIEXPORT jboolean JNICALL FN(isRecording)(JNIEnv*, jclass, jlong h) { return EN
 JNIEXPORT jlong JNICALL FN(recordedFrames)(JNIEnv*, jclass, jlong h) { return ENGINE(h)->recordedFrames(); }
 JNIEXPORT jlong JNICALL FN(droppedFrames)(JNIEnv*, jclass, jlong h) { return ENGINE(h)->droppedFrames(); }
 JNIEXPORT jfloat JNICALL FN(inputPeak)(JNIEnv*, jclass, jlong h) { return ENGINE(h)->inputPeak(); }
+JNIEXPORT jint JNICALL FN(readInputTap)(JNIEnv* env, jclass, jlong h, jfloatArray out) {
+    jsize cap = env->GetArrayLength(out);
+    std::vector<float> tmp((size_t) cap);
+    int n = ENGINE(h)->readInputTap(tmp.data(), cap);
+    env->SetFloatArrayRegion(out, 0, n, tmp.data());
+    return n;
+}
 JNIEXPORT void JNICALL FN(setMetronome)(JNIEnv*, jclass, jlong h, jboolean on, jdouble bpm, jint beats, jfloat gain) { ENGINE(h)->setMetronome(on, bpm, beats, gain); }
 JNIEXPORT void JNICALL FN(scheduleClick)(JNIEnv*, jclass, jlong h, jlong at) { ENGINE(h)->scheduleClick(at); }
 

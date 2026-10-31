@@ -67,6 +67,8 @@ public:
     int64_t droppedFrames() const { return recorder.framesDropped(); }
     bool recording() const { return recorder.recording(); }
     float inputPeak() { float p = inPeak.exchange(0.0f); return p; }
+    // The most recent input samples (mono, the newest last), for the tuner; returns how many were copied.
+    int readInputTap(float* out, int capacity);
 
     // Metronome: a click on every beat, accented on the bar.
     void setMetronome(bool on, double bpm, int beatsPerBar, float gainLinear) { metroOn = on; metroBpm = bpm; metroBeats = beatsPerBar; metroGain = gainLinear; }
@@ -110,6 +112,8 @@ private:
     std::vector<float> inRing; std::atomic<size_t> inHead{0}, inTail{0}; int inChannels = 1;
     std::atomic<bool> monitorOn{false}; std::atomic<float> monitorGain{1.0f};
     std::atomic<float> inPeak{0.0f};
+    // A tap of the input for analysis on the UI side: a ring the input callback writes and Kotlin reads whole.
+    std::vector<float> tap; std::atomic<size_t> tapHead{0};
     Recorder recorder;
     class InputCallback;
     std::unique_ptr<InputCallback> inputCallback;

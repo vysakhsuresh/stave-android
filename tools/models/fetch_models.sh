@@ -14,4 +14,6 @@ get() { # file url sha256
 }
 # whisper.cpp's quantised multilingual models (MIT; OpenAI's weights converted by the whisper.cpp project).
 get ggml-base-q5_1.bin "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base-q5_1.bin" "422f1ae452ade6f30a004d7e5c6a43195e4433bc370bf23fac9cc591f01a8898"
+# The stem models are made, not downloaded: python3 tools/models/umx_to_tflite.py "$DEST" (see its header).
+for stem in vocals drums bass other; do [ -s "$DEST/umx_$stem.tflite" ] || echo "missing umx_$stem.tflite - run tools/models/umx_to_tflite.py"; done
 ls -l "$DEST"

@@ -44,6 +44,17 @@ The things most likely to need a touch, and what they lean on.
 - `third_party/tinysoundfont/tsf.h` (MIT), header-only; `TSF_IMPLEMENTATION` in exactly one
   file (`graph/SoundFont.cpp`). SF2 and SF3 (Vorbis-compressed) both load.
 
+## Stems (Open-Unmix on LiteRT)
+
+- Four models, one per stem, `umx_<stem>.tflite`, made by `tools/models/umx_to_tflite.py` on a
+  desktop and shipped in the full flavour's assets and the Play asset pack. The contract both
+  sides keep: input `[1, T, 2, 2049]` magnitudes (STFT 4096/1024 at 44.1 kHz), output the same
+  shape as the stem's magnitude estimate. `StemsRunner` windows 256 frames with 43 of overlap,
+  Wiener-filters the mixture's complex spectrogram by each stem's share, and the four sum to
+  the mix - which is the first thing to check on the phone.
+- LiteRT's Interpreter is reached by name (`Class.forName`) so the engine door compiles with or
+  without the dependency on a build; the dependency is declared in the catalog.
+
 ## LiteRT
 
 - 1.4.0, never TensorFlow Lite 2.16.1 (Squish: the old runtime ran converted models wrong

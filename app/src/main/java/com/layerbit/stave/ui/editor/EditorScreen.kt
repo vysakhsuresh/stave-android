@@ -134,6 +134,7 @@ fun EditorScreen(vm: EditorViewModel, onBack: () -> Unit, onAddSounds: () -> Uni
                 }
                 EditorTab.VOICE -> Box(Modifier.heightIn(max = 400.dp)) { com.layerbit.stave.ui.voice.VoicePanel(vm, ui) }
                 EditorTab.STUDIO -> Box(Modifier.heightIn(max = 400.dp)) { com.layerbit.stave.ui.studio.StudioPanel(vm, ui) }
+                EditorTab.MUSIC -> Box(Modifier.heightIn(max = 400.dp)) { com.layerbit.stave.ui.music.MusicPanel(vm, ui) }
                 EditorTab.FINISH -> Box(Modifier.heightIn(max = 400.dp)) { com.layerbit.stave.ui.finish.FinishPanel(vm, ui) }
                 else -> ComingPanel(tab)
             }

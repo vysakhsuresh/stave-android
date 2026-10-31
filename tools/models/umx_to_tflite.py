@@ -1,0 +1,69 @@
+#!/usr/bin/env python3
+"""Open-Unmix (UMX, MIT) to four LiteRT models for Stave's StemsRunner.
+
+The contract StemsRunner.kt assumes (keep the two in step):
+    input  [1, T, 2, 2049] float32   magnitude spectrogram, STFT 4096 / hop 1024, stereo
+    output [1, T, 2, 2049] float32   the stem's magnitude estimate for the same frames
+
+UMX's own forward takes a magnitude spectrogram shaped (frames, batch, channels, bins) and
+returns the same; this wraps each target model so the batch is first, exports it through
+ai_edge_torch and quantises to int8 dynamic-range (about 9 MB a stem), then checks the
+converted model against PyTorch on a random spectrogram.
+
+    pip install -r tools/models/requirements-umx.txt
+    python3 tools/models/umx_to_tflite.py app/src/full/assets/models
+
+Runs on a desktop, once; the files are git-ignored and travel with the full flavour and the
+asset pack. Licence: Open-Unmix code and weights are MIT (Stöter and Liutkus, Inria).
+"""
+import sys
+from pathlib import Path
+
+import numpy as np
+import torch
+
+try:
+    import ai_edge_torch
+except ImportError:
+    sys.exit("pip install ai-edge-torch (the converter) first")
+
+from openunmix import umxhq_spec  # the hq weights: 4096 FFT, 1024 hop, 44.1 kHz
+
+T = 256  # frames per call (about 6 s); StemsRunner windows at this length
+
+
+class BatchFirst(torch.nn.Module):
+    def __init__(self, model):
+        super().__init__()
+        self.model = model
+
+    def forward(self, x):            # x: [1, T, 2, 2049]
+        y = self.model(x.permute(1, 0, 2, 3))   # UMX wants [T, 1, 2, 2049]
+        return y.permute(1, 0, 2, 3)
+
+
+def main(dest: str) -> None:
+    out = Path(dest)
+    out.mkdir(parents=True, exist_ok=True)
+    models = umxhq_spec(targets=["vocals", "drums", "bass", "other"], pretrained=True)
+    for name, umx in models.items():
+        umx.eval()
+        wrapped = BatchFirst(umx).eval()
+        sample = (torch.rand(1, T, 2, 2049) * 2.0,)
+        edge = ai_edge_torch.convert(wrapped, sample, quant_config=None)
+        # Dynamic-range int8 keeps the float interface the runner expects and shrinks the weights.
+        edge = ai_edge_torch.convert(wrapped, sample, quant_config=ai_edge_torch.quantize.quant_config.QuantConfig(dynamic_range_int8=True)) if hasattr(ai_edge_torch, "quantize") else edge
+        path = out / f"umx_{name}.tflite"
+        edge.export(str(path))
+        # Check: the converted model against PyTorch on the same input.
+        with torch.no_grad():
+            ref = wrapped(*sample).numpy()
+        got = edge(*sample)
+        err = float(np.abs(got - ref).max() / (np.abs(ref).max() + 1e-9))
+        print(f"{path.name}: {path.stat().st_size / 1e6:.1f} MB, max relative error {err:.4f}")
+        if err > 0.05:
+            sys.exit(f"{name}: the converted model disagrees with PyTorch by {err:.3f}; do not ship it")
+
+
+if __name__ == "__main__":
+    main(sys.argv[1] if len(sys.argv) > 1 else "app/src/full/assets/models")

@@ -24,6 +24,7 @@ object Registry {
         ExportChecks,
         SpectralEditChecks,
         EffectsChecks,
-        PitchCorrectChecks
+        PitchCorrectChecks,
+        MelodyChecks
     ) + MusicSuites.all + SequencerSuites.all + VoiceSuites.all + listOf(RunnerChecks)
 }

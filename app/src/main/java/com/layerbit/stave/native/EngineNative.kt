@@ -49,6 +49,8 @@ object EngineNative {
     @JvmStatic external fun recordedFrames(engine: Long): Long
     @JvmStatic external fun droppedFrames(engine: Long): Long
     @JvmStatic external fun inputPeak(engine: Long): Float
+    /** The newest input samples (mono, newest last) into [out]; how many were copied. For the tuner. */
+    @JvmStatic external fun readInputTap(engine: Long, out: FloatArray): Int
     @JvmStatic external fun setMetronome(engine: Long, on: Boolean, bpm: Double, beatsPerBar: Int, gain: Float)
     @JvmStatic external fun scheduleClick(engine: Long, atFrame: Long)
 

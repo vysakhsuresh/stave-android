@@ -414,6 +414,39 @@
     <string name="settings_models_imported">%1$s added.</string>
     <string name="settings_models_unknown">That file is not a model Stave knows. It wants ggml-base-q5_1.bin or ggml-small-q5_1.bin.</string>
 
+    <!-- Musician -->
+    <string name="music_tuner">Tuner</string>
+    <string name="music_tuner_hint">Ready the mic on the Voice tab, then play or sing one note.</string>
+    <string name="music_tuner_listening">Listening…</string>
+    <string name="music_tuner_cents">%1$s cents</string>
+    <string name="music_reference">A = %1$d Hz</string>
+    <string name="music_stems">Pull the song apart</string>
+    <string name="music_stems_hint">Vocals, drums, bass and the rest, each on its own track, separated on this phone. No upload, no monthly count.</string>
+    <string name="music_stems_none">The stem models are not in this build. The full APK carries them; the Play version fetches them with the app.</string>
+    <string name="music_stems_go">Separate</string>
+    <string name="music_stems_working">Separating · %1$d%%</string>
+    <string name="music_stems_done">Four stems on their own tracks. Mute the vocal and play along.</string>
+    <string name="music_analyse">Read the song</string>
+    <string name="music_analyse_hint">Tempo, key and the chords, from the sound itself.</string>
+    <string name="music_tempo">Tempo</string>
+    <string name="music_key">Key</string>
+    <string name="music_chords">Chords</string>
+    <string name="music_bpm">%1$s bpm</string>
+    <string name="music_confidence">%1$d%% sure</string>
+    <string name="music_practice">Practice</string>
+    <string name="music_practice_hint">Loop a stretch, slow it down, move it to your key. The pitch and the speed are separate.</string>
+    <string name="music_speed">Speed</string>
+    <string name="music_transpose">Transpose</string>
+    <string name="music_practice_apply">Make a practice copy</string>
+    <string name="music_click_to_beats">Click follows the song's beats</string>
+    <string name="music_markers_from_beats">Mark every bar</string>
+    <string name="music_to_midi">Notes to MIDI</string>
+    <string name="music_to_midi_hint">The melody of the selection as notes, onto a new MIDI pattern on the Beats tab.</string>
+    <string name="music_analysing">Listening to the song</string>
+    <string name="music_half_tempo">½ tempo</string>
+    <string name="music_double_tempo">2× tempo</string>
+    <string name="music_shift_bar">Bar starts a beat later</string>
+
     <!-- Notifications -->
     <string name="notification_channel">Recording and playback</string>
     <string name="notification_export_channel">Exports</string>
