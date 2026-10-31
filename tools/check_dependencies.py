@@ -29,6 +29,7 @@ MODULE_BUILD = pathlib.Path("app/build.gradle.kts")
 PROVIDED_BY = {
     "com.google.ai.edge.litert": "litert",
     "org.tensorflow.lite": "litert",
+    "androidx.annotation": "androidx.annotation",
     "androidx.activity": "androidx.activity.compose",
     "androidx.compose.animation": "androidx.compose.animation",
     "androidx.compose.foundation.layout": "androidx.compose.foundation.layout",

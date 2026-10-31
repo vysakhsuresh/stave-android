@@ -16,10 +16,12 @@ oboe = "1.9.3"
 # LiteRT, TensorFlow Lite's successor (Apache-2.0). Squish found 2.16.1 ran converted
 # models wrong without refusing them; 1.4.0 is the floor and never goes back.
 litert = "1.4.0"
+annotation = "1.9.1"
 junit = "4.13.2"
 robolectric = "4.14.1"
 
 [libraries]
+androidx-annotation = { group = "androidx.annotation", name = "annotation", version.ref = "annotation" }
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
 androidx-activity-compose = { group = "androidx.activity", name = "activity-compose", version.ref = "activityCompose" }
 androidx-lifecycle-runtime-ktx = { group = "androidx.lifecycle", name = "lifecycle-runtime-ktx", version.ref = "lifecycle" }

@@ -1,0 +1,7 @@
+{
+  global:
+    JNI_OnLoad;
+    Java_com_layerbit_stave_native_AvNative_*;
+  local:
+    *;
+};

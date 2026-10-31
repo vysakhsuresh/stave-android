@@ -13,6 +13,9 @@ object Registry {
         PitchChecks,
         PeaksChecks,
         TimecodeChecks,
+        JsonChecks,
+        ProjectChecks,
+        SessionEditsChecks,
         RunnerChecks
     )
 }
