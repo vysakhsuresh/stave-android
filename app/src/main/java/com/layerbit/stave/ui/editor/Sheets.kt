@@ -277,6 +277,7 @@ private fun EffectsSheet(vm: EditorViewModel, ui: EditorViewModel.Ui) {
     }
 }
 
+@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 @Composable
 private fun EqSheet(vm: EditorViewModel, ui: EditorViewModel.Ui) {
     var bands by remember { mutableStateOf(listOf(EqBand(FilterKind.HIGH_PASS, 80.0), EqBand(FilterKind.PEAKING, 1000.0, 0.0, 1.0), EqBand(FilterKind.HIGH_SHELF, 8000.0, 0.0, 0.7))) }
@@ -304,7 +305,8 @@ private fun EqSheet(vm: EditorViewModel, ui: EditorViewModel.Ui) {
                         androidx.compose.material3.Slider(
                             value = gains[i].toFloat(), onValueChange = { v -> val g = gains.copyOf(); g[i] = v.toDouble(); if (mode == "g10") gains10 = g else gains31 = g }, valueRange = -12f..12f,
                             modifier = Modifier.width(120.dp).rotate(-90f).semantics { contentDescription = Formats.hz(centres[i].toFloat()); stateDescription = Formats.db(gains[i].toFloat()) },
-                            colors = androidx.compose.material3.SliderDefaults.colors(thumbColor = StaveColors.Band, activeTrackColor = StaveColors.Band, inactiveTrackColor = StaveColors.Border)
+                            thumb = { com.layerbit.stave.ui.components.SliderThumb(true) },
+                            track = { st -> com.layerbit.stave.ui.components.SliderTrack((st.value + 12f) / 24f, true) }
                         )
                     }
                     Text(if (centres[i] >= 1000) String.format(java.util.Locale.getDefault(), "%.0fk", centres[i] / 1000) else String.format(java.util.Locale.getDefault(), "%.0f", centres[i]), style = MaterialTheme.typography.labelSmall, color = StaveColors.Dim, maxLines = 1)

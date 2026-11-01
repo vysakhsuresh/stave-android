@@ -1,6 +1,9 @@
 package com.layerbit.stave.ui.components
 
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.border
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -29,6 +32,7 @@ import java.util.Locale
  * A labelled slider that reads its value in Fira Code and tells a screen reader both its name
  * and its value. [onChange] fires on every move (a gesture), [onCommit] when the finger lifts.
  */
+@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 @Composable
 fun ValueSlider(
     label: String,
@@ -50,8 +54,32 @@ fun ValueSlider(
         Slider(
             value = value.coerceIn(range.start, range.endInclusive), onValueChange = onChange, valueRange = range, steps = steps, enabled = enabled,
             onValueChangeFinished = onCommit,
-            colors = SliderDefaults.colors(thumbColor = StaveColors.Band, activeTrackColor = StaveColors.Band, inactiveTrackColor = StaveColors.Border, disabledThumbColor = StaveColors.Dim, disabledActiveTrackColor = StaveColors.Border)
+            // A thin track and a round thumb: Material's default (a thick bar and a tall line
+            // for a thumb) was heavy on every sheet.
+            thumb = { SliderThumb(enabled) },
+            track = { state -> SliderTrack((state.value - state.valueRange.start) / (state.valueRange.endInclusive - state.valueRange.start).coerceAtLeast(1e-9f), enabled) }
         )
+    }
+}
+
+@Composable
+internal fun SliderThumb(enabled: Boolean) {
+    androidx.compose.foundation.layout.Box(
+        Modifier.size(20.dp)
+            .background(if (enabled) StaveColors.Band else StaveColors.Dim, androidx.compose.foundation.shape.CircleShape)
+            .border(3.dp, StaveColors.Surface, androidx.compose.foundation.shape.CircleShape)
+    )
+}
+
+@Composable
+internal fun SliderTrack(fraction: Float, enabled: Boolean) {
+    val active = if (enabled) StaveColors.Band else StaveColors.Dim
+    val rest = StaveColors.BorderStrong
+    Canvas(Modifier.fillMaxWidth().height(4.dp)) {
+        val r = androidx.compose.ui.geometry.CornerRadius(size.height / 2, size.height / 2)
+        drawRoundRect(rest, cornerRadius = r)
+        val w = size.width * fraction.coerceIn(0f, 1f)
+        if (w > 0f) drawRoundRect(active, size = Size(w, size.height), cornerRadius = r)
     }
 }
 
