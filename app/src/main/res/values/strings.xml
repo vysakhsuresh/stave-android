@@ -76,7 +76,7 @@
     <string name="guide_open_title">Open any sound</string>
     <string name="guide_open_body">Pick a file, share one from another app, or press Record. MP3, WAV, FLAC, M4A, OGG, Opus, AIFF, the sound of a video — if the phone has it, Stave reads it. Your original is never changed: the app works on its own copy.</string>
     <string name="guide_edit_title">Edit by selecting</string>
-    <string name="guide_edit_body">Drag over the waveform to select. Pinch to zoom, two fingers to scroll. The play-head is the fixed line in the middle; the sound moves under it. Every change can be undone, even after you close the app.</string>
+    <string name="guide_edit_body">Drag to move through the sound; hold a moment, then drag, to select. Pinch to zoom. The play-head is the fixed line in the middle; the sound moves under it. Every change can be undone, even after you close the app.</string>
     <string name="guide_repair_title">Clean up</string>
     <string name="guide_repair_body">Clean up voice takes out hiss and room noise. Repair finds clicks, clipped peaks and mains hum and mends them. Open the spectrogram and paint over a cough to take it out of the sound around it.</string>
     <string name="guide_voice_title">Edit the words</string>
@@ -163,7 +163,7 @@
     <string name="editor_zoom_out">Zoom out</string>
     <string name="editor_add">Add a sound</string>
     <string name="editor_selection">Selection</string>
-    <string name="editor_no_selection">Drag over the waveform to select</string>
+    <string name="editor_no_selection">Hold, then drag over the waveform to select</string>
     <string name="editor_busy_cancel">Cancel</string>
     <string name="sheet_select">Edit</string>
     <string name="sheet_gain">Gain</string>

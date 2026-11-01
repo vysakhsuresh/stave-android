@@ -80,6 +80,8 @@ fun WaveformStrip(
     /** Comping: a swipe over one take lane of the selected track hears that lane there: (trackId, lane, from, to). */
     compMode: Boolean = false,
     onComp: (trackId: String, lane: Int, from: Long, to: Long) -> Unit = { _, _, _, _ -> },
+    /** A hold on a clip picks it up (the Studio tab); elsewhere a hold starts a selection. */
+    carryClips: Boolean = false,
     modifier: Modifier = Modifier
 ) {
     val density = LocalDensity.current
@@ -124,7 +126,10 @@ fun WaveformStrip(
                 )
             }
             .pointerInput(Unit) {
-                // One finger: a selection, or a selection edge. Two: pan and zoom. Decided by what is down.
+                // One finger: a drag scrolls the film under the fixed play-head (and the sound
+                // follows it); a hold of 400 ms, then a drag, selects; a selection's edge drags that
+                // edge. Two fingers: pan and zoom. On the phone (1 Nov 2026) a plain drag selected,
+                // and people trying to move along a song made selections instead.
                 awaitEachGesture {
                     val first = awaitFirstDown(requireUnconsumed = false)
                     var anchor: Long? = null
@@ -155,19 +160,33 @@ fun WaveformStrip(
                     if (drawMode) drawn += com.layerbit.stave.engine.project.ValueTrack.Point(currentWindow.sampleAt(first.position.x).coerceIn(0L, currentSession.length), laneValue(first.position.y))
                     var twoFinger = false
                     var moved = false
+                    var selecting = false
+                    val holdable = editingEdge == 0 && !spectralMode && !drawMode && compTrack == null
                     while (true) {
-                        val event = awaitPointerEvent(PointerEventPass.Main)
+                        // Until the finger moves, wait no longer than the hold: a finger held still
+                        // sends no events, and the hold must still be noticed.
+                        val waitHold = holdable && !moved && !twoFinger && !selecting && carrying == null
+                        val left = 400L - (System.currentTimeMillis() - downTime)
+                        val event = if (waitHold && left > 0) withTimeoutOrNull(left) { awaitPointerEvent(PointerEventPass.Main) } else if (waitHold) null else awaitPointerEvent(PointerEventPass.Main)
+                        if (event == null) {
+                            // Held still: pick up the clip (Studio), or begin a selection here.
+                            if (carryClips && downClip != null) {
+                                carrying = downClip; carryGrab = currentWindow.sampleAt(first.position.x) - downClip.position
+                                onCarry(downClip.id, downClip.position, downClip.trackId, false)
+                            } else {
+                                selecting = true
+                                anchor = currentWindow.sampleAt(first.position.x).coerceIn(0L, currentSession.length)
+                                trackAt(first.position.y)?.let(onSelectTrack)
+                                onSelect(null)
+                            }
+                            continue
+                        }
                         val pressed = event.changes.filter { it.pressed }
                         if (pressed.isEmpty()) {
                             carrying?.let { c -> onCarry(c.id, c.position, c.trackId, true) }
                             if (drawMode && !twoFinger) onDrawAutomation(downTrack!!, drawn.toList(), true)
                             if (compTrack != null && !twoFinger && compTo > compFrom) { onComp(compTrack.id, compLane, compFrom, compTo); onSelect(null) }
                             break
-                        }
-                        // Held still on a clip for 400 ms: pick it up.
-                        if (!moved && !twoFinger && editingEdge == 0 && carrying == null && downClip != null && !spectralMode && !drawMode && System.currentTimeMillis() - downTime > 400) {
-                            carrying = downClip; carryGrab = currentWindow.sampleAt(first.position.x) - downClip.position
-                            onCarry(downClip.id, downClip.position, downClip.trackId, false)
                         }
                         if (pressed.size >= 2) {
                             twoFinger = true
@@ -216,13 +235,15 @@ fun WaveformStrip(
                             onSpectralBox(com.layerbit.stave.engine.dsp.SpectralEdit.Box(min(s0, sample), max(s0, sample), min(h0, h1), max(h0, h1)))
                             continue
                         }
-                        when (editingEdge) {
-                            1 -> { val s = currentSelection ?: continue; onSelect(min(sample, s.last) until max(sample, s.last + 1)) }
-                            2 -> { val s = currentSelection ?: continue; onSelect(min(sample, s.first) until max(sample, s.first + 1)) }
+                        when {
+                            editingEdge == 1 -> { val s = currentSelection ?: continue; onSelect(min(sample, s.last) until max(sample, s.last + 1)) }
+                            editingEdge == 2 -> { val s = currentSelection ?: continue; onSelect(min(sample, s.first) until max(sample, s.first + 1)) }
+                            selecting -> { val a = anchor!!; onSelect(min(a, sample) until max(a, sample)) }
                             else -> {
-                                if (anchor == null) { anchor = currentWindow.sampleAt(first.position.x).coerceIn(0L, currentSession.length); trackAt(first.position.y)?.let(onSelectTrack) }
-                                val a = anchor!!
-                                onSelect(min(a, sample) until max(a, sample))
+                                // The film follows the finger and the play-head (and the sound) with it.
+                                val w = currentWindow.dragged(change.position.x - change.previousPosition.x)
+                                onWindow(w)
+                                onSeek(w.playhead)
                             }
                         }
                     }
