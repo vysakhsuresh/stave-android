@@ -260,9 +260,9 @@ fun WaveformStrip(
                     val source = session.source(clip.sourceId) ?: continue
                     val subTop = top + clip.lane.coerceIn(0, takeLanes - 1) * subH
                     drawClip(clip, source, peaksFor(source), x0, x1, subTop + 2f, subH - 4f, window, clip.muted)
-                    if (x1 - x0 > 40f && clip.name.isNotBlank() && subH > 30f) drawText(measurer, clip.name, Offset(max(x0, 0f) + 6f, subTop + 4f), nameStyle)
+                    if (x1 - x0 > 40f && clip.name.isNotBlank() && subH > 30f) labelAt(measurer, clip.name, Offset(max(x0, 0f) + 6f, subTop + 4f), nameStyle)
                 }
-                if (track.name.isNotBlank()) drawText(measurer, track.name, Offset(6f, top + lane - 18f), labelStyle)
+                if (track.name.isNotBlank()) labelAt(measurer, track.name, Offset(6f, top + lane - measurer.measure(track.name, labelStyle).size.height - 4f), labelStyle)
             }
         }
         // Selection.
@@ -288,7 +288,7 @@ fun WaveformStrip(
             val x = window.pixelOf(ms * session.sampleRate / 1000)
             if (ms >= 0) {
                 drawLine(StaveColors.Dim, Offset(x, rulerPx - 10f), Offset(x, rulerPx), 1f)
-                drawText(measurer, Timecode.display(ms, decimals), Offset(x + 3f, 2f), labelStyle)
+                labelAt(measurer, Timecode.display(ms, decimals), Offset(x + 3f, 2f), labelStyle)
             }
             for (k in 1 until minor) { val mx = window.pixelOf((ms + majorMs * k / minor) * session.sampleRate / 1000); drawLine(StaveColors.Border, Offset(mx, rulerPx - 5f), Offset(mx, rulerPx), 1f) }
             ms += majorMs
@@ -339,4 +339,18 @@ private fun DrawScope.drawClip(clip: com.layerbit.stave.engine.project.Clip, sou
             if (r > 0.5f) drawLine(rms, Offset(x, mid - r), Offset(x, mid + r), 1f)
         }
     }
+}
+
+/**
+ * drawText with no size lays the text out in the room between [at] and the canvas's far edges:
+ * it throws when that room is negative and wraps the label a letter a line when it is small.
+ * The ruler draws one tick past the right edge on purpose (so a label slides in rather than
+ * pops), and that label crashed the editor the first time a sound was opened on a phone, then,
+ * guarded, stood as a column of single characters. The label is laid out at its own width and
+ * clipped to the canvas instead.
+ */
+private fun DrawScope.labelAt(measurer: androidx.compose.ui.text.TextMeasurer, text: String, at: Offset, style: TextStyle) {
+    if (at.x >= size.width || at.y >= size.height) return
+    val layout = measurer.measure(text, style, maxLines = 1, softWrap = false)
+    clipRect(0f, 0f, size.width, size.height) { drawText(layout, topLeft = at) }
 }
