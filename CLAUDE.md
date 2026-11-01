@@ -129,6 +129,16 @@ before writing the fix.
   (`strokeBase` in the view model), not on its own last result, so every pointer event is one
   idempotent replacement and the gesture folds into one undo step.
 
+- **A check must ask the code, not work the answer out for itself.** The wavetable's mip check
+  first computed which bank a note *should* read from the same arithmetic the voice uses and
+  passed against a voice that always read the full bank; it now asks `bankMaxHarmonic` after
+  `noteOn`. The same shape caught the comping split: the check counts the pieces.
+- **The Beats grid draws take lanes stacked** (`laneCountOf`, `takeLaneAt` in `Waveform.kt`), so
+  anything that reads a clip's `lane` for drawing must divide the row by that count.
+- **Preset ids are checked against the tables they name** (`ExportChecks`): "aac" is not a
+  format id (the table says "m4a") and "broadcast" is not a target (it says "ebu"). Both were
+  wrong on the first write and the suite said so before a phone could.
+
 ## Working agreement
 
 All work lands on `main` and is pushed when the suites pass. Commit messages say why. No model
