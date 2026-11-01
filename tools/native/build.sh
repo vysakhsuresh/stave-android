@@ -101,11 +101,19 @@ build_vorbis() {
   fetch "https://downloads.xiph.org/releases/vorbis/libvorbis-$VORBIS_VERSION.tar.gz" vorbis.tar.gz
   local dir; dir=$(fresh vorbis)
   tar xf "$SRC/vorbis.tar.gz" -C "$dir" --strip-components=1
+  # libvorbis 1.3.7's configure adds -mno-ieee-fp for i?86 hosts, a gcc-only flag the NDK's
+  # clang refuses ("unknown argument"): the x86 build died on it until it was taken out here.
+  sed -i 's/-mno-ieee-fp//g' "$dir/configure"
   (cd "$dir" && PKG_CONFIG_PATH="$PREFIX/lib/pkgconfig" ./configure --host="$HOST" --prefix="$PREFIX" --disable-shared --enable-static --with-pic \
       --with-ogg="$PREFIX" --disable-oggtest --disable-docs --disable-examples && make -j"$JOBS" && make install)
 }
 
 # ---- FFmpeg (GPL build, audio only) -------------------------------------
+# Every component name below was checked against 8.1.3's own registries (allformats.c,
+# allcodecs.c, parsers.c, bitstream_filters.c) on 1 November 2026. MP4/M4A are read by `mov`,
+# Opus files by `ogg`, WebM by `matroska`, ADTS by `aac`, MPEG-PS is `mpegps`, G.722/G.726 are
+# `adpcm_g722`/`adpcm_g726`, 8SVX is `eightsvx_*`. There is no --disable-postproc: 8.0 removed
+# libpostproc and configure refuses the switch.
 build_ffmpeg() {
   [ -f "$PREFIX/lib/libavcodec.a" ] && return
   fetch "https://ffmpeg.org/releases/ffmpeg-$FFMPEG_VERSION.tar.xz" ffmpeg.tar.xz
@@ -121,15 +129,15 @@ build_ffmpeg() {
       --enable-static --disable-shared --enable-pic --enable-gpl --enable-version3 \
       --disable-doc --disable-debug --disable-network --disable-devices --disable-hwaccels \
       --disable-mediacodec --disable-jni --disable-vulkan --disable-iconv --disable-autodetect \
-      --disable-programs --disable-avdevice --disable-avfilter --disable-swscale --disable-postproc \
+      --disable-programs --disable-avdevice --disable-avfilter --disable-swscale \
       --disable-encoders --disable-decoders --disable-muxers --disable-demuxers --disable-parsers --disable-bsfs --disable-protocols \
       --enable-zlib --enable-libmp3lame --enable-libopus --enable-libvorbis \
-      --enable-demuxer='mp3,aac,ac3,ape,aiff,asf,au,avi,caf,dsf,dts,eac3,flac,flv,m4a,matroska,mov,mp4,mpc,mpc8,ogg,opus,pcm_*,tak,tta,w64,wav,wv,xwma,amr,gsm,mlp,truehd,voc,rm,mpeg,mpegts,webm,shorten,adts,g722,g723_1,g726,g729,ilbc,sbc,aptx,aptx_hd,codec2,oma,xa,vag,wsaud,bink' \
-      --enable-decoder='mp3*,aac*,ac3*,eac3,alac,ape,flac,vorbis,opus,pcm_*,adpcm_*,wmav1,wmav2,wmapro,wmalossless,wmavoice,mp2*,mp1*,dca,truehd,mlp,tta,tak,wavpack,mpc7,mpc8,amrnb,amrwb,gsm,gsm_ms,g722,g723_1,g726*,g729,ilbc,sbc,aptx,aptx_hd,atrac*,cook,ra_144,ra_288,sipr,shorten,dsd_*,libopus,libvorbis,qdm2,qdmc,nellymoser,bink*,twinvq,smackaud,comfortnoise,s302m,dolby_e,evrc,qcelp,8svx*,metasound,on2avc,interplay_acm,xma1,xma2,mace3,mace6,imc,iac,truespeech,vmdaudio,dss_sp,dst,msnsiren,fastaudio,hca,siren,hcom' \
-      --enable-encoder='libmp3lame,libopus,libvorbis,flac,alac,aac,pcm_s16le,pcm_s24le,pcm_s32le,pcm_f32le,pcm_s16be,pcm_s24be,pcm_f32be,pcm_u8,pcm_alaw,pcm_mulaw,wavpack,tta,adpcm_ima_wav,adpcm_ms,g722,g726,comfortnoise,wmav2,ac3,eac3' \
+      --enable-demuxer='mp3,aac,ac3,ape,aiff,asf,au,avi,caf,dsf,dts,eac3,flac,flv,matroska,mov,mpc,mpc8,ogg,pcm_*,tak,tta,w64,wav,wv,xwma,amr,gsm,mlp,truehd,voc,rm,mpegps,mpegts,shorten,g722,g723_1,g726,g729,ilbc,sbc,aptx,aptx_hd,codec2,oma,xa,vag,wsaud,bink' \
+      --enable-decoder='mp3*,aac*,ac3*,eac3,alac,ape,flac,vorbis,opus,pcm_*,adpcm_*,wmav1,wmav2,wmapro,wmalossless,wmavoice,mp2*,mp1*,dca,truehd,mlp,tta,tak,wavpack,mpc7,mpc8,amrnb,amrwb,gsm,gsm_ms,g723_1,g729,ilbc,sbc,aptx,aptx_hd,atrac*,cook,ra_144,ra_288,sipr,shorten,dsd_*,libopus,libvorbis,qdm2,qdmc,nellymoser,bink*,twinvq,smackaud,comfortnoise,s302m,dolby_e,evrc,qcelp,eightsvx_*,metasound,on2avc,interplay_acm,xma1,xma2,mace3,mace6,imc,iac,truespeech,vmdaudio,dss_sp,dst,msnsiren,fastaudio,hca,siren,hcom' \
+      --enable-encoder='libmp3lame,libopus,libvorbis,flac,alac,aac,pcm_s16le,pcm_s24le,pcm_s32le,pcm_f32le,pcm_s16be,pcm_s24be,pcm_f32be,pcm_u8,pcm_alaw,pcm_mulaw,wavpack,tta,adpcm_ima_wav,adpcm_ms,adpcm_g722,adpcm_g726,comfortnoise,wmav2,ac3,eac3' \
       --enable-muxer='mp3,ogg,opus,flac,ipod,mp4,mov,caf,wav,w64,aiff,au,voc,adts,wv,tta,matroska,webm,oga,ac3,eac3,asf,mpegts' \
       --enable-parser='aac,aac_latm,ac3,flac,mpegaudio,opus,vorbis,dca,mlp,tak,gsm,amr,g729,cook,sipr' \
-      --enable-bsf='aac_adtstoasc,mp3_header_decompress,remove_extradata,setts,pcm_rechunk' \
+      --enable-bsf='aac_adtstoasc,remove_extradata,setts,pcm_rechunk' \
       --enable-protocol=file,pipe \
       $ASM) || { tail -60 "$dir/ffbuild/config.log"; exit 1; }
   make -C "$dir" -j"$JOBS"
