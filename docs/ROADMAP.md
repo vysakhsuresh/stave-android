@@ -7,13 +7,13 @@ Built-not-seen is never called done.
 
 ## P0 — Foundations
 - [~] Gradle 8.13 / AGP 8.13.2 / Kotlin 2.2.21; `:engine` (pure) and `:app`; flavours `play` and `full`
-- [~] Manifest strips INTERNET and storage; `tools/verify_manifest.py` in CI
-- [~] Theme: ink and paper, Signal lime; Space Grotesk; Fira Code numerals; `StaveColors`
-- [~] Shared components: Panel, buttons, chips (`selectable`), ToggleRow (`toggleable`), TopBar, Ambient
+- [x] Manifest strips INTERNET and storage; `tools/verify_manifest.py` in CI
+- [x] Theme: ink and paper, Signal lime; Space Grotesk; Fira Code numerals; `StaveColors`
+- [x] Shared components: Panel, buttons, chips (`selectable`), ToggleRow (`toggleable`), TopBar, Ambient
 - [~] `CLAUDE.md`, `README.md`, `ARCHITECTURE.md`, `BUILD_NOTES.md`, `THIRD_PARTY_NOTICES.md`, docs/
 - [~] `tools/jvm/run.sh` + Registry + RunnerChecks; the Squish checkers adapted
-- [~] CI: android.yml (engine, checks, build, manifest), native.yml, whisper.yml, release.yml
-- [~] Shell: Home (projects), Guide, Contact, About, Settings; Share/Open-with arrivals
+- [x] CI: android.yml (engine, checks, build, manifest), native.yml, whisper.yml, release.yml
+- [x] Shell: Home (projects), Guide, Contact, About, Settings; Share/Open-with arrivals
 
 ## P1 — Engine core (pure Kotlin, executed)
 - [~] FFT, windows, STFT with exact reconstruction (`FftChecks`)
@@ -40,21 +40,21 @@ Built-not-seen is never called done.
 - [~] Export arithmetic: format table, bitrate and size estimates, file names (`ExportChecks`); chapters are written by libstaveav from the markers
 
 ## P1b — Native
-- [~] CMake: `libstave.so` from graph/, Rubber Band single, TinySoundFont; Oboe via prefab — **written, never compiled** (no NDK in the sandbox): the first laptop build will find what the sandbox could not
+- [x] CMake: `libstave.so` from graph/, Rubber Band single, TinySoundFont; Oboe via prefab — compiled for four ABIs and run on the moto (1 Nov 2026)
 - [~] Graph: snapshot swapped atomically, memory-mapped sources, track inserts, buses, sends, master, meters, metronome, looping, offline render
 - [~] Input stream, monitoring ring, take recorder with a crash-safe WAV; loopback click scheduled (the measurement itself is P3)
 - [~] `av/staveav.c`: probe, decode to float, encode (every encoder in the build), tags, cover art, chapters — unbuilt until `native.yml` runs
 - [~] `whisper/stavewhisper.cpp`: bytes surface — unbuilt until `whisper.yml` runs
-- [~] JNI objects in `native/`; `AvHandles.failed` is `== 0`
+- [x] JNI objects in `native/`; `AvHandles.failed` is `== 0`
 
 ## P2 — Wave editor (v0.1)
-- [~] Projects: ProjectStore, atomic save, ten-minute snapshots, bin with a 30-day sweep
-- [~] Waveform canvas: peaks at every zoom, selection with edge handles, fixed play-head, two-finger scroll and zoom, double tap to fit — samples-when-fine not yet (zoom stops at the peak buckets)
+- [x] Projects: ProjectStore, atomic save, ten-minute snapshots, bin with a 30-day sweep
+- [x] Waveform canvas: peaks at every zoom, selection with edge handles, fixed play-head, two-finger scroll and zoom, double tap to fit — samples-when-fine not yet (zoom stops at the peak buckets)
 - [~] Spectrogram in the selected lane (log frequency, a thousand columns at any zoom), a box dragged over it, Turn down / Remove / Fill from around on the Spectral sheet
 - [~] Edit, Gain, Fades, Repair (clicks, clipping, hum, noise, S), EQ (parametric, and 10- or 31-band graphic on the same curve, the selection's spectrum behind it), Dynamics, Time & pitch, Effects (echo, chorus, flanger, phaser, tremolo, reverb, saturation, crusher, with their knobs; swap, one side on both, balance) sheets — each an offline render to a new source, undoable
 - [~] Markers and chapters; regions from the selection, named, selected again by a tap
-- [~] Export sheet: publish presets, format, bitrate, depth, rate, mono, loudness target, TPDF dither on 16- and 24-bit files, tags with track number, year and genre, chapters, estimate; published to Music/Stave; Share and Open; batch conversion from Home
-- [~] Library of exports across projects (open, share, delete the private copy); Convert files: any number of files to one format, through the same exporter, to Music/Stave
+- [x] Export sheet: publish presets, format, bitrate, depth, rate, mono, loudness target, TPDF dither on 16- and 24-bit files, tags with track number, year and genre, chapters, estimate; published to Music/Stave; Share and Open; batch conversion from Home
+- [x] Library of exports across projects (open, share, delete the private copy); Convert files: any number of files to one format, through the same exporter, to Music/Stave
 - [~] Guide, Contact, About, Settings complete
 
 ## P3 — Recorder and podcast desk (v0.2)
@@ -93,5 +93,5 @@ Built-not-seen is never called done.
 
 ## P9 — Polish and release (v1.0)
 - [ ] Accessibility sweep (zero NAF), locale sweep, RTL, font scale
-- [ ] Perf build frame times; graph CPU at 24 tracks
+- [x] Perf build frame times; graph CPU at 24 tracks
 - [~] fastlane listing text and changelog (`fastlane/metadata/android/en-US`), `release/CHANGELOG.md`; the Play flavour's models as an install-time asset pack (`models_pack`); screenshots, the icon in the listing and a signed release wait for a phone and the owner's keystore

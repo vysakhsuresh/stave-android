@@ -161,3 +161,11 @@ of that test is still open in `docs/PENDING_TESTS.md`.
 - 32: Library lists every export newest first with Share and Delete (Delete had been drawn as
   a plus). Convert files opens; picking files needs the system picker (not drivable).
 - Undo now survives closing the app (history.json).
+
+**The release builds (2 November)**
+- 5: the merged release manifests (fullRelease, playRelease) declare no INTERNET, no phone
+  state and no storage permission.
+- 63 (part): `bundlePlayRelease` builds; the bundle's `models` asset pack holds the Whisper
+  model (59.7 MB) and the full APK carries it in its own assets. bundletool not run here.
+- Both release builds (R8-minified) built; the minified perf build ran every tab without a
+  missing class. **Not signed yet: the owner's keystore is needed.**

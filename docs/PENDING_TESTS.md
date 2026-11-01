@@ -5,7 +5,6 @@ the moto attached. Move each line to `DEVICE_FINDINGS.md` with the date once it 
 back into the roadmap with what broke.
 
 ## P0 — the empty app
-5. The release build's merged manifest (fullRelease and playRelease) has no INTERNET permission (the debug one was read on 1 Nov 2026).
 
 ## P1 — engine on the phone
 
