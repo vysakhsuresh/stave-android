@@ -6,7 +6,7 @@ suites passing, **not seen** - listed in `docs/PENDING_TESTS.md`; `[ ]` not buil
 Built-not-seen is never called done.
 
 ## P0 — Foundations
-- [~] Gradle 8.13 / AGP 8.13.2 / Kotlin 2.2.21; `:engine` (pure) and `:app`; flavours `play` and `full`
+- [x] Gradle 8.13 / AGP 8.13.2 / Kotlin 2.2.21; `:engine` (pure) and `:app`; flavours `play` and `full`
 - [x] Manifest strips INTERNET and storage; `tools/verify_manifest.py` in CI
 - [x] Theme: ink and paper, Signal lime; Space Grotesk; Fira Code numerals; `StaveColors`
 - [x] Shared components: Panel, buttons, chips (`selectable`), ToggleRow (`toggleable`), TopBar, Ambient
@@ -43,8 +43,8 @@ Built-not-seen is never called done.
 - [x] CMake: `libstave.so` from graph/, Rubber Band single, TinySoundFont; Oboe via prefab — compiled for four ABIs and run on the moto (1 Nov 2026)
 - [~] Graph: snapshot swapped atomically, memory-mapped sources, track inserts, buses, sends, master, meters, metronome, looping, offline render
 - [~] Input stream, monitoring ring, take recorder with a crash-safe WAV; loopback click scheduled (the measurement itself is P3)
-- [~] `av/staveav.c`: probe, decode to float, encode (every encoder in the build), tags, cover art, chapters — unbuilt until `native.yml` runs
-- [~] `whisper/stavewhisper.cpp`: bytes surface — unbuilt until `whisper.yml` runs
+- [x] `av/staveav.c`: probe, decode to float, encode (every encoder in the build), tags, cover art, chapters — unbuilt until `native.yml` runs
+- [x] `whisper/stavewhisper.cpp`: bytes surface — unbuilt until `whisper.yml` runs
 - [x] JNI objects in `native/`; `AvHandles.failed` is `== 0`
 
 ## P2 — Wave editor (v0.1)
