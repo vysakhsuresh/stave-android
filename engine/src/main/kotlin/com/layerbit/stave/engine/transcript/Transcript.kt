@@ -250,3 +250,41 @@ object Silences {
         return min(capDb, floor + aboveFloorDb)
     }
 }
+
+/**
+ * Word edges fitted to the pauses in the sound. Whisper's one-word segments are laid end to end,
+ * so the last word before a pause runs on through it: on the phone (1 Nov 2026) "dog." ended
+ * 340 ms after the speech stopped, and tapping "lazy dog." chose mostly silence. A pause that
+ * begins inside a word ends the word there (plus a tail for the decay); a word that begins
+ * inside a pause starts with the speech (less a lead for the breath). A word wholly inside a
+ * pause is left as heard: the sound gives nothing to move it to.
+ */
+object WordTiming {
+    /** Runs of [frameMs] frames under [thresholdDb] lasting at least [minPauseMs], in ms. */
+    fun pauses(levelsDb: FloatArray, frameMs: Int, thresholdDb: Float, minPauseMs: Long = 120): List<LongRange> {
+        val out = ArrayList<LongRange>()
+        var i = 0
+        while (i < levelsDb.size) {
+            if (levelsDb[i] < thresholdDb) {
+                var j = i
+                while (j < levelsDb.size && levelsDb[j] < thresholdDb) j++
+                val from = i.toLong() * frameMs; val to = j.toLong() * frameMs
+                if (to - from >= minPauseMs) out += from until to
+                i = j
+            } else i++
+        }
+        return out
+    }
+
+    fun fitToSpeech(words: List<Word>, pauses: List<LongRange>, tailMs: Long = 40, leadMs: Long = 20): List<Word> = words.map { w ->
+        var start = w.startMs; var end = w.endMs
+        for (p in pauses) {
+            val pFrom = p.first; val pTo = p.last + 1
+            // The word starts inside the pause and runs on past it: start with the speech.
+            if (start >= pFrom && start < pTo && end > pTo) start = max(start, pTo - leadMs)
+            // A pause begins after the word starts and before it ends: the word ends there.
+            if (pFrom > start && pFrom < end) end = min(end, pFrom + tailMs)
+        }
+        if (end > start && (start != w.startMs || end != w.endMs)) w.copy(startMs = start, endMs = end) else w
+    }
+}

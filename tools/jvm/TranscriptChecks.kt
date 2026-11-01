@@ -5,6 +5,7 @@ import com.layerbit.stave.engine.transcript.WhisperText
 import com.layerbit.stave.engine.transcript.WhisperWindows
 import com.layerbit.stave.engine.transcript.Word
 import com.layerbit.stave.engine.transcript.WordCuts
+import com.layerbit.stave.engine.transcript.WordTiming
 
 object TranscriptChecks : Suite {
     override val name = "transcript"
@@ -74,5 +75,21 @@ object TranscriptChecks : Suite {
         val found = Silences.find(levels, 20, threshold, minMs = 500, keepMs = 100)
         check(found.size == 1 && found[0].first == 1100L && found[0].last == 2899L) { "one silence, shrunk by the margin: $found" }
         check(Silences.find(levels, 20, threshold, minMs = 5000, keepMs = 100).isEmpty()) { "too short to count" }
+
+        section("word edges fitted to the pauses in the sound (the phone's \"lazy dog.\", 1 Nov 2026)")
+        // 10 ms frames: speech, then a pause from 2420 to 2810 ms, then speech again, and a pause
+        // of 60 ms at 4000 ms that is too short to be one.
+        val fl = FloatArray(500) { i -> val ms = i * 10; if ((ms in 2420 until 2810) || (ms in 4000 until 4060)) -90f else -20f }
+        val pauses = WordTiming.pauses(fl, 10, -45f, minPauseMs = 120)
+        check(pauses == listOf(2420L until 2810L)) { "one pause, the short gap is not one: $pauses" }
+        // As whisper laid them: end to end, the sentence's last word running on through the pause.
+        val heard = listOf(Word("the", 1910, 2140), Word("lazy", 2140, 2300), Word("dog.", 2300, 2760), Word("Every", 2760, 3050), Word("ghost", 2500, 2700))
+        val fitted = WordTiming.fitToSpeech(heard, pauses, tailMs = 40, leadMs = 20)
+        check(fitted[2].startMs == 2300L && fitted[2].endMs == 2460L) { "the last word ends where the speech does, plus the tail: ${fitted[2]}" }
+        check(fitted[3].startMs == 2790L && fitted[3].endMs == 3050L) { "a word starting in the pause starts with the speech, less the lead: ${fitted[3]}" }
+        check(fitted[0] == heard[0] && fitted[1] == heard[1]) { "words clear of the pause are untouched: ${fitted.take(2)}" }
+        check(fitted[4] == heard[4]) { "a word wholly inside a pause is left as heard: ${fitted[4]}" }
+        check(WordTiming.fitToSpeech(heard, emptyList()) == heard) { "no pauses, no change" }
+        check(fitted.all { it.endMs > it.startMs }) { "every word keeps a length" }
     }
 }

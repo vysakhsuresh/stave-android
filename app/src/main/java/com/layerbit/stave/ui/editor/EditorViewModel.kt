@@ -621,7 +621,18 @@ class EditorViewModel(private val app: StaveApplication, val projectId: String) 
         viewModelScope.launch {
             val result = runCatching {
                 val chs = mixdown(range.first, range.last + 1) ?: throw IllegalStateException("Nothing to transcribe.")
-                whisper.transcribe(chs, s.sampleRate, range.first * 1000 / s.sampleRate, _voice.value.language) { p -> _voice.value = _voice.value.copy(transcribing = p) }
+                val offsetMs = range.first * 1000 / s.sampleRate
+                val heard = whisper.transcribe(chs, s.sampleRate, offsetMs, _voice.value.language) { p -> _voice.value = _voice.value.copy(transcribing = p) }
+                // Word edges fitted to the pauses in the same sound (WordTiming says why).
+                heard?.let { t ->
+                    withContext(Dispatchers.Default) {
+                        val mono = FloatArray(chs[0].size) { i -> var v = 0f; for (c in chs) v += c[i]; v / chs.size }
+                        val levels = com.layerbit.stave.engine.transcript.Silences.levels(mono, s.sampleRate, 10)
+                        val threshold = com.layerbit.stave.engine.transcript.Silences.thresholdFor(levels)
+                        val pauses = com.layerbit.stave.engine.transcript.WordTiming.pauses(levels, 10, threshold).map { (it.first + offsetMs) until (it.last + 1 + offsetMs) }
+                        t.copy(words = com.layerbit.stave.engine.transcript.WordTiming.fitToSpeech(t.words, pauses))
+                    }
+                }
             }
             _voice.value = _voice.value.copy(transcribing = null)
             result.onSuccess { t ->
