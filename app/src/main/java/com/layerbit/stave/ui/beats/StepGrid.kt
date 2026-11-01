@@ -93,7 +93,9 @@ fun StepGrid(
                 Modifier
                     .width(cellDp * steps)
                     .height(rowDp * rows.size)
-                    .clip(ChipShape)
+                    // A rounded rectangle: the pill-shaped clip here cut huge arcs out of the corners of a
+                    // tall grid, hiding the corner steps (seen on the phone, 1 Nov 2026).
+                    .clip(androidx.compose.foundation.shape.RoundedCornerShape(10.dp))
                     .background(StaveColors.SurfaceDim)
                     .semantics { contentDescription = description }
                     .pointerInput(Unit) {
