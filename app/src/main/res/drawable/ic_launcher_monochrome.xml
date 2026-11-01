@@ -1,11 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- The same mark in one colour, for themed icons. -->
+<!-- The mark alone, for themed icons: the launcher tints it. -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp" android:height="108dp"
     android:viewportWidth="108" android:viewportHeight="108">
-    <path android:pathData="M22,38 H40 C50,38 54,54 62,54 M22,46 H40 C50,46 54,54 62,54 M22,54 H62 M22,62 H40 C50,62 54,54 62,54 M22,70 H40 C50,70 54,54 62,54"
-        android:strokeColor="#FFFFFFFF" android:strokeWidth="2.6" android:strokeLineCap="round" android:fillColor="#00000000" />
-    <path android:pathData="M62,54 C66,54 67,40 71,40 C75,40 76,68 80,68 C83,68 84,54 87,54"
-        android:strokeColor="#FFFFFFFF" android:strokeWidth="4" android:strokeLineCap="round" android:strokeLineJoin="round" android:fillColor="#00000000" />
-    <path android:pathData="M62,54 m-3.2,0 a3.2,3.2 0 1,0 6.4,0 a3.2,3.2 0 1,0 -6.4,0" android:fillColor="#FFFFFFFF" />
+    <path android:fillColor="#FFFFFFFF" android:pathData="M27.6,47 a2.8,2.8 0 0,1 2.8,2.8 V58.2 a2.8,2.8 0 0,1 -5.6,0 V49.8 a2.8,2.8 0 0,1 2.8,-2.8 Z" />
+    <path android:fillColor="#FFFFFFFF" android:pathData="M36.4,41 a2.8,2.8 0 0,1 2.8,2.8 V64.2 a2.8,2.8 0 0,1 -5.6,0 V43.8 a2.8,2.8 0 0,1 2.8,-2.8 Z" />
+    <path android:fillColor="#FFFFFFFF" android:pathData="M45.2,34 a2.8,2.8 0 0,1 2.8,2.8 V71.2 a2.8,2.8 0 0,1 -5.6,0 V36.8 a2.8,2.8 0 0,1 2.8,-2.8 Z" />
+    <path android:fillColor="#FFFFFFFF" android:pathData="M54,26 a2.8,2.8 0 0,1 2.8,2.8 V79.2 a2.8,2.8 0 0,1 -5.6,0 V28.8 a2.8,2.8 0 0,1 2.8,-2.8 Z" />
+    <path android:fillColor="#FFFFFFFF" android:pathData="M62.8,34 a2.8,2.8 0 0,1 2.8,2.8 V71.2 a2.8,2.8 0 0,1 -5.6,0 V36.8 a2.8,2.8 0 0,1 2.8,-2.8 Z" />
+    <path android:fillColor="#FFFFFFFF" android:pathData="M71.6,41 a2.8,2.8 0 0,1 2.8,2.8 V64.2 a2.8,2.8 0 0,1 -5.6,0 V43.8 a2.8,2.8 0 0,1 2.8,-2.8 Z" />
+    <path android:fillColor="#FFFFFFFF" android:pathData="M80.4,47 a2.8,2.8 0 0,1 2.8,2.8 V58.2 a2.8,2.8 0 0,1 -5.6,0 V49.8 a2.8,2.8 0 0,1 2.8,-2.8 Z" />
 </vector>

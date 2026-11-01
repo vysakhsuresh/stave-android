@@ -3,6 +3,8 @@ package com.layerbit.stave.ui.about
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.requiredSize
+import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -40,7 +42,13 @@ fun AboutScreen(onGuide: () -> Unit = {}, onContact: () -> Unit = {}, modifier: 
         LazyColumn(modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 8.dp, bottom = 36.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             item {
                 Row(verticalAlignment = Alignment.CenterVertically, modifier = rise(0)) {
-                    Image(painterResource(R.drawable.ic_launcher_foreground), contentDescription = null, modifier = Modifier.size(84.dp))
+                    // The launcher tile itself: the mark is ink on lime, so it is never drawn alone on
+                    // the dark page. The layers are 108dp with a 72dp visible centre; 96dp in a 64dp
+                    // clip shows the same two thirds.
+                    Box(Modifier.padding(end = 10.dp).size(64.dp).clip(androidx.compose.foundation.shape.RoundedCornerShape(18.dp)), contentAlignment = Alignment.Center) {
+                        Image(painterResource(R.drawable.ic_launcher_background), contentDescription = null, modifier = Modifier.requiredSize(96.dp))
+                        Image(painterResource(R.drawable.ic_launcher_foreground), contentDescription = null, modifier = Modifier.requiredSize(96.dp))
+                    }
                     Column(Modifier.padding(start = 4.dp)) {
                         Text(stringResource(R.string.app_name), style = MaterialTheme.typography.headlineMedium, color = StaveColors.Text)
                         Text(stringResource(R.string.about_version, BuildConfig.VERSION_NAME), style = MaterialTheme.typography.bodySmall, color = StaveColors.Dim)
