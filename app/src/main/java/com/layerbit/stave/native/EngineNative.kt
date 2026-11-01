@@ -40,7 +40,8 @@ object EngineNative {
     @JvmStatic external fun readMeters(engine: Long, out: FloatArray): Int
 
     /** [preset] 0 unprocessed, 1 voice recognition. */
-    @JvmStatic external fun openInput(engine: Long, channels: Int, preset: Int): Boolean
+    /** [deviceId] is an AudioDeviceInfo id, 0 for the system's choice. */
+    @JvmStatic external fun openInput(engine: Long, channels: Int, preset: Int, deviceId: Int): Boolean
     @JvmStatic external fun closeInput(engine: Long)
     @JvmStatic external fun setMonitor(engine: Long, on: Boolean, gain: Float)
     @JvmStatic external fun startRecording(engine: Long, path: String): Boolean

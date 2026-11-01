@@ -59,7 +59,8 @@ public:
     int readMeters(float* out, int capacity);
 
     // Input, monitoring, recording.
-    bool openInput(int channels, int preset);
+    // deviceId is Android's AudioDeviceInfo id for a chosen input (a USB interface, a Bluetooth mic); 0 lets the system choose.
+    bool openInput(int channels, int preset, int deviceId = 0);
     void closeInput();
     void setMonitor(bool on, float gainLinear) { monitorOn = on; monitorGain = gainLinear; }
     bool startRecording(const std::string& path);

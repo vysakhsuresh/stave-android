@@ -277,7 +277,10 @@ private fun EqSheet(vm: EditorViewModel, ui: EditorViewModel.Ui) {
     var gains31 by remember { mutableStateOf(DoubleArray(31)) }
     val graphicBands = when (mode) { "g10" -> ParametricEq.graphic(ParametricEq.ISO_10, gains10); "g31" -> ParametricEq.graphic(ParametricEq.ISO_31, gains31); else -> null }
     SelectionLine(ui)
-    EqCurve(graphicBands ?: bands, ui.session.sampleRate, if (graphicBands == null) selected else -1, onSelect = { if (graphicBands == null) selected = it }, modifier = Modifier.fillMaxWidth().height(120.dp))
+    // The analyser follows the selection: what is heard sits behind what is drawn.
+    val spectrum by vm.analyser.collectAsState()
+    androidx.compose.runtime.LaunchedEffect(ui.selection, ui.session.length) { vm.refreshAnalyser() }
+    EqCurve(graphicBands ?: bands, ui.session.sampleRate, if (graphicBands == null) selected else -1, onSelect = { if (graphicBands == null) selected = it }, modifier = Modifier.fillMaxWidth().height(120.dp), spectrum = spectrum)
     ChipRow(options = listOf("parametric" to stringResource(R.string.eq_mode_parametric), "g10" to stringResource(R.string.eq_mode_10), "g31" to stringResource(R.string.eq_mode_31)), selected = mode, onSelect = { mode = it }, modifier = Modifier.padding(top = 6.dp))
     if (graphicBands != null) {
         val centres = if (mode == "g10") ParametricEq.ISO_10 else ParametricEq.ISO_31
@@ -393,6 +396,23 @@ private fun MarkersSheet(vm: EditorViewModel, ui: EditorViewModel.Ui) {
             OutlinedTextField(value = name, onValueChange = { name = it; vm.renameMarker(m.id, it) }, singleLine = true, modifier = Modifier.weight(1f), textStyle = MaterialTheme.typography.bodyMedium)
             SecondaryButton(stringResource(if (m.kind == Marker.Kind.CHAPTER) R.string.markers_chapter else R.string.markers_marker), onClick = { vm.setMarkerKind(m.id, if (m.kind == Marker.Kind.CHAPTER) Marker.Kind.MARKER else Marker.Kind.CHAPTER) }, tall = false)
             SecondaryButton(stringResource(R.string.app_delete), onClick = { vm.removeMarker(m.id) }, tall = false)
+        }
+    }
+    // Regions: a named stretch, made from the selection, selected again by a tap.
+    Spacer(Modifier.height(12.dp))
+    Text(stringResource(R.string.regions_title), style = MaterialTheme.typography.bodyMedium, color = StaveColors.Text)
+    var regionName by remember { mutableStateOf("") }
+    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 6.dp)) {
+        OutlinedTextField(value = regionName, onValueChange = { regionName = it }, label = { Text(stringResource(R.string.regions_name)) }, singleLine = true, modifier = Modifier.weight(1f))
+        SecondaryButton(stringResource(R.string.regions_add), onClick = { vm.addRegionFromSelection(regionName); regionName = "" }, tall = false, enabled = ui.selection != null)
+    }
+    if (ui.session.regions.isEmpty()) Text(stringResource(R.string.regions_none), style = MaterialTheme.typography.bodySmall, color = StaveColors.Dim, modifier = Modifier.padding(top = 6.dp))
+    for (r in ui.session.regions) {
+        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(Timecode.display(Timecode.ofSamples(r.start, ui.session.sampleRate), 1), style = com.layerbit.stave.ui.theme.Numerals, color = StaveColors.Studio, modifier = Modifier.width(64.dp))
+            Text(r.name, style = MaterialTheme.typography.bodyMedium, color = StaveColors.Text, modifier = Modifier.weight(1f))
+            SecondaryButton(stringResource(R.string.regions_select), onClick = { vm.selectRegion(r.id) }, tall = false)
+            SecondaryButton(stringResource(R.string.app_delete), onClick = { vm.removeRegion(r.id) }, tall = false)
         }
     }
 }

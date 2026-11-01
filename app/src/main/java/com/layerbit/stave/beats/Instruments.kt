@@ -15,6 +15,8 @@ import com.layerbit.stave.engine.synth.KitSynth
 import com.layerbit.stave.engine.synth.PolySynth
 import com.layerbit.stave.engine.synth.SubtractivePatch
 import com.layerbit.stave.engine.synth.Waveform
+import com.layerbit.stave.engine.synth.WavetablePatch
+import com.layerbit.stave.engine.synth.WavetableSynth
 import com.layerbit.stave.native.SoundFontNative
 import java.io.File
 
@@ -71,9 +73,17 @@ object Instruments {
             FmOperator(4.0, 0.2, AdsrSettings(5.0, 50.0, 1.0, 80.0))), 0.4))
     )
 
+    val wavetablePresets: Map<String, Pair<String, WavetablePatch>> = linkedMapOf(
+        "morph" to ("Morph" to WavetablePatch(position = 0.2, positionEnvelope = 0.6, cutoffHz = 6000.0, resonance = 0.2, amp = AdsrSettings(8.0, 400.0, 0.6, 400.0), sweep = AdsrSettings(1.0, 700.0, 0.0, 300.0))),
+        "glass" to ("Glass" to WavetablePatch(position = 0.9, positionEnvelope = -0.4, cutoffHz = 9000.0, resonance = 0.1, amp = AdsrSettings(2.0, 900.0, 0.0, 600.0), sweep = AdsrSettings(1.0, 500.0, 0.0, 200.0), detuneCents = 3.0)),
+        "choir" to ("Choir" to WavetablePatch(position = 0.78, positionEnvelope = 0.08, cutoffHz = 3500.0, resonance = 0.05, amp = AdsrSettings(300.0, 500.0, 0.85, 900.0), sweep = AdsrSettings(900.0, 1200.0, 0.5, 600.0), detuneCents = 9.0, gain = 0.4)),
+        "wavepluck" to ("Wave pluck" to WavetablePatch(position = 0.55, positionEnvelope = 0.3, cutoffHz = 2200.0, resonance = 0.3, amp = AdsrSettings(1.0, 220.0, 0.0, 180.0), sweep = AdsrSettings(1.0, 150.0, 0.0, 120.0)))
+    )
+
     /** The built-in choices in the order the chips show them. */
     val builtIn: List<Choice> = listOf(Choice(DRUMS, "Drums", isDrums = true)) +
-        synthPresets.map { (k, v) -> Choice("synth:$k", v.first) } + fmPresets.map { (k, v) -> Choice("fm:$k", v.first) }
+        synthPresets.map { (k, v) -> Choice("synth:$k", v.first) } + fmPresets.map { (k, v) -> Choice("fm:$k", v.first) } +
+        wavetablePresets.map { (k, v) -> Choice("wt:$k", v.first) }
 
     fun isDrums(id: String): Boolean = id.startsWith("drums:")
     fun isKit(id: String): Boolean = id.startsWith("kit:")
@@ -90,6 +100,7 @@ object Instruments {
         isKit(id) -> kitName(kitId(id)!!) ?: "Kit"
         id.startsWith("synth:") -> synthPresets[id.removePrefix("synth:")]?.first ?: "Synth"
         id.startsWith("fm:") -> fmPresets[id.removePrefix("fm:")]?.first ?: "FM"
+        id.startsWith("wt:") -> wavetablePresets[id.removePrefix("wt:")]?.first ?: "Wavetable"
         isSoundFont(id) -> {
             val file = soundFontFile(id) ?: ""
             val preset = store?.presetNames(file)?.getOrNull(soundFontPreset(id))
@@ -108,6 +119,7 @@ object Instruments {
         isKit(id) -> kits(kitId(id)!!)?.let { DrumInstrument(DrumMachine(it, sampleRate)) }
         id.startsWith("synth:") -> SynthInstrument(PolySynth(synthPresets[id.removePrefix("synth:")]?.second ?: SubtractivePatch(), sampleRate, voices = 10))
         id.startsWith("fm:") -> SynthInstrument(FmSynth(fmPresets[id.removePrefix("fm:")]?.second ?: FmPatch(), sampleRate, voices = 10))
+        id.startsWith("wt:") -> SynthInstrument(WavetableSynth(wavetablePresets[id.removePrefix("wt:")]?.second ?: WavetablePatch(), sampleRate, voices = 8))
         isSoundFont(id) -> {
             val f = soundFontFile(id)?.let { store?.file(it) }
             if (f != null && f.isFile) SoundFontInstrument(f, sampleRate, soundFontPreset(id)) else null

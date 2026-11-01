@@ -28,6 +28,7 @@ object Registry {
         MelodyChecks,
         MasteringChecks,
         LiveTuneChecks,
-        AutomationChecks
+        AutomationChecks,
+        CompingChecks
     ) + MusicSuites.all + SequencerSuites.all + VoiceSuites.all + listOf(RunnerChecks)
 }

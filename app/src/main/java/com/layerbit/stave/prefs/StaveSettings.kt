@@ -15,6 +15,8 @@ data class Settings(
     /** 32 (float) or 24. */
     val recordBits: Int = 32,
     val lowLatency: Boolean = true,
+    /** The input device's AudioDeviceInfo id (a USB interface, a Bluetooth mic); 0 is the phone's choice. Ids change between plug-ins, so the chooser lists what is there now. */
+    val inputDeviceId: Int = 0,
     val loudnessTargetId: String = "podcast",
     val keepScreenOn: Boolean = true,
     val introSeen: Boolean = false,
@@ -40,6 +42,7 @@ class StaveSettings(context: Context) {
             .putInt(KEY_RATE, s.sampleRate)
             .putInt(KEY_BITS, s.recordBits)
             .putBoolean(KEY_LOW_LATENCY, s.lowLatency)
+            .putInt(KEY_INPUT_DEVICE, s.inputDeviceId)
             .putString(KEY_TARGET, s.loudnessTargetId)
             .putBoolean(KEY_KEEP_SCREEN, s.keepScreenOn)
             .putBoolean(KEY_INTRO, s.introSeen)
@@ -57,6 +60,7 @@ class StaveSettings(context: Context) {
         sampleRate = prefs.getInt(KEY_RATE, 0),
         recordBits = prefs.getInt(KEY_BITS, 32),
         lowLatency = prefs.getBoolean(KEY_LOW_LATENCY, true),
+        inputDeviceId = prefs.getInt(KEY_INPUT_DEVICE, 0),
         loudnessTargetId = prefs.getString(KEY_TARGET, null) ?: "podcast",
         keepScreenOn = prefs.getBoolean(KEY_KEEP_SCREEN, true),
         introSeen = prefs.getBoolean(KEY_INTRO, false),
@@ -65,7 +69,7 @@ class StaveSettings(context: Context) {
 
     private companion object {
         const val KEY_THEME = "theme"; const val KEY_LIVELY = "lively"; const val KEY_HAPTICS = "haptics"
-        const val KEY_RATE = "sampleRate"; const val KEY_BITS = "recordBits"; const val KEY_LOW_LATENCY = "lowLatency"
+        const val KEY_RATE = "sampleRate"; const val KEY_BITS = "recordBits"; const val KEY_LOW_LATENCY = "lowLatency"; const val KEY_INPUT_DEVICE = "inputDevice"
         const val KEY_TARGET = "loudnessTarget"; const val KEY_KEEP_SCREEN = "keepScreenOn"; const val KEY_INTRO = "introSeen"
         const val KEY_RECENT = "recentTools"
     }

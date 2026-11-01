@@ -20,7 +20,7 @@ import kotlin.math.ln
  * frequency axis from 20 Hz to 20 kHz and ±18 dB; each band is a dot the finger can pick.
  */
 @Composable
-fun EqCurve(bands: List<EqBand>, sampleRate: Int, selected: Int, onSelect: (Int) -> Unit, modifier: Modifier = Modifier) {
+fun EqCurve(bands: List<EqBand>, sampleRate: Int, selected: Int, onSelect: (Int) -> Unit, modifier: Modifier = Modifier, /** The selection's spectrum in dB (0 at its loudest) at the curve's 96 points, drawn behind the curve. */ spectrum: FloatArray? = null) {
     val eq = ParametricEq(bands, sampleRate, 1)
     val points = 96
     val curve = eq.curve(points)
@@ -37,6 +37,14 @@ fun EqCurve(bands: List<EqBand>, sampleRate: Int, selected: Int, onSelect: (Int)
         // Grid: decades and ±6, ±12 dB.
         for (hz in listOf(100.0, 1000.0, 10_000.0)) { val x = (ln(hz / 20.0) / ln(1000.0)).toFloat() * w; drawLine(StaveColors.Border, Offset(x, 0f), Offset(x, h), 1f) }
         for (db in listOf(-12f, -6f, 0f, 6f, 12f)) { val y = h / 2 - db / 18f * h / 2; drawLine(if (db == 0f) StaveColors.BorderStrong else StaveColors.Border, Offset(0f, y), Offset(w, y), 1f) }
+        // The analyser: the selection's long-term spectrum as a filled area, 0 dB at the top and -60 at the bottom.
+        if (spectrum != null && spectrum.size == points) {
+            val area = Path()
+            area.moveTo(0f, h)
+            for (i in 0 until points) { val x = i.toFloat() / (points - 1) * w; val y = ((-spectrum[i]).coerceIn(0f, 60f) / 60f) * h; area.lineTo(x, y) }
+            area.lineTo(w, h); area.close()
+            drawPath(area, StaveColors.Band.copy(alpha = 0.14f))
+        }
         val path = Path()
         for (i in 0 until points) {
             val x = i.toFloat() / (points - 1) * w

@@ -648,6 +648,22 @@
     <string name="widget_record">Record</string>
     <string name="widget_record_description">Start a recording in Stave</string>
 
+    <string name="studio_comp">Comp by swipe</string>
+    <string name="studio_comp_hint">Swipe across one take lane on the strip and that stretch is heard from that take; the others are muted there and only there.</string>
+    <string name="studio_tempo_change_here">Tempo change here (%1$d bpm)</string>
+    <string name="regions_title">Regions</string>
+    <string name="regions_name">Name</string>
+    <string name="regions_add">From selection</string>
+    <string name="regions_none">No regions yet: select a stretch and name it.</string>
+    <string name="regions_select">Select</string>
+    <string name="music_chord_shape">%1$s on guitar</string>
+    <string name="voice_isolate">Keep only the voice</string>
+    <string name="voice_isolate_hint">The selection through the stem separator, the voice put back in its place without the music or the room. Needs the separation model.</string>
+
+    <string name="settings_input_device">Input</string>
+    <string name="settings_input_device_detail">What Record and the live tuner listen to: the phone\'s mic, a wired or Bluetooth headset, or a USB audio interface. The list is what is plugged in now.</string>
+    <string name="settings_input_device_auto">Phone\'s choice</string>
+
     <!-- Notifications -->
     <string name="notification_channel">Recording and playback</string>
     <string name="notification_export_channel">Exports</string>

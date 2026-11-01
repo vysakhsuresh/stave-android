@@ -124,7 +124,7 @@ double Engine::inputLatencyMs() {
     return r ? r.value() : (double) in->getBufferSizeInFrames() * 1000.0 / rate;
 }
 
-bool Engine::openInput(int channels, int preset) {
+bool Engine::openInput(int channels, int preset, int deviceId) {
     std::lock_guard<std::mutex> g(streamLock);
     if (in) return true;
     inputCallback = std::make_unique<InputCallback>(this);
@@ -145,7 +145,10 @@ bool Engine::openInput(int channels, int preset) {
      ->setSampleRateConversionQuality(oboe::SampleRateConversionQuality::Medium)
      ->setInputPreset(preset == 1 ? oboe::InputPreset::VoiceRecognition : oboe::InputPreset::Unprocessed)
      ->setDataCallback(inputCallback.get());
+    if (deviceId > 0) b.setDeviceId(deviceId);
     oboe::Result r = b.openStream(in);
+    // A chosen device that will not open (unplugged since the list was read) falls back to the system's choice rather than to no input.
+    if (r != oboe::Result::OK && deviceId > 0) { b.setDeviceId(oboe::kUnspecified); r = b.openStream(in); }
     if (r != oboe::Result::OK) { b.setSharingMode(oboe::SharingMode::Shared); r = b.openStream(in); }
     if (r != oboe::Result::OK) { LOGW("input stream: %s", oboe::convertToText(r)); in.reset(); return false; }
     r = in->requestStart();

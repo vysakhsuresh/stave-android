@@ -77,6 +77,9 @@ fun WaveformStrip(
     /** The automation lane being drawn ("volume", "pan") on the selected track, or null; a finger on that track then draws rather than selects. */
     automationParam: String? = null,
     onDrawAutomation: (trackId: String, samples: List<com.layerbit.stave.engine.project.ValueTrack.Point>, done: Boolean) -> Unit = { _, _, _ -> },
+    /** Comping: a swipe over one take lane of the selected track hears that lane there: (trackId, lane, from, to). */
+    compMode: Boolean = false,
+    onComp: (trackId: String, lane: Int, from: Long, to: Long) -> Unit = { _, _, _, _ -> },
     modifier: Modifier = Modifier
 ) {
     val density = LocalDensity.current
@@ -93,6 +96,15 @@ fun WaveformStrip(
     val tracks = session.tracks.filter { it.kind != com.layerbit.stave.engine.project.Track.Kind.MASTER }
     val laneCount = max(1, tracks.size)
 
+    /** How many take lanes a track's row is split into: the lanes its clips use, at least one. */
+    fun laneCountOf(track: com.layerbit.stave.engine.project.Track): Int = maxOf(1, track.lanes, (session.clipsOn(track.id).maxOfOrNull { it.lane } ?: 0) + 1)
+    /** The take lane under y inside a track's row, for comping. */
+    fun takeLaneAt(track: com.layerbit.stave.engine.project.Track, y: Float): Int {
+        val laneH = max(minLanePx, lanesHeight / laneCount)
+        val top = rulerPx + tracks.indexOf(track) * laneH
+        val n = laneCountOf(track)
+        return (((y - top) / laneH) * n).toInt().coerceIn(0, n - 1)
+    }
     fun trackAt(y: Float): String? {
         if (y < rulerPx || tracks.isEmpty()) return null
         val lane = max(minLanePx, lanesHeight / laneCount)
@@ -130,6 +142,10 @@ fun WaveformStrip(
                     val spectralMode = spectrogram != null && downTrack == selectedTrackId && downTrack != null
                     // Drawing automation: on the selected track with a lane chosen, the finger is a pen.
                     val drawMode = automationParam != null && downTrack == selectedTrackId && downTrack != null
+                    // Comping: a swipe over one lane of the selected track, horizontal only, the lane fixed where the finger landed.
+                    val compTrack = if (compMode && !drawMode && downTrack == selectedTrackId && downTrack != null) tracks.first { it.id == downTrack } else null
+                    val compLane = compTrack?.let { takeLaneAt(it, first.position.y) } ?: 0
+                    var compFrom = 0L; var compTo = 0L
                     val drawn = ArrayList<com.layerbit.stave.engine.project.ValueTrack.Point>()
                     fun laneValue(y: Float): Double {
                         val laneH = max(minLanePx, lanesHeight / laneCount)
@@ -145,6 +161,7 @@ fun WaveformStrip(
                         if (pressed.isEmpty()) {
                             carrying?.let { c -> onCarry(c.id, c.position, c.trackId, true) }
                             if (drawMode && !twoFinger) onDrawAutomation(downTrack!!, drawn.toList(), true)
+                            if (compTrack != null && !twoFinger && compTo > compFrom) { onComp(compTrack.id, compLane, compFrom, compTo); onSelect(null) }
                             break
                         }
                         // Held still on a clip for 400 ms: pick it up.
@@ -176,6 +193,13 @@ fun WaveformStrip(
                             change.consume()
                             drawn += com.layerbit.stave.engine.project.ValueTrack.Point(sample, laneValue(change.position.y))
                             onDrawAutomation(downTrack!!, drawn.toList(), false)
+                            continue
+                        }
+                        if (compTrack != null) {
+                            change.consume()
+                            val a = currentWindow.sampleAt(first.position.x).coerceIn(0L, currentSession.length)
+                            compFrom = min(a, sample); compTo = max(a, sample)
+                            onSelect(compFrom until compTo)   // the stretch is shown as a selection while the finger moves
                             continue
                         }
                         if (!moved && abs(change.position.x - first.position.x) < 6f && abs(change.position.y - first.position.y) < 6f) continue
@@ -226,12 +250,17 @@ fun WaveformStrip(
                     }
                     return@clipRect
                 }
+                // Take lanes stacked in the row: lane 0 on top. One lane fills the row as before.
+                val takeLanes = laneCountOf(track)
+                val subH = lane / takeLanes
+                if (takeLanes > 1) for (l in 1 until takeLanes) drawLine(StaveColors.Border.copy(alpha = 0.5f), Offset(0f, top + l * subH), Offset(w, top + l * subH), 1f)
                 for (clip in session.clipsOn(track.id)) {
                     val x0 = window.pixelOf(clip.position); val x1 = window.pixelOf(clip.end)
                     if (x1 < 0 || x0 > w) continue
                     val source = session.source(clip.sourceId) ?: continue
-                    drawClip(clip, source, peaksFor(source), x0, x1, top + 2f, lane - 4f, window, clip.muted)
-                    if (x1 - x0 > 40f && clip.name.isNotBlank()) drawText(measurer, clip.name, Offset(max(x0, 0f) + 6f, top + 4f), nameStyle)
+                    val subTop = top + clip.lane.coerceIn(0, takeLanes - 1) * subH
+                    drawClip(clip, source, peaksFor(source), x0, x1, subTop + 2f, subH - 4f, window, clip.muted)
+                    if (x1 - x0 > 40f && clip.name.isNotBlank() && subH > 30f) drawText(measurer, clip.name, Offset(max(x0, 0f) + 6f, subTop + 4f), nameStyle)
                 }
                 if (track.name.isNotBlank()) drawText(measurer, track.name, Offset(6f, top + lane - 18f), labelStyle)
             }

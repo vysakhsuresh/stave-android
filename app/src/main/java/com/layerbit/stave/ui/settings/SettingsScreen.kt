@@ -79,6 +79,15 @@ fun SettingsScreen(
                     Text(stringResource(R.string.settings_bit_depth), style = MaterialTheme.typography.bodyLarge, color = StaveColors.Text, modifier = Modifier.padding(top = 14.dp, bottom = 4.dp))
                     Text(stringResource(R.string.settings_bit_depth_detail), style = MaterialTheme.typography.bodySmall, color = StaveColors.Dim, modifier = Modifier.padding(bottom = 8.dp))
                     ChipRow(options = listOf(32 to "32-bit float", 24 to "24-bit"), selected = settings.recordBits, onSelect = { b -> onChange { it.copy(recordBits = b) } })
+                    // The input: whatever Android lists now (a USB interface, a Bluetooth mic, the phone's own), by id; the id dies with the plug, so the list is read each time the card shows.
+                    Text(stringResource(R.string.settings_input_device), style = MaterialTheme.typography.bodyLarge, color = StaveColors.Text, modifier = Modifier.padding(top = 14.dp, bottom = 4.dp))
+                    Text(stringResource(R.string.settings_input_device_detail), style = MaterialTheme.typography.bodySmall, color = StaveColors.Dim, modifier = Modifier.padding(bottom = 8.dp))
+                    val inputs = remember {
+                        val am = context.getSystemService(android.content.Context.AUDIO_SERVICE) as android.media.AudioManager
+                        am.getDevices(android.media.AudioManager.GET_DEVICES_INPUTS).filter { it.type != android.media.AudioDeviceInfo.TYPE_TELEPHONY && it.type != android.media.AudioDeviceInfo.TYPE_REMOTE_SUBMIX }
+                            .map { d -> d.id to (d.productName?.toString()?.takeIf { it.isNotBlank() } ?: "Input ${d.id}") + when (d.type) { android.media.AudioDeviceInfo.TYPE_USB_DEVICE, android.media.AudioDeviceInfo.TYPE_USB_HEADSET -> " (USB)"; android.media.AudioDeviceInfo.TYPE_BLUETOOTH_SCO -> " (Bluetooth)"; android.media.AudioDeviceInfo.TYPE_WIRED_HEADSET -> " (wired)"; android.media.AudioDeviceInfo.TYPE_BUILTIN_MIC -> " (phone)"; else -> "" } }
+                    }
+                    ChipRow(options = listOf(0 to stringResource(R.string.settings_input_device_auto)) + inputs, selected = if (inputs.any { it.first == settings.inputDeviceId }) settings.inputDeviceId else 0, onSelect = { id -> onChange { it.copy(inputDeviceId = id) } })
                     Text(stringResource(R.string.settings_latency), style = MaterialTheme.typography.bodyLarge, color = StaveColors.Text, modifier = Modifier.padding(top = 14.dp, bottom = 8.dp))
                     ChipRow(options = listOf(true to stringResource(R.string.settings_latency_low), false to stringResource(R.string.settings_latency_safe)), selected = settings.lowLatency, onSelect = { v -> onChange { it.copy(lowLatency = v) } })
                     Text(stringResource(R.string.settings_target), style = MaterialTheme.typography.bodyLarge, color = StaveColors.Text, modifier = Modifier.padding(top = 14.dp, bottom = 8.dp))

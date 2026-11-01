@@ -84,7 +84,7 @@ class Transport(private val scope: CoroutineScope) {
     fun livePan(trackIndex: Int, pan: Float) { if (handle != 0L) EngineNative.setTrackPan(handle, trackIndex, pan) }
     fun liveMaster(gainLinear: Float) { if (handle != 0L) EngineNative.setMasterVolume(handle, gainLinear) }
 
-    fun openInput(channels: Int, unprocessed: Boolean): Boolean = handle != 0L && EngineNative.openInput(handle, channels, if (unprocessed) 0 else 1)
+    fun openInput(channels: Int, unprocessed: Boolean, deviceId: Int = 0): Boolean = handle != 0L && EngineNative.openInput(handle, channels, if (unprocessed) 0 else 1, deviceId)
     fun closeInput() { if (handle != 0L) EngineNative.closeInput(handle) }
     fun setMonitor(on: Boolean, gainLinear: Float) { if (handle != 0L) EngineNative.setMonitor(handle, on, gainLinear) }
     fun startRecording(path: File): Boolean = handle != 0L && EngineNative.startRecording(handle, path.path)

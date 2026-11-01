@@ -75,7 +75,9 @@ class EditorViewModel(private val app: StaveApplication, val projectId: String) 
         /** The automation lane a finger draws on the selected track ("volume", "pan"), or null for the ordinary gestures. */
         val automationParam: String? = null,
         /** Fader moves while playing land as points at the play-head. */
-        val automationWrite: Boolean = false
+        val automationWrite: Boolean = false,
+        /** A swipe over a take lane chooses it for that stretch (Comping.use). */
+        val compMode: Boolean = false
     )
 
     private val _ui = MutableStateFlow(Ui())
@@ -404,7 +406,7 @@ class EditorViewModel(private val app: StaveApplication, val projectId: String) 
 
     fun armInput() {
         if (!transport.available) { _ui.value = _ui.value.copy(message = "The audio engine is not running on this phone."); return }
-        if (!transport.openInput(1, unprocessed = true)) { _ui.value = _ui.value.copy(message = "The microphone could not be opened."); return }
+        if (!transport.openInput(1, unprocessed = true, deviceId = app.settings.current.inputDeviceId)) { _ui.value = _ui.value.copy(message = "The microphone could not be opened."); return }
         _voice.value = _voice.value.copy(armed = true, roundTripMs = transport.state.value.latencyMs + transport.inputLatencyMs())
         AudioService.start(app, recording = false, title = session.name.ifBlank { "Stave" })
     }
@@ -648,6 +650,64 @@ class EditorViewModel(private val app: StaveApplication, val projectId: String) 
     // ---- studio: tempo, bounce, stems, ducking ---------------------------------------------
 
     fun setTempo(bpm: Double) { commit(session.copy(tempo = listOf(com.layerbit.stave.engine.project.TempoEntry(0, bpm.coerceIn(20.0, 300.0), session.tempo.first().beatsPerBar))), "Tempo", gesture = "tempo") }
+
+    /** A tempo change at the play-head: the map gains an entry there (replacing one at the same place); the grid and the click follow from it. */
+    fun addTempoChange(bpm: Double) {
+        val s = session
+        val at = _ui.value.window.playhead
+        val entry = com.layerbit.stave.engine.project.TempoEntry(at, bpm.coerceIn(20.0, 300.0), s.tempo.first().beatsPerBar)
+        commit(s.copy(tempo = (s.tempo.filter { it.position != at } + entry).sortedBy { it.position }), "Tempo change")
+    }
+    fun removeTempoChange(position: Long) { val s = session; if (position == 0L || s.tempo.size < 2) return; commit(s.copy(tempo = s.tempo.filter { it.position != position }), "Remove tempo change") }
+
+    // ---- regions ----
+    fun addRegionFromSelection(name: String) { val r = _ui.value.selection ?: return; commit(SessionEdits.addRegion(session, r.first, r.last + 1, name.ifBlank { "Region ${session.regions.size + 1}" }), "Add region") }
+    fun removeRegion(id: String) { commit(session.copy(regions = session.regions.filter { it.id != id }), "Remove region") }
+    fun selectRegion(id: String) { val r = session.regions.firstOrNull { it.id == id } ?: return; select(r.start until r.end); seek(r.start) }
+
+    // ---- comping by swipe ----
+    fun setCompMode(on: Boolean) { _ui.value = _ui.value.copy(compMode = on) }
+    /** A swipe over one lane of a track: that stretch is heard from that lane alone (Comping.use), one edit, one undo. */
+    fun comp(trackId: String, lane: Int, from: Long, to: Long) {
+        if (to <= from) return
+        commit(com.layerbit.stave.engine.project.Comping.use(session, trackId, lane, from, to), "Comp take ${lane + 1}")
+    }
+
+    // ---- the analyser behind the EQ curve ----
+    private val _analyser = MutableStateFlow<FloatArray?>(null)
+    /** The selection's long-term spectrum in dB at the EQ curve's 96 log-spaced points, 0 at the loudest; null until asked. */
+    val analyser: StateFlow<FloatArray?> = _analyser.asStateFlow()
+    private var analyserJob: Job? = null
+    fun refreshAnalyser() {
+        analyserJob?.cancel()
+        analyserJob = viewModelScope.launch {
+            val s = session
+            val range = _ui.value.selection ?: (0L until s.length)
+            if (range.last <= range.first) { _analyser.value = null; return@launch }
+            // Twenty seconds is plenty for a long-term picture and keeps the sheet quick to open.
+            val to = minOf(range.last + 1, range.first + 20L * s.sampleRate)
+            val chs = mixdown(range.first, to) ?: run { _analyser.value = null; return@launch }
+            _analyser.value = withContext(Dispatchers.Default) {
+                val n = chs[0].size
+                val mono = FloatArray(n) { i -> var m = 0f; for (a in chs) m += a[i]; m / chs.size }
+                val size = 4096
+                val stft = com.layerbit.stave.engine.dsp.Stft(size, size / 2, com.layerbit.stave.engine.dsp.Windows.hann(size))
+                val power = DoubleArray(stft.bins); var frames = 0
+                stft.analyze(mono) { re, im, _ -> for (k in 0 until stft.bins) power[k] += re[k].toDouble() * re[k] + im[k].toDouble() * im[k]; frames++ }
+                if (frames == 0) return@withContext null
+                val points = 96
+                val out = FloatArray(points) { i ->
+                    val hz = 20.0 * Math.pow(1000.0, i.toDouble() / (points - 1))
+                    val bin = (hz * size / s.sampleRate).coerceIn(1.0, (stft.bins - 1).toDouble())
+                    val b0 = bin.toInt(); val f = (bin - b0).toFloat()
+                    val p = power[b0] * (1 - f) + power[minOf(b0 + 1, stft.bins - 1)] * f
+                    (10 * Math.log10(p / frames + 1e-20)).toFloat()
+                }
+                val top = out.max()
+                FloatArray(points) { out[it] - top }
+            }
+        }
+    }
 
     /** The whole mix rendered to a new source on a new track, muted tracks and all as heard. */
     fun bounceToTrack() {
@@ -987,7 +1047,7 @@ class EditorViewModel(private val app: StaveApplication, val projectId: String) 
     // ---- musician: stems, practice, analysis ------------------------------------------------
 
     /** A chord as the card shows it; filled by the analysis (engine/music) once it is wired. */
-    data class ChordShown(val name: String, val startMs: Long, val endMs: Long, val pitches: List<Int> = emptyList())
+    data class ChordShown(val name: String, val startMs: Long, val endMs: Long, val pitches: List<Int> = emptyList(), /** Six frets low to high, -1 a muted string, when the engine knows a shape. */ val shape: IntArray? = null)
     data class Analysis(val bpm: Double, val confidence: Float, val beatsMs: List<Long>, val downbeatOffset: Int, val key: String?, val chords: List<ChordShown>)
     data class MusicState(val separating: Float? = null, val stemsDone: Boolean = false, val analysis: Analysis? = null, val clickFollows: Boolean = false)
     private val _music = MutableStateFlow(MusicState())
@@ -1027,6 +1087,23 @@ class EditorViewModel(private val app: StaveApplication, val projectId: String) 
                 _music.value = _music.value.copy(stemsDone = true)
             }.onFailure { e -> _ui.value = _ui.value.copy(message = e.message ?: "Separation failed") }
         }
+    }
+
+    /**
+     * Keep only the voice: the selection through the stem separator, the vocals stem put back in
+     * its place at the session's rate. The transform blocks its worker on the suspend call; the
+     * busy card covers it. Nothing is uploaded: the model is on the phone or the button is dim.
+     */
+    fun isolateVoice() {
+        if (!app.stems.available) { _ui.value = _ui.value.copy(message = app.getString(com.layerbit.stave.R.string.music_stems_none)); return }
+        applyOffline(app.getString(com.layerbit.stave.R.string.voice_isolate), OfflineTools.Transform { chs, rate ->
+            val r = kotlinx.coroutines.runBlocking { app.stems.separate(chs, rate) {} } ?: return@Transform chs
+            val vocals = r.stems["vocals"] ?: return@Transform chs
+            val back = if (r.sampleRate == rate) vocals else vocals.map { com.layerbit.stave.engine.dsp.Resampler(r.sampleRate, rate).convert(it) }
+            // The same channel count and length as what went in, so the range lands back exactly.
+            val n = chs[0].size
+            List(chs.size) { c -> val a = back.getOrElse(c) { back[0] }; if (a.size == n) a else FloatArray(n) { i -> a.getOrElse(i) { 0f } } }
+        })
     }
 
     /** The selection (or everything) slowed and transposed as a new source on a new track: the original stays. */
@@ -1114,7 +1191,7 @@ class EditorViewModel(private val app: StaveApplication, val projectId: String) 
                     val chords = com.layerbit.stave.engine.music.Chords.detect(chroma).map { span ->
                         // Voiced from the root in the octave above middle C's bass: the pitches the Beats tab's "Chords to pattern" plays.
                         val pitches = span.chord.pitchClasses().sorted().let { pcs -> pcs.map { pc -> 48 + ((pc - span.root).mod(12)) + span.root } }
-                        ChordShown(span.chord.name(), offsetMs + span.startFrame.toLong() * CHORD_HOP_MS, offsetMs + span.endFrame.toLong() * CHORD_HOP_MS, if (span.quality == com.layerbit.stave.engine.music.Quality.NONE) emptyList() else pitches)
+                        ChordShown(span.chord.name(), offsetMs + span.startFrame.toLong() * CHORD_HOP_MS, offsetMs + span.endFrame.toLong() * CHORD_HOP_MS, if (span.quality == com.layerbit.stave.engine.music.Quality.NONE) emptyList() else pitches, span.chord.guitarShape())
                     }
                     Analysis(
                         bpm = beats.bpm.toDouble(),

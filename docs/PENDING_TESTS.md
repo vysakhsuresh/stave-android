@@ -97,3 +97,14 @@ back into the roadmap with what broke.
 68. Voice → Record, Pause after five seconds, wait, Resume, Stop: one take whose length is the recorded time without the pause, with no click at the join.
 69. Home → Convert files: pick six files of mixed formats, MP3 192: six files land in Music/Stave with their names, the list says 6 of 6, and the cache holds no scratch folder afterwards (`run-as … ls cache`).
 70. Long-press the home screen → widgets → Stave → Record: the pill lands; a tap opens the app on the Voice tab with the mic armed (the same route as the launcher shortcut); TalkBack reads "Start a recording in Stave".
+
+## Comping, the wavetable, chords, the analyser, regions, the device chooser
+71. A track with two takes: the strip draws them stacked in the row; Studio → Takes → Comp by swipe on; swipe across the second lane for a bar: that bar is heard from take 2 and the rest from both, the clips split at the bar's edges (count them), one Undo puts it back.
+72. Beats → instrument Morph, play a held note: the colour sweeps on the attack; Glass rings; Choir swells; at A6 nothing buzzes (the mip level) - compare a saw at A2 and A6 by ear for aliasing.
+73. Musician → after Read the song, the chord under the play-head shows as a guitar shape with × and o over the strings; a C major shows x32010.
+74. Edit → EQ: a faint spectrum sits behind the curve and changes when the selection moves; on a hiss it slopes, on a voice it peaks around 200 Hz to 3 kHz.
+75. Markers → Regions: From selection with a name lists it; Select puts the selection and the play-head back on it; Delete removes it; the project reopens with it.
+76. Studio → Metronome: Tempo change here at bar 9 with 140: the entry lists; the beat grid after bar 9 is tighter (snap a clip to it); Delete on the entry restores one tempo.
+77. Settings → Audio → Input: a USB interface plugged in lists by its name; chosen, Ready the mic records through it (the meter moves with its input, not the phone's mic); unplugged and chosen again, the phone's mic opens instead of nothing.
+78. Voice → Keep only the voice on a sung line over a backing track with the model present: the backing is gone from the selection and the voice stays in place and in time.
+

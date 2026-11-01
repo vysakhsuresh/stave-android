@@ -98,6 +98,15 @@ fun StudioPanel(vm: EditorViewModel, ui: EditorViewModel.Ui, modifier: Modifier 
             var bpm by remember { mutableStateOf(ui.session.tempo.first().bpm.toFloat()) }
             ToggleRow(stringResource(R.string.studio_metronome), click, { on -> click = on; vm.transport.setMetronome(on, bpm.toDouble(), ui.session.tempo.first().beatsPerBar, 0.5f) })
             ValueSlider(stringResource(R.string.studio_tempo), bpm, 40f..240f, { bpm = it; vm.transport.setMetronome(click, it.toDouble(), 4, 0.5f) }, format = { String.format(java.util.Locale.getDefault(), "%.0f bpm", it) }, onCommit = { vm.setTempo(bpm.toDouble()) })
+            // The tempo map: a change at the play-head, and the changes listed with their places.
+            SecondaryButton(stringResource(R.string.studio_tempo_change_here, bpm.toInt()), onClick = { vm.addTempoChange(bpm.toDouble()) }, tall = false, modifier = Modifier.fillMaxWidth(), enabled = ui.window.playhead > 0)
+            for (e in ui.session.tempo.filter { it.position > 0 }) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth().padding(top = 4.dp)) {
+                    Text(com.layerbit.stave.engine.text.Timecode.display(com.layerbit.stave.engine.text.Timecode.ofSamples(e.position, ui.session.sampleRate), 1), style = com.layerbit.stave.ui.theme.Numerals, color = StaveColors.Muted, modifier = Modifier.width(72.dp))
+                    Text(String.format(java.util.Locale.getDefault(), "%.0f bpm", e.bpm), style = MaterialTheme.typography.bodyMedium, color = StaveColors.Text, modifier = Modifier.weight(1f))
+                    SecondaryButton(stringResource(R.string.app_delete), onClick = { vm.removeTempoChange(e.position) }, tall = false)
+                }
+            }
             ToggleRow(stringResource(R.string.studio_loop), transport.playing && ui.selection != null, { on -> vm.transport.setLoop(if (on) ui.selection else null) }, enabled = ui.selection != null)
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 6.dp)) {
                 SecondaryButton(stringResource(R.string.studio_bounce), onClick = vm::bounceToTrack, tall = false, modifier = Modifier.weight(1f), enabled = ui.session.length > 0)
@@ -169,6 +178,7 @@ private fun TrackDetail(vm: EditorViewModel, ui: EditorViewModel.Ui, t: Track) {
                 val heard = lanes.filter { l -> ui.session.clipsOn(t.id).any { it.lane == l && !it.muted } }
                 val chosen: Int? = if (heard.size == 1) heard.single() else null
                 ChipRow(listOf<Pair<Int?, String>>(null to stringResource(R.string.studio_takes_all)) + lanes.map { l -> l to stringResource(R.string.studio_take_n, l + 1) }, chosen, { vm.chooseLane(t.id, it) }, modifier = Modifier.padding(top = 4.dp))
+                ToggleRow(stringResource(R.string.studio_comp), ui.compMode, { vm.setCompMode(it) }, detail = stringResource(R.string.studio_comp_hint))
             }
         }
         if (t.kind == Track.Kind.AUDIO) {

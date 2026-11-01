@@ -25,3 +25,4 @@ drawImage
 drawRoundRect
 tryAwaitRelease
 viewConfiguration
+setOnClickPendingIntent

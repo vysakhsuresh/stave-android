@@ -63,7 +63,7 @@ JNIEXPORT jint JNICALL FN(readMeters)(JNIEnv* env, jclass, jlong h, jfloatArray 
     return n;
 }
 
-JNIEXPORT jboolean JNICALL FN(openInput)(JNIEnv*, jclass, jlong h, jint channels, jint preset) { return ENGINE(h)->openInput(channels, preset); }
+JNIEXPORT jboolean JNICALL FN(openInput)(JNIEnv*, jclass, jlong h, jint channels, jint preset, jint deviceId) { return ENGINE(h)->openInput(channels, preset, deviceId); }
 JNIEXPORT void JNICALL FN(closeInput)(JNIEnv*, jclass, jlong h) { ENGINE(h)->closeInput(); }
 JNIEXPORT void JNICALL FN(setMonitor)(JNIEnv*, jclass, jlong h, jboolean on, jfloat gain) { ENGINE(h)->setMonitor(on, gain); }
 JNIEXPORT jboolean JNICALL FN(startRecording)(JNIEnv* env, jclass, jlong h, jstring path) { return ENGINE(h)->startRecording(jstr(env, path)); }

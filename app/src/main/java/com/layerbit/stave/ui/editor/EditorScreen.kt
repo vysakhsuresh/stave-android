@@ -113,7 +113,8 @@ fun EditorScreen(vm: EditorViewModel, onBack: () -> Unit, onAddSounds: () -> Uni
                 onSeek = vm::seek, onFit = vm::fit, onWidth = vm::setWidth,
                 spectrogram = if (spectral.shown) spectral.image else null, spectralBox = spectral.box, onSpectralBox = vm::setSpectralBox,
                 onCarry = vm::carryClip,
-                automationParam = ui.automationParam, onDrawAutomation = vm::drawAutomation
+                automationParam = ui.automationParam, onDrawAutomation = vm::drawAutomation,
+                compMode = ui.compMode, onComp = vm::comp
             )
             ui.busy?.let { b ->
                 Box(Modifier.fillMaxSize().background(StaveColors.Background.copy(alpha = 0.6f)), contentAlignment = Alignment.Center) {

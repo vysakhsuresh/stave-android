@@ -104,6 +104,13 @@ fun VoicePanel(vm: EditorViewModel, ui: EditorViewModel.Ui, modifier: Modifier =
             }
             if (looper.layers > 0) Text(stringResource(R.string.looper_layers, looper.layers), style = MaterialTheme.typography.bodySmall, color = StaveColors.Muted, modifier = Modifier.padding(top = 6.dp))
         }
+        // ---- Keep only the voice ----
+        Panel(modifier = Modifier.fillMaxWidth()) {
+            SectionHeading(stringResource(R.string.voice_isolate))
+            Text(stringResource(R.string.voice_isolate_hint), style = MaterialTheme.typography.bodySmall, color = StaveColors.Dim, modifier = Modifier.padding(vertical = 4.dp))
+            if (!vm.stemsAvailable) Text(stringResource(R.string.music_stems_none), style = MaterialTheme.typography.bodySmall, color = StaveColors.Hot)
+            PrimaryButton(stringResource(R.string.voice_isolate), onClick = vm::isolateVoice, tall = false, modifier = Modifier.fillMaxWidth().padding(top = 4.dp), enabled = vm.stemsAvailable && ui.session.length > 0 && ui.busy == null)
+        }
         // ---- Lyrics ----
         if (voice.transcript?.isEmpty == false) {
             Panel(modifier = Modifier.fillMaxWidth()) {

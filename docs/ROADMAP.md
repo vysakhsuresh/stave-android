@@ -51,8 +51,8 @@ Built-not-seen is never called done.
 - [~] Projects: ProjectStore, atomic save, ten-minute snapshots, bin with a 30-day sweep
 - [~] Waveform canvas: peaks at every zoom, selection with edge handles, fixed play-head, two-finger scroll and zoom, double tap to fit — samples-when-fine not yet (zoom stops at the peak buckets)
 - [~] Spectrogram in the selected lane (log frequency, a thousand columns at any zoom), a box dragged over it, Turn down / Remove / Fill from around on the Spectral sheet
-- [~] Edit, Gain, Fades, Repair (clicks, clipping, hum, noise, S), EQ (parametric, and 10- or 31-band graphic on the same curve), Dynamics, Time & pitch, Effects (echo, chorus, flanger, phaser, tremolo, reverb, saturation, crusher, with their knobs; swap, one side on both, balance) sheets — each an offline render to a new source, undoable
-- [~] Markers and chapters (regions are in the model, not yet on a sheet)
+- [~] Edit, Gain, Fades, Repair (clicks, clipping, hum, noise, S), EQ (parametric, and 10- or 31-band graphic on the same curve, the selection's spectrum behind it), Dynamics, Time & pitch, Effects (echo, chorus, flanger, phaser, tremolo, reverb, saturation, crusher, with their knobs; swap, one side on both, balance) sheets — each an offline render to a new source, undoable
+- [~] Markers and chapters; regions from the selection, named, selected again by a tap
 - [~] Export sheet: format, bitrate, depth, rate, mono, loudness target, tags, chapters, estimate; published to Music/Stave; Share and Open — no batch yet
 - [~] Library of exports across projects (open, share, delete the private copy); Convert files: any number of files to one format, through the same exporter, to Music/Stave
 - [~] Guide, Contact, About, Settings complete
@@ -61,28 +61,28 @@ Built-not-seen is never called done.
 - [~] Recorder: arm the mic (permission asked on the first press), level meter with hold, round-trip readout, monitor switch, Record over the existing sound onto a new lane, Pause and Resume within one take, Stop lands the take as a clip at its start (the WAV header repaired first, so a take cut short by a crash still lands)
 - [~] Whisper transcript over the mix (or the selection), language chips (Indian languages first), words kept per project in transcript.json, stale flag when the sound changes under them
 - [~] Transcript editor: tap words (the sound under them becomes the selection), Delete words, Take out every um and uh; no search yet
-- [~] One-tap chain: Clean up voice (DC, denoise, de-ess, compress, loudness), Even out volume, Remove silences (adaptive threshold, min length, kept margin), Loudness to target; Duck under music is P4's (needs two tracks' levels)
+- [~] One-tap chain: Clean up voice (DC, denoise, de-ess, compress, loudness), Even out volume, Remove silences (adaptive threshold, min length, kept margin), Loudness to target; Keep only the voice (the selection through the stem separator, the vocals put back); Duck under music is P4's (needs two tracks' levels)
 - [~] Chapter here (a chapter marker at the play-head; written into the file by Export); show notes and publish presets not yet
 - [~] Read aloud: a typed line through the phone's own speech engine (the manifest queries TTS_SERVICE), decoded from its WAV at the session's rate, landed at the play-head
 
 ## P4 — Multitrack studio (v0.3)
 - [~] Arrangement strip: tracks as lanes under one play-head, clips carried by a long press, snapped to the beat grid
 - [~] Mixer: a strip per track and the master (fader, pan, mute, solo, arm, meter), inserts with live parameters, sends and buses
-- [~] Automation: volume and pan lanes drawn on the strip with a finger (the stroke thinned to its corners and replacing only its span, `AutomationChecks`), written by fader moves while playing, set by points, written by Duck under speech; played by the graph
-- [~] Takes land on their own lanes; loop the selection; punch in and out over the selection; Takes chips on a track choose the lane heard (the others' clips muted as one edit); swipe comping across lanes not yet
+- [~] Automation: volume and pan lanes drawn on the strip with a finger (the stroke thinned to its corners and replacing only its span, `AutomationChecks`), written by fader moves while playing, set by points, written by Duck under speech; played by the graph; a tempo map with changes at the play-head
+- [~] Takes land on their own lanes, drawn stacked in the track's row; loop the selection; punch in and out over the selection; Takes chips choose the lane heard; comping by swipe (a stretch of one lane heard there, the others split at its edges and muted inside only, `CompingChecks`)
 - [~] Bounce to a new track; every track exported as a stem; Freeze (the track alone through its inserts to one clip, inserts off, Undo unfreezes); latency compensation not yet
-- [~] MIDI controllers over USB and Bluetooth through MidiManager play the Beats tab's instrument and record into the loop (running status and real-time bytes handled); USB audio interfaces, MIDI out and MIDI clock not yet
+- [~] MIDI controllers over USB and Bluetooth through MidiManager play the Beats tab's instrument and record into the loop (running status and real-time bytes handled); the input device chosen in Settings (a USB interface or a Bluetooth mic by its AudioDeviceInfo id, the system's choice as the fallback when it will not open); MIDI out and MIDI clock not yet
 
 ## P5 — Musician's tools (v0.4)
 - [~] Stems: a LiteRT runner over the UMX contract, chunked with progress, the four stems landing on their own tracks with the originals muted; the model itself is fetched by `tools/models/fetch_models.sh` (nothing is bundled yet), and a phone has not run it
 - [~] Read the song: tempo, beats and the bar, key and chords off the mix; ½ and 2× tempo and a bar shift; Mark every bar; the click following the beats; a practice copy slowed and transposed
 - [~] Tuner from the graph's input tap (YIN); a pitch trace is not drawn
-- [~] Sing along: the transcript's words in lines following the play-head, the Vocals stem muted by a switch; typed lyrics laid against the heard words by edit-distance alignment (`LyricsChecks`), shown as the written lines with the sound's times
+- [~] Sing along: the transcript's words in lines following the play-head, the Vocals stem muted by a switch; typed lyrics laid against the heard words by edit-distance alignment (`LyricsChecks`), shown as the written lines with the sound's times; the chord under the play-head drawn as a guitar shape
 - [~] Notes to MIDI: the selection's melody as notes (YIN per hop, segmented), handed to the Beats tab as a pattern
 
 ## P6 — Beats and MIDI (v0.5)
 - [~] Step sequencer and piano roll in one grid (steps toggled, velocity by a drag, probability and ratchets drawn), pads and keys that record into the loop, patterns in the project file, the song as placements, rendered to tracks
-- [~] Drum machine on the synthesised starter kit; kits of the person's own sounds (the selection sliced at its onsets onto the pads, any file onto a pad), saved in the project; a SoundFont player for banks the person adds; seven subtractive and five FM presets; a wavetable synth not yet
+- [~] Drum machine on the synthesised starter kit; kits of the person's own sounds (the selection sliced at its onsets onto the pads, any file onto a pad), saved in the project; a SoundFont player for banks the person adds; seven subtractive, five FM and four wavetable presets (a six-table morphing bank built from harmonics with mip levels so high notes do not alias, `WavetableChecks`)
 - [~] Arpeggiator, swing, quantise, humanise, legato, transpose, double; MIDI files in and out; MIDI in/out/clock over USB not yet
 
 ## P7 — Vocal and live (v0.6)
