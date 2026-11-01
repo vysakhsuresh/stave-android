@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  The family's ink, lit from the lower right by Signal's green. The whole 108dp canvas: masks
+  The family's ink, lit by Signal where the wave leaves the staff. The whole 108dp canvas: masks
   take the outer third, so nothing here is a shape.
 -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android" xmlns:aapt="http://schemas.android.com/aapt"
@@ -16,8 +16,8 @@
     </path>
     <path android:pathData="M0,0 H108 V108 H0 Z">
         <aapt:attr name="android:fillColor">
-            <gradient android:type="radial" android:centerX="80" android:centerY="86" android:gradientRadius="62">
-                <item android:offset="0" android:color="#4AC8FF4D" />
+            <gradient android:type="radial" android:centerX="70" android:centerY="54" android:gradientRadius="40">
+                <item android:offset="0" android:color="#38C8FF4D" />
                 <item android:offset="1" android:color="#00C8FF4D" />
             </gradient>
         </aapt:attr>
