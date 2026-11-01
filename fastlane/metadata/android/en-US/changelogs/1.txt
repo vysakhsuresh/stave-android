@@ -1,1 +1,1 @@
-First release: the wave editor, the Voice tab with Whisper, the Studio, the Musician tab (stems, chords, tempo, tuner), the Beats tab (sequencer, synths, MIDI) and the Finish tab (loudness, EQ match, width, bands, transients).
+First release. Edit any audio file, record takes on lanes, transcribe speech word for word on the phone, mix tracks with inserts and automation, read a song's tempo, key and chords, make beats with the sequencer and synths, and master to a loudness target. Every tool free, no account, no internet.
