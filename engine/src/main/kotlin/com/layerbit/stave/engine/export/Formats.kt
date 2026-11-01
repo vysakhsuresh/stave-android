@@ -77,7 +77,11 @@ data class ExportSettings(
     val artist: String = "",
     val album: String = "",
     val comment: String = "",
-    val writeChapters: Boolean = true
+    val writeChapters: Boolean = true,
+    /** Album metadata: the track's number, the year, the genre; blank or 0 is left out of the file. */
+    val trackNumber: Int = 0,
+    val year: String = "",
+    val genre: String = ""
 ) {
     val format: AudioFormat get() = AudioFormat.byId(formatId)
 
@@ -96,4 +100,25 @@ data class ExportSettings(
         val base = (title.ifBlank { fallback }).trim().replace(Regex("[\\\\/:*?\"<>|\\p{Cntrl}]"), "_").take(80).ifBlank { "stave" }
         return "$base.${format.extension}"
     }
+}
+
+
+/**
+ * Publish presets: where the file is going decides the format, the bitrate and the loudness
+ * target, in one tap. The numbers are the platforms' own published recommendations (Apple
+ * Podcasts and Spotify take MP3 or AAC, YouTube normalises to -14, broadcast wants -23 or -24
+ * with a true-peak ceiling); a preset only moves the settings it names, the tags stay.
+ */
+data class ExportPreset(val id: String, val label: String, val note: String, val apply: (ExportSettings) -> ExportSettings)
+
+object ExportPresets {
+    val all: List<ExportPreset> = listOf(
+        ExportPreset("podcast_mp3", "Podcast MP3", "128 kbps MP3 at -16 LUFS: what Apple Podcasts and Spotify ask for a spoken show.") { it.copy(formatId = "mp3", bitrateKbps = 128, normaliseToTarget = true, loudnessTargetId = "podcast", writeChapters = true) },
+        ExportPreset("podcast_aac", "Podcast AAC", "96 kbps AAC at -16 LUFS: smaller than the MP3, every podcast app plays it.") { it.copy(formatId = "m4a", bitrateKbps = 96, normaliseToTarget = true, loudnessTargetId = "podcast", writeChapters = true) },
+        ExportPreset("streaming", "Streaming", "320 kbps MP3 at -14 LUFS, the level Spotify and YouTube play music at.") { it.copy(formatId = "mp3", bitrateKbps = 320, normaliseToTarget = true, loudnessTargetId = "streaming") },
+        ExportPreset("master", "Master", "24-bit FLAC, the loudness left alone: the file to keep and to send to a distributor.") { it.copy(formatId = "flac", depth = 24, normaliseToTarget = false) },
+        ExportPreset("broadcast", "Broadcast", "48 kHz 24-bit WAV at -23 LUFS with a -1 dBTP ceiling (EBU R128).") { it.copy(formatId = "wav", depth = 24, sampleRate = 48_000, normaliseToTarget = true, loudnessTargetId = "ebu") },
+        ExportPreset("voice_note", "Voice note", "Mono Opus at 32 kbps: a message, a tenth the size of an MP3.") { it.copy(formatId = "opus", bitrateKbps = 32, channels = 1, normaliseToTarget = true, loudnessTargetId = "podcast") }
+    )
+    fun byId(id: String): ExportPreset? = all.firstOrNull { it.id == id }
 }

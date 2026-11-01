@@ -664,6 +664,32 @@
     <string name="settings_input_device_detail">What Record and the live tuner listen to: the phone\'s mic, a wired or Bluetooth headset, or a USB audio interface. The list is what is plugged in now.</string>
     <string name="settings_input_device_auto">Phone\'s choice</string>
 
+    <string name="voice_count_in">Count in one bar</string>
+    <string name="voice_count_in_detail">A bar of the click before the take starts, so the first beat is the first thing recorded. Stop during the count cancels.</string>
+    <string name="voice_counting_in">Counting in…</string>
+    <string name="voice_show_notes">Show notes</string>
+    <string name="voice_show_notes_hint">The chapters with their times and first words, then the transcript, as text for the episode page.</string>
+    <string name="voice_show_notes_copy">Copy</string>
+    <string name="voice_show_notes_share">Share</string>
+    <string name="beats_groove_straight">Straight</string>
+    <string name="beats_groove_triplet">Triplet</string>
+    <string name="beats_stamp">Chord stamp</string>
+    <string name="beats_stamp_single">One note</string>
+    <string name="beats_stamp_octave">Octave</string>
+    <string name="beats_strum_none">No strum</string>
+    <string name="beats_strum_light">Light strum</string>
+    <string name="beats_strum_medium">Strum</string>
+    <string name="beats_strum_wide">Wide strum</string>
+    <string name="music_pitch_trace">Pitch trace</string>
+    <string name="music_pitch_trace_hint">The note sung or played, every 20 ms across the selection: where a line sags under its note, and how wide the vibrato is.</string>
+    <string name="music_pitch_trace_go">Trace the selection</string>
+    <string name="music_pitch_trace_description">Pitch over time from %1$s to %2$s</string>
+    <string name="music_pitch_trace_range">%1$s to %2$s</string>
+    <string name="export_preset">Where it is going</string>
+    <string name="export_track_number">Track number</string>
+    <string name="export_year">Year</string>
+    <string name="export_genre">Genre</string>
+
     <!-- Notifications -->
     <string name="notification_channel">Recording and playback</string>
     <string name="notification_export_channel">Exports</string>

@@ -145,6 +145,13 @@ fun BeatsPanel(vm: EditorViewModel, ui: EditorViewModel.Ui, modifier: Modifier =
                     Column { SectionHeading(stringResource(R.string.beats_note_length)); ChipRow(listOf(32 to "1/32", 16 to "1/16", 8 to "1/8", 4 to "1/4", 2 to "1/2", 1 to "1"), beats.noteDivision, vm::setNoteDivision, modifier = Modifier.padding(top = 4.dp)) }
                 }
                 ValueSlider(stringResource(R.string.beats_swing), pattern.swing.toFloat(), 0f..1f, { vm.setSwing(it.toDouble()) }, format = Formats::percent, onCommit = vm::endGesture)
+                // Grooves: the swings a drum machine names, one tap each (MPC's 54, 58 and 62 percent map to these fractions of half a step).
+                ChipRow(listOf(0.0 to stringResource(R.string.beats_groove_straight), 0.16 to "54%", 0.33 to "58%", 0.5 to "62%", 0.66 to stringResource(R.string.beats_groove_triplet)), listOf(0.0, 0.16, 0.33, 0.5, 0.66).minByOrNull { kotlin.math.abs(it - pattern.swing) } ?: 0.0, { vm.setGroove(it) }, modifier = Modifier.padding(top = 4.dp))
+                if (!drums) {
+                    SectionHeading(stringResource(R.string.beats_stamp), modifier = Modifier.padding(top = 8.dp))
+                    ChipRow(listOf("" to stringResource(R.string.beats_stamp_single), "power" to "5th", "major" to "Major", "minor" to "Minor", "sus4" to "sus4", "dom7" to "7", "maj7" to "maj7", "min7" to "m7", "octave" to stringResource(R.string.beats_stamp_octave)), beats.stamp, { vm.setStamp(it) }, modifier = Modifier.padding(top = 4.dp))
+                    if (beats.stamp.isNotEmpty()) ChipRow(listOf(0 to stringResource(R.string.beats_strum_none), 30 to stringResource(R.string.beats_strum_light), 60 to stringResource(R.string.beats_strum_medium), 120 to stringResource(R.string.beats_strum_wide)), beats.strumTicks, { vm.setStrum(it) }, modifier = Modifier.padding(top = 4.dp))
+                }
                 ValueSlider(stringResource(R.string.beats_velocity), beats.velocity.toFloat(), 1f..127f, { vm.setVelocity(it.toInt()) }, format = { String.format(Locale.getDefault(), "%d", it.toInt()) })
                 if (!drums) {
                     SectionHeading(stringResource(R.string.beats_scale), modifier = Modifier.padding(top = 6.dp))

@@ -376,7 +376,10 @@ class EditorViewModel(private val app: StaveApplication, val projectId: String) 
         val liveHeardHz: Float = 0f,
         val liveTargetHz: Float = 0f,
         val recordTuned: Boolean = false,
-        val recordPaused: Boolean = false
+        val recordPaused: Boolean = false,
+        /** One bar of click before a take starts. */
+        val countIn: Boolean = false,
+        val countingIn: Boolean = false
     )
 
     private val _voice = MutableStateFlow(VoiceState(targetId = app.settings.current.loudnessTargetId).let { v -> loadTranscript()?.let { v.copy(transcript = it) } ?: v })
@@ -418,6 +421,22 @@ class EditorViewModel(private val app: StaveApplication, val projectId: String) 
     fun startRecording() {
         if (!_voice.value.armed) armInput()
         if (!_voice.value.armed) return
+        if (_voice.value.countIn && !_voice.value.countingIn) {
+            // A bar of the click, then the take; Stop during the count cancels it with nothing recorded.
+            val tempo = session.tempoAt(_ui.value.window.playhead)
+            val barMs = (tempo.beatsPerBar * 60_000.0 / tempo.bpm).toLong()
+            _voice.value = _voice.value.copy(countingIn = true)
+            transport.setMetronome(true, tempo.bpm, tempo.beatsPerBar, 0.6f)
+            recordJob?.cancel()
+            recordJob = viewModelScope.launch {
+                delay(barMs)
+                if (!_voice.value.countingIn) return@launch
+                transport.setMetronome(false, tempo.bpm, tempo.beatsPerBar, 0.6f)
+                _voice.value = _voice.value.copy(countingIn = false)
+                startRecording()
+            }
+            return
+        }
         val take = File(files.takes, "take-${System.currentTimeMillis()}.wav")
         recordStart = _ui.value.window.playhead
         if (!transport.startRecording(take)) { _ui.value = _ui.value.copy(message = "Recording could not start."); return }
@@ -447,6 +466,7 @@ class EditorViewModel(private val app: StaveApplication, val projectId: String) 
     }
 
     fun stopRecording() {
+        if (_voice.value.countingIn) { recordJob?.cancel(); recordJob = null; val t = session.tempo.first(); transport.setMetronome(false, t.bpm, t.beatsPerBar, 0.6f); _voice.value = _voice.value.copy(countingIn = false); return }
         recordJob?.cancel(); recordJob = null
         transport.setRecordPaused(false)
         _voice.value = _voice.value.copy(recordPaused = false)
@@ -503,6 +523,40 @@ class EditorViewModel(private val app: StaveApplication, val projectId: String) 
         _voice.value = _voice.value.copy(liveTune = on && _voice.value.armed, recordTuned = recordTuned, liveHeardHz = 0f, liveTargetHz = 0f)
         liveTuneJob?.cancel()
         if (_voice.value.liveTune) liveTuneJob = viewModelScope.launch { while (true) { _voice.value = _voice.value.copy(liveHeardHz = transport.liveTuneHz(), liveTargetHz = transport.liveTuneTargetHz()); delay(80) } }
+    }
+
+    /**
+     * Count in: one bar of the click at the session's tempo before the take starts, the picture
+     * standing still, so the first beat is the first thing on the take. Armed by the Voice tab's
+     * switch; startRecording waits the bar out before it opens the recorder.
+     */
+    fun setCountIn(on: Boolean) { _voice.value = _voice.value.copy(countIn = on) }
+
+    /**
+     * Show notes from what is here: the chapters with their times and the first words said in
+     * each, then the whole transcript. Plain text for the clipboard or a share; a podcast host
+     * pastes it under the episode. No model writes a summary - the words are the person's.
+     */
+    fun showNotes(): String {
+        val s = session
+        val t = _voice.value.transcript
+        val sb = StringBuilder()
+        if (s.name.isNotBlank()) sb.append(s.name).append('\n').append('\n')
+        val chapters = s.markers.filter { it.kind == Marker.Kind.CHAPTER }.sortedBy { it.position }
+        if (chapters.isNotEmpty()) {
+            sb.append("Chapters\n")
+            for ((i, m) in chapters.withIndex()) {
+                val startMs = m.position * 1000 / s.sampleRate
+                val endMs = chapters.getOrNull(i + 1)?.let { it.position * 1000 / s.sampleRate } ?: Long.MAX_VALUE
+                val firstWords = t?.words?.filter { it.startMs >= startMs && it.startMs < endMs }?.take(12)?.joinToString(" ") { it.text }
+                sb.append(com.layerbit.stave.engine.text.Timecode.display(startMs)).append("  ").append(m.name.ifBlank { "Chapter ${i + 1}" })
+                if (!firstWords.isNullOrBlank()) sb.append(" - ").append(firstWords).append('…')
+                sb.append('\n')
+            }
+            sb.append('\n')
+        }
+        if (t != null && !t.isEmpty) { sb.append("Transcript\n"); for (line in t.lines()) sb.append(line.joinToString(" ") { it.text }).append('\n') }
+        return sb.toString().trimEnd()
     }
 
     /** Pause keeps the take's file open and drops frames; Resume continues the same take. The transport pauses with it. */
@@ -1377,7 +1431,10 @@ class EditorViewModel(private val app: StaveApplication, val projectId: String) 
         val scaleRoot: Int = 0,
         /** A MIDI controller listened to, and the devices open. */
         val midiIn: Boolean = false,
-        val midiDevices: List<String> = emptyList()
+        val midiDevices: List<String> = emptyList(),
+        /** A chord stamp: a tap on the roll lays these intervals on the tapped pitch ("" is a single note); strum spreads them by a few ticks each. */
+        val stamp: String = "",
+        val strumTicks: Int = 0
     )
     private val _beats = MutableStateFlow(BeatsState(soundFonts = app.soundFonts.list()))
     val beats: StateFlow<BeatsState> = _beats.asStateFlow()
@@ -1566,7 +1623,23 @@ class EditorViewModel(private val app: StaveApplication, val projectId: String) 
     fun setBars(bars: Int) { editPattern("Pattern length") { it.copy(lengthTicks = com.layerbit.stave.engine.sequencer.Ticks.PER_BAR * bars.coerceIn(1, 16)) } }
     fun setSwing(amount: Double) { editPattern("Swing", gesture = "swing") { it.copy(swing = amount.coerceIn(0.0, 1.0)) } }
 
-    /** A tap on the grid: off if a note starts in that step, else a note of the chosen length at the chosen velocity. */
+    fun setStamp(stamp: String) { _beats.value = _beats.value.copy(stamp = stamp) }
+    fun setStrum(ticks: Int) { _beats.value = _beats.value.copy(strumTicks = ticks.coerceIn(0, 240)) }
+    /** The grooves a sequencer offers as one tap: the swing each means, in the pattern's own units. */
+    fun setGroove(swing: Double) { setSwing(swing); endGesture() }
+
+    /** The intervals of a chord stamp over its root. */
+    fun stampIntervals(stamp: String): IntArray = when (stamp) {
+        "major" -> intArrayOf(0, 4, 7); "minor" -> intArrayOf(0, 3, 7); "sus4" -> intArrayOf(0, 5, 7); "maj7" -> intArrayOf(0, 4, 7, 11)
+        "min7" -> intArrayOf(0, 3, 7, 10); "dom7" -> intArrayOf(0, 4, 7, 10); "power" -> intArrayOf(0, 7); "octave" -> intArrayOf(0, 12)
+        else -> intArrayOf(0)
+    }
+
+    /**
+     * A tap on the grid: off if a note starts in that step, else a note of the chosen length at
+     * the chosen velocity - or the chord stamp's notes on that root, each strummed a few ticks
+     * after the one below it when a strum is set, as a hand would.
+     */
     fun toggleStep(pitch: Int, step: Int) {
         val b = _beats.value
         editPattern("Step") { p ->
@@ -1575,7 +1648,44 @@ class EditorViewModel(private val app: StaveApplication, val projectId: String) 
             else {
                 val grid = com.layerbit.stave.engine.sequencer.Ticks.perStep(b.division)
                 val length = com.layerbit.stave.engine.sequencer.Ticks.perStep(b.noteDivision).coerceAtMost(p.lengthTicks - step * grid).coerceAtLeast(1)
-                p.adding(listOf(com.layerbit.stave.engine.sequencer.Note("", pitch, b.velocity, step * grid, length)))
+                val intervals = if (com.layerbit.stave.beats.Instruments.hasPads(instrumentOf(p))) intArrayOf(0) else stampIntervals(b.stamp)
+                val notes = intervals.mapIndexedNotNull { i, iv ->
+                    val q = pitch + iv
+                    if (q !in 0..127) null else {
+                        val start = (step * grid + i.toLong() * b.strumTicks).coerceAtMost(p.lengthTicks - 1)
+                        com.layerbit.stave.engine.sequencer.Note("", q, b.velocity, start, (length - i * b.strumTicks).coerceAtLeast(grid / 4))
+                    }
+                }
+                p.adding(notes)
+            }
+        }
+    }
+
+    // ---- the pitch trace ----
+    data class PitchPoint(val ms: Long, val midi: Double)
+    private val _pitchTrace = MutableStateFlow<List<PitchPoint>>(emptyList())
+    /** The selection's pitch every 20 ms (YIN), as MIDI with fractions; empty where nothing was heard. */
+    val pitchTrace: StateFlow<List<PitchPoint>> = _pitchTrace.asStateFlow()
+    fun tracePitch() {
+        val s = session
+        val range = _ui.value.selection ?: return
+        if (range.last - range.first < s.sampleRate / 10) return
+        viewModelScope.launch {
+            val to = minOf(range.last + 1, range.first + 60L * s.sampleRate)
+            val chs = mixdown(range.first, to) ?: return@launch
+            _pitchTrace.value = withContext(Dispatchers.Default) {
+                val n = chs[0].size
+                val mono = FloatArray(n) { i -> var m = 0f; for (a in chs) m += a[i]; m / chs.size }
+                val detector = com.layerbit.stave.engine.dsp.PitchDetector(s.sampleRate, frameSize = 2048, minHz = 60.0, maxHz = 1500.0)
+                val hop = s.sampleRate / 50
+                val out = ArrayList<PitchPoint>()
+                var at = 0
+                while (at + 2048 <= n) {
+                    val hz = detector.detect(mono, at)?.hz ?: 0.0
+                    if (hz > 0) out += PitchPoint(range.first * 1000 / s.sampleRate + at.toLong() * 1000 / s.sampleRate, com.layerbit.stave.engine.dsp.LiveTuneRules.hzToMidi(hz))
+                    at += hop
+                }
+                out
             }
         }
     }

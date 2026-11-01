@@ -74,6 +74,14 @@ class Exporter(private val context: Context) {
             onProgress(0.55f, "Measuring")
             val meter = LoudnessMeter(rate, channels).also { it.process(samples) }
             val reading = meter.reading()
+            // Dither: a float mix going to 16 or 24 integer bits gets TPDF noise at one LSB before the
+            // encoder quantises it, so a fade's tail dies into noise rather than into a stepped buzz.
+            // Lossy encoders quantise nothing, so they get the plain float.
+            val depth = settings.depth
+            if (settings.dither && settings.format.lossless && depth in setOf(16, 24)) {
+                val dither = com.layerbit.stave.engine.dsp.Dither(depth)
+                for (i in samples.indices) samples[i] = dither.apply(samples[i])
+            }
             RawAudio.write(raw, samples)
             val outFile = File(files.exports, settings.fileName(fallbackName))
             onProgress(0.6f, "Encoding")
@@ -86,6 +94,9 @@ class Exporter(private val context: Context) {
                 if (settings.artist.isNotBlank()) AvNative.encSetTag(h, "artist", settings.artist)
                 if (settings.album.isNotBlank()) AvNative.encSetTag(h, "album", settings.album)
                 if (settings.comment.isNotBlank()) AvNative.encSetTag(h, "comment", settings.comment)
+                if (settings.trackNumber > 0) AvNative.encSetTag(h, "track", settings.trackNumber.toString())
+                if (settings.year.isNotBlank()) AvNative.encSetTag(h, "date", settings.year)
+                if (settings.genre.isNotBlank()) AvNative.encSetTag(h, "genre", settings.genre)
                 AvNative.encSetTag(h, "encoder", "Stave")
                 if (settings.writeChapters && fmt.chapters) {
                     val chapters = session.markers.filter { it.kind == Marker.Kind.CHAPTER }.sortedBy { it.position }

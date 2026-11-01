@@ -441,10 +441,20 @@ private fun ExportSheet(vm: EditorViewModel, ui: EditorViewModel.Ui) {
     ChipRow(options = listOf(0 to stringResource(R.string.export_channels_keep), 1 to stringResource(R.string.export_mono)), selected = s.channels, onSelect = { vm.setExportSettings(s.copy(channels = it)) }, modifier = Modifier.padding(vertical = 6.dp))
     ToggleRow(stringResource(R.string.export_normalise), s.normaliseToTarget, { vm.setExportSettings(s.copy(normaliseToTarget = it)) })
     if (s.normaliseToTarget) ChipRow(options = LoudnessTarget.all.map { it.id to it.label }, selected = s.loudnessTargetId, onSelect = { vm.setExportSettings(s.copy(loudnessTargetId = it)) }, modifier = Modifier.padding(vertical = 6.dp))
+    // Where it is going: one tap sets the format, the bitrate and the target; the tags below stay.
+    Text(stringResource(R.string.export_preset), style = MaterialTheme.typography.bodyMedium, color = StaveColors.Text, modifier = Modifier.padding(top = 8.dp))
+    var presetId by remember { mutableStateOf("") }
+    ChipRow(options = com.layerbit.stave.engine.export.ExportPresets.all.map { it.id to it.label }, selected = presetId, onSelect = { id -> presetId = id; com.layerbit.stave.engine.export.ExportPresets.byId(id)?.let { vm.setExportSettings(it.apply(s)) } }, modifier = Modifier.padding(vertical = 6.dp))
+    com.layerbit.stave.engine.export.ExportPresets.byId(presetId)?.let { Text(it.note, style = MaterialTheme.typography.bodySmall, color = StaveColors.Dim) }
     OutlinedTextField(value = s.title, onValueChange = { vm.setExportSettings(s.copy(title = it)) }, label = { Text(stringResource(R.string.export_title)) }, singleLine = true, modifier = Modifier.fillMaxWidth().padding(top = 6.dp))
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 6.dp)) {
         OutlinedTextField(value = s.artist, onValueChange = { vm.setExportSettings(s.copy(artist = it)) }, label = { Text(stringResource(R.string.export_artist)) }, singleLine = true, modifier = Modifier.weight(1f))
         OutlinedTextField(value = s.album, onValueChange = { vm.setExportSettings(s.copy(album = it)) }, label = { Text(stringResource(R.string.export_album)) }, singleLine = true, modifier = Modifier.weight(1f))
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth().padding(top = 6.dp)) {
+        OutlinedTextField(value = if (s.trackNumber > 0) s.trackNumber.toString() else "", onValueChange = { vm.setExportSettings(s.copy(trackNumber = it.filter { c -> c.isDigit() }.take(3).toIntOrNull() ?: 0)) }, label = { Text(stringResource(R.string.export_track_number)) }, singleLine = true, modifier = Modifier.weight(1f))
+        OutlinedTextField(value = s.year, onValueChange = { vm.setExportSettings(s.copy(year = it.filter { c -> c.isDigit() }.take(4))) }, label = { Text(stringResource(R.string.export_year)) }, singleLine = true, modifier = Modifier.weight(1f))
+        OutlinedTextField(value = s.genre, onValueChange = { vm.setExportSettings(s.copy(genre = it)) }, label = { Text(stringResource(R.string.export_genre)) }, singleLine = true, modifier = Modifier.weight(1.4f))
+    }
     }
     if (fmt.chapters) ToggleRow(stringResource(R.string.export_chapters), s.writeChapters, { vm.setExportSettings(s.copy(writeChapters = it)) })
     Text(stringResource(R.string.export_estimate, formatBytes(estimate)), style = MaterialTheme.typography.bodySmall, color = StaveColors.Dim, modifier = Modifier.padding(top = 6.dp))

@@ -1,4 +1,5 @@
 import com.layerbit.stave.engine.export.AudioFormat
+import com.layerbit.stave.engine.dsp.LoudnessTarget
 import com.layerbit.stave.engine.export.ExportSettings
 
 object ExportChecks : Suite {
@@ -39,5 +40,18 @@ object ExportChecks : Suite {
         check(ExportSettings(formatId = "flac").fileName("Take 1") == "Take 1.flac") { "fallback name" }
         check(ExportSettings(title = "   ").fileName("").endsWith("stave.mp3")) { "blank everything" }
         check(ExportSettings(title = "x".repeat(200)).fileName("").length <= 84) { "capped" }
+
+        section("publish presets: each names a format the table has, a target the targets have, and leaves the tags alone")
+        val tagged = ExportSettings(title = "Episode 4", artist = "Me", album = "The Show", trackNumber = 4, year = "2026", genre = "Podcast")
+        for (preset in com.layerbit.stave.engine.export.ExportPresets.all) {
+            val applied = preset.apply(tagged)
+            check(AudioFormat.all.any { it.id == applied.formatId }) { "${preset.id} names a format the table lacks: ${applied.formatId}" }
+            if (!applied.format.lossless) check(applied.bitrateKbps in applied.format.bitrates) { "${preset.id}: ${applied.bitrateKbps} kbps is not one of ${applied.format.label}'s" }
+            if (applied.normaliseToTarget) check(LoudnessTarget.all.any { it.id == applied.loudnessTargetId }) { "${preset.id} names a target the targets lack" }
+            check(applied.title == "Episode 4" && applied.trackNumber == 4 && applied.genre == "Podcast") { "${preset.id} changed the tags" }
+            check(applied.encoderName() != null || applied.format.id in setOf("wav", "aiff")) { "${preset.id} has an encoder" }
+        }
+        check(com.layerbit.stave.engine.export.ExportPresets.all.map { it.id }.distinct().size == com.layerbit.stave.engine.export.ExportPresets.all.size) { "preset ids are distinct" }
+        check(com.layerbit.stave.engine.export.ExportPresets.byId("broadcast")!!.apply(ExportSettings()).sampleRate == 48_000) { "broadcast is 48 kHz" }
     }
 }

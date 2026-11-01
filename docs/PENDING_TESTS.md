@@ -107,4 +107,9 @@ back into the roadmap with what broke.
 76. Studio → Metronome: Tempo change here at bar 9 with 140: the entry lists; the beat grid after bar 9 is tighter (snap a clip to it); Delete on the entry restores one tempo.
 77. Settings → Audio → Input: a USB interface plugged in lists by its name; chosen, Ready the mic records through it (the meter moves with its input, not the phone's mic); unplugged and chosen again, the phone's mic opens instead of nothing.
 78. Voice → Keep only the voice on a sung line over a backing track with the model present: the backing is gone from the selection and the voice stays in place and in time.
+79. Voice → Count in one bar on, Record: four clicks at the session's tempo, then the take starts with the play-head where it was; Stop during the clicks records nothing.
+80. Voice → Show notes → Copy: the clipboard holds the chapters with times and first words and the transcript; Share offers the text to another app.
+81. Beats → on a synth, Chord stamp Major with a Strum: a tap lays three notes a few ticks apart (zoom the grid); on Drums the stamp is ignored; the groove chips move the swing slider.
+82. Musician → select a sung phrase, Trace the selection: the line follows the voice, sits on the semitone lines when in tune, and breaks between phrases rather than gliding.
+83. Export → Podcast MP3 preset: the chips jump to MP3 128 and the podcast target; track 4, year and genre typed are in the file's tags (read them back in a tag editor).
 

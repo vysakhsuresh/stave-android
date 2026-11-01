@@ -44,6 +44,7 @@ fun MusicPanel(vm: EditorViewModel, ui: EditorViewModel.Ui, modifier: Modifier =
         TunerCard(vm.transport, armed = voice.armed)
         AnalysisCard(vm, ui)
         KaraokeCard(vm, ui)
+        PitchTraceCard(vm, ui)
         Panel(modifier = Modifier.fillMaxWidth()) {
             SectionHeading(stringResource(R.string.music_stems))
             Text(stringResource(R.string.music_stems_hint), style = MaterialTheme.typography.bodySmall, color = StaveColors.Dim, modifier = Modifier.padding(vertical = 4.dp))

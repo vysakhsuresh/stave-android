@@ -85,6 +85,8 @@ fun VoicePanel(vm: EditorViewModel, ui: EditorViewModel.Ui, modifier: Modifier =
             if (transport.recording) Text(stringResource(R.string.voice_recording, Timecode.display(voice.recordedMs, 1)), style = MaterialTheme.typography.titleMedium, color = StaveColors.Record, modifier = Modifier.padding(top = 8.dp))
             ToggleRow(stringResource(R.string.voice_monitor), voice.monitor, { vm.setMonitor(it) }, detail = stringResource(R.string.voice_monitor_detail), enabled = voice.armed, modifier = Modifier.padding(top = 4.dp))
             ToggleRow(stringResource(R.string.voice_punch), voice.punch, { vm.setPunch(it) }, detail = stringResource(if (ui.selection != null) R.string.voice_punch_detail else R.string.voice_punch_needs_selection), enabled = !transport.recording)
+            ToggleRow(stringResource(R.string.voice_count_in), voice.countIn, { vm.setCountIn(it) }, detail = stringResource(R.string.voice_count_in_detail), enabled = !transport.recording)
+            if (voice.countingIn) Text(stringResource(R.string.voice_counting_in), style = MaterialTheme.typography.titleMedium, color = StaveColors.Record, modifier = Modifier.padding(top = 8.dp))
             voice.dropped.takeIf { it > 0 }?.let { Text(stringResource(R.string.voice_dropped, it), style = MaterialTheme.typography.bodySmall, color = StaveColors.Hot) }
         }
         // ---- Looper ----
@@ -103,6 +105,23 @@ fun VoicePanel(vm: EditorViewModel, ui: EditorViewModel.Ui, modifier: Modifier =
                 else PrimaryButton(stringResource(R.string.looper_stop), onClick = vm::stopRecording, tall = false, modifier = Modifier.weight(1f), enabled = looper.recordingLayer)
             }
             if (looper.layers > 0) Text(stringResource(R.string.looper_layers, looper.layers), style = MaterialTheme.typography.bodySmall, color = StaveColors.Muted, modifier = Modifier.padding(top = 6.dp))
+        }
+        // ---- Show notes ----
+        if (ui.session.markers.any { it.kind == com.layerbit.stave.engine.project.Marker.Kind.CHAPTER } || voice.transcript?.isEmpty == false) {
+            Panel(modifier = Modifier.fillMaxWidth()) {
+                SectionHeading(stringResource(R.string.voice_show_notes))
+                Text(stringResource(R.string.voice_show_notes_hint), style = MaterialTheme.typography.bodySmall, color = StaveColors.Dim, modifier = Modifier.padding(vertical = 4.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    SecondaryButton(stringResource(R.string.voice_show_notes_copy), onClick = {
+                        val cm = context.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
+                        cm.setPrimaryClip(android.content.ClipData.newPlainText("Show notes", vm.showNotes()))
+                    }, tall = false, modifier = Modifier.weight(1f))
+                    SecondaryButton(stringResource(R.string.voice_show_notes_share), onClick = {
+                        val send = android.content.Intent(android.content.Intent.ACTION_SEND).setType("text/plain").putExtra(android.content.Intent.EXTRA_TEXT, vm.showNotes())
+                        context.startActivity(android.content.Intent.createChooser(send, null))
+                    }, tall = false, modifier = Modifier.weight(1f))
+                }
+            }
         }
         // ---- Keep only the voice ----
         Panel(modifier = Modifier.fillMaxWidth()) {
