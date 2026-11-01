@@ -31,6 +31,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
@@ -89,7 +90,7 @@ fun VoicePanel(vm: EditorViewModel, ui: EditorViewModel.Ui, modifier: Modifier =
             ToggleRow(stringResource(R.string.voice_count_in), voice.countIn, { vm.setCountIn(it) }, detail = stringResource(R.string.voice_count_in_detail), enabled = !transport.recording)
             if (voice.punch) ToggleRow(stringResource(R.string.voice_pre_roll), voice.preRoll, { vm.setPreRoll(it) }, detail = stringResource(R.string.voice_pre_roll_detail), enabled = !transport.recording)
             if (voice.countingIn) Text(stringResource(R.string.voice_counting_in), style = MaterialTheme.typography.titleMedium, color = StaveColors.Record, modifier = Modifier.padding(top = 8.dp))
-            voice.dropped.takeIf { it > 0 }?.let { Text(stringResource(R.string.voice_dropped, it), style = MaterialTheme.typography.bodySmall, color = StaveColors.Hot) }
+            voice.dropped.takeIf { it > 0 }?.let { Text(pluralStringResource(R.plurals.voice_dropped, it.toInt(), it), style = MaterialTheme.typography.bodySmall, color = StaveColors.Hot) }
         }
         // ---- Looper ----
         Panel(modifier = Modifier.fillMaxWidth()) {
@@ -106,7 +107,7 @@ fun VoicePanel(vm: EditorViewModel, ui: EditorViewModel.Ui, modifier: Modifier =
                 if (!transport.recording) PrimaryButton(stringResource(R.string.looper_record), onClick = { if (hasMic) vm.startRecording() else ask.launch(Manifest.permission.RECORD_AUDIO) }, danger = true, tall = false, modifier = Modifier.weight(1f), enabled = looper.active)
                 else PrimaryButton(stringResource(R.string.looper_stop), onClick = vm::stopRecording, tall = false, modifier = Modifier.weight(1f), enabled = looper.recordingLayer)
             }
-            if (looper.layers > 0) Text(stringResource(R.string.looper_layers, looper.layers), style = MaterialTheme.typography.bodySmall, color = StaveColors.Muted, modifier = Modifier.padding(top = 6.dp))
+            if (looper.layers > 0) Text(pluralStringResource(R.plurals.looper_layers, looper.layers, looper.layers), style = MaterialTheme.typography.bodySmall, color = StaveColors.Muted, modifier = Modifier.padding(top = 6.dp))
         }
         // ---- Show notes ----
         if (ui.session.markers.any { it.kind == com.layerbit.stave.engine.project.Marker.Kind.CHAPTER } || voice.transcript?.isEmpty == false) {
@@ -172,7 +173,7 @@ fun VoicePanel(vm: EditorViewModel, ui: EditorViewModel.Ui, modifier: Modifier =
                 if (voice.stale) Text(stringResource(R.string.voice_stale), style = MaterialTheme.typography.bodySmall, color = StaveColors.Hot, modifier = Modifier.padding(top = 8.dp))
                 WordFlow(t.words.map { it.text }, voice.selectedWords, onToggle = vm::toggleWord)
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 8.dp)) {
-                    PrimaryButton(stringResource(R.string.voice_delete_words, voice.selectedWords.size), onClick = vm::deleteSelectedWords, enabled = voice.selectedWords.isNotEmpty(), tall = false, modifier = Modifier.weight(1f))
+                    PrimaryButton(pluralStringResource(R.plurals.voice_delete_words, voice.selectedWords.size, voice.selectedWords.size), onClick = vm::deleteSelectedWords, enabled = voice.selectedWords.isNotEmpty(), tall = false, modifier = Modifier.weight(1f))
                     SecondaryButton(stringResource(R.string.voice_remove_fillers), onClick = vm::removeFillers, tall = false, modifier = Modifier.weight(1f))
                 }
                 SecondaryButton(stringResource(R.string.voice_chapter_here), onClick = { vm.addMarker(com.layerbit.stave.engine.project.Marker.Kind.CHAPTER) }, tall = false, modifier = Modifier.fillMaxWidth().padding(top = 8.dp))

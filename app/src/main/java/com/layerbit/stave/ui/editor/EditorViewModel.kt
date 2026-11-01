@@ -703,7 +703,7 @@ class EditorViewModel(private val app: StaveApplication, val projectId: String) 
         val found = Fillers.find(t.words)
         if (found.isEmpty()) { _ui.value = _ui.value.copy(message = app.getString(com.layerbit.stave.R.string.voice_fillers_none)); return }
         cutRanges(WordCuts.rangesFor(t.words, found, totalMs = session.durationMs), "Take out fillers")
-        _ui.value = _ui.value.copy(message = app.getString(com.layerbit.stave.R.string.voice_fillers_removed, found.size))
+        _ui.value = _ui.value.copy(message = app.resources.getQuantityString(com.layerbit.stave.R.plurals.voice_fillers_removed, found.size, found.size))
     }
 
     fun setSilenceRule(minMs: Long? = null, keepMs: Long? = null) { _voice.value = _voice.value.copy(silenceMinMs = minMs ?: _voice.value.silenceMinMs, silenceKeepMs = keepMs ?: _voice.value.silenceKeepMs) }
@@ -718,9 +718,9 @@ class EditorViewModel(private val app: StaveApplication, val projectId: String) 
             val mono = FloatArray(chs[0].size) { (chs[0][it] + chs[1][it]) * 0.5f }
             val levels = Silences.levels(mono, s.sampleRate, 20)
             val found = Silences.find(levels, 20, Silences.thresholdFor(levels), _voice.value.silenceMinMs, _voice.value.silenceKeepMs)
-            if (found.isEmpty()) { _ui.value = _ui.value.copy(message = app.getString(com.layerbit.stave.R.string.voice_silences_found, 0)); return@launch }
+            if (found.isEmpty()) { _ui.value = _ui.value.copy(message = app.resources.getQuantityString(com.layerbit.stave.R.plurals.voice_silences_found, 0, 0)); return@launch }
             cutRanges(found, "Remove silences")
-            _ui.value = _ui.value.copy(message = app.getString(com.layerbit.stave.R.string.voice_silences_found, found.size))
+            _ui.value = _ui.value.copy(message = app.resources.getQuantityString(com.layerbit.stave.R.plurals.voice_silences_found, found.size, found.size))
         }
     }
 
@@ -1559,7 +1559,7 @@ class EditorViewModel(private val app: StaveApplication, val projectId: String) 
                 val p = currentPattern ?: com.layerbit.stave.engine.sequencer.Pattern(Ids.next("p"), "Pattern ${session.patterns.size + 1}", stepDivision = _beats.value.division).also { next = next.copy(patterns = next.patterns + it); _beats.value = _beats.value.copy(patternId = it.id) }
                 next = next.copy(instruments = next.instruments + (p.id to "kit:${kit.id}"))
                 kitEdited(next, "Slice to pads")
-                _ui.value = _ui.value.copy(message = app.getString(com.layerbit.stave.R.string.beats_sliced, sources.size))
+                _ui.value = _ui.value.copy(message = app.resources.getQuantityString(com.layerbit.stave.R.plurals.beats_sliced, sources.size, sources.size))
             }.onFailure { e -> _ui.value = _ui.value.copy(message = e.message ?: "Could not slice") }
         }
     }

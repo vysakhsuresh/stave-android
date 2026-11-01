@@ -22,6 +22,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.layerbit.stave.R
@@ -63,7 +64,7 @@ fun ConvertScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
         Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             ScreenTitle(stringResource(R.string.convert_title), subtitle = stringResource(R.string.convert_hint))
             Panel(modifier = Modifier.fillMaxWidth()) {
-                SecondaryButton(if (picked.isEmpty()) stringResource(R.string.convert_pick) else stringResource(R.string.convert_picked, picked.size), onClick = { pick.launch(arrayOf("audio/*", "video/*")) }, tall = false, modifier = Modifier.fillMaxWidth(), enabled = !running)
+                SecondaryButton(if (picked.isEmpty()) stringResource(R.string.convert_pick) else pluralStringResource(R.plurals.convert_picked, picked.size, picked.size), onClick = { pick.launch(arrayOf("audio/*", "video/*")) }, tall = false, modifier = Modifier.fillMaxWidth(), enabled = !running)
                 for (u in picked.take(12)) Text(app.media.displayName(u), style = MaterialTheme.typography.bodySmall, color = StaveColors.Muted, modifier = Modifier.padding(top = 4.dp))
                 if (picked.size > 12) Text(stringResource(R.string.convert_more, picked.size - 12), style = MaterialTheme.typography.bodySmall, color = StaveColors.Dim)
             }
@@ -83,7 +84,7 @@ fun ConvertScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
                     LinearProgressIndicator(progress = { progress }, modifier = Modifier.fillMaxWidth().padding(top = 8.dp), color = StaveColors.Band, trackColor = StaveColors.Border)
                 }
             }
-            PrimaryButton(stringResource(R.string.convert_go, picked.size), onClick = {
+            PrimaryButton(pluralStringResource(R.plurals.convert_go, picked.size, picked.size), onClick = {
                 running = true; outcomes = emptyList()
                 val settings = ExportSettings(formatId = format, bitrateKbps = if (bitrate == 0) fmt.defaultBitrate else bitrate, normaliseToTarget = normalise)
                 scope.launch {

@@ -28,6 +28,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -219,7 +220,7 @@ private fun TrackDetail(vm: EditorViewModel, ui: EditorViewModel.Ui, t: Track) {
             var value by remember(t.id, param, ui.window.playhead) { mutableStateOf(at.toFloat()) }
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(stringResource(label), style = MaterialTheme.typography.bodyMedium, color = StaveColors.Text, modifier = Modifier.width(64.dp))
-                Text(stringResource(R.string.studio_automation_points, track.points.size), style = MaterialTheme.typography.bodySmall, color = StaveColors.Dim, modifier = Modifier.weight(1f))
+                Text(pluralStringResource(R.plurals.studio_automation_points, track.points.size, track.points.size), style = MaterialTheme.typography.bodySmall, color = StaveColors.Dim, modifier = Modifier.weight(1f))
                 SecondaryButton(stringResource(R.string.studio_automation_clear), onClick = { vm.updateTrack(t.id, "Clear automation") { it.copy(automation = it.automation - param) } }, tall = false, enabled = track.points.isNotEmpty())
             }
             ValueSlider(stringResource(R.string.studio_automation_add), value, range, { value = it }, format = if (param == "volume") Formats::db else { p -> String.format(java.util.Locale.getDefault(), "%.2f", p) })
