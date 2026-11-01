@@ -306,15 +306,21 @@ fun <T> ChipRow(options: List<Pair<T, String>>, selected: T, onSelect: (T) -> Un
     val density = LocalDensity.current
     val gap = 8.dp
     BoxWithConstraints(modifier.fillMaxWidth()) {
-        val widest = remember(options, style) { options.maxOf { measurer.measure(it.second, style, maxLines = 1).size.width } }
-        val cellMin = with(density) { widest.toDp() } + 28.dp
-        val fit = (((maxWidth + gap) / (cellMin + gap)).toInt()).coerceIn(1, options.size)
+        // Columns from the typical label (the 80th percentile), at most four; a label longer than
+        // its cell shrinks its type to fit rather than widening every cell (26 languages were
+        // thirteen rows of two because of "Bahasa Indonesia").
+        val widths = remember(options, style) { options.map { measurer.measure(it.second, style, maxLines = 1).size.width } }
+        val typical = widths.sorted()[((widths.size - 1) * 4) / 5]
+        val cellMin = with(density) { typical.toDp() } + 28.dp
+        val fit = (((maxWidth + gap) / (cellMin + gap)).toInt()).coerceIn(1, minOf(4, options.size))
         val rows = (options.size + fit - 1) / fit
         val columns = (options.size + rows - 1) / rows
+        val textRoom = with(density) { ((maxWidth - gap * (columns - 1)) / columns - 16.dp).toPx() }
+        val sizes = options.indices.map { i -> if (widths[i] <= textRoom) style.fontSize else (style.fontSize * (textRoom / widths[i]) * 0.97f).let { if (it.value < 10f) 10.sp else it } }
         Column(verticalArrangement = Arrangement.spacedBy(gap)) {
-            options.chunked(columns).forEach { row ->
+            options.withIndex().chunked(columns).forEach { row ->
                 Row(horizontalArrangement = Arrangement.spacedBy(gap), modifier = Modifier.fillMaxWidth()) {
-                    row.forEach { (value, label) -> ChoiceCell(label, value == selected, enabled(value), { onSelect(value) }, Modifier.weight(1f)) }
+                    row.forEach { (i, option) -> val (value, label) = option; ChoiceCell(label, value == selected, enabled(value), { onSelect(value) }, Modifier.weight(1f), sizes[i]) }
                     repeat(columns - row.size) { Spacer(Modifier.weight(1f)) }
                 }
             }
@@ -325,7 +331,7 @@ fun <T> ChipRow(options: List<Pair<T, String>>, selected: T, onSelect: (T) -> Un
 private val CellShape = RoundedCornerShape(10.dp)
 
 @Composable
-private fun ChoiceCell(label: String, active: Boolean, on: Boolean, onClick: () -> Unit, modifier: Modifier) {
+private fun ChoiceCell(label: String, active: Boolean, on: Boolean, onClick: () -> Unit, modifier: Modifier, fontSize: androidx.compose.ui.unit.TextUnit) {
     val fill by animateColorAsState(if (active) StaveColors.Band else Color.Transparent, label = "chip")
     val ink by animateColorAsState(if (!on) StaveColors.Dim else if (active) StaveColors.OnBand else StaveColors.Text, label = "chipInk")
     val interaction = remember { MutableInteractionSource() }
@@ -340,7 +346,7 @@ private fun ChoiceCell(label: String, active: Boolean, on: Boolean, onClick: () 
             .padding(horizontal = 8.dp),
         contentAlignment = Alignment.Center
     ) {
-        Text(text = label, style = MaterialTheme.typography.bodyMedium, color = ink, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+        Text(text = label, style = MaterialTheme.typography.bodyMedium.copy(fontSize = fontSize), color = ink, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
     }
 }
 

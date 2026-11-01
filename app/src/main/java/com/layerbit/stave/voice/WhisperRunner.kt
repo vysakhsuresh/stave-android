@@ -28,7 +28,7 @@ class WhisperRunner(private val models: ModelStore) {
     /** The languages offered: a code and its own name, plus "auto". Whisper's list is long; these are the ones a phone in India meets. */
     val languages = listOf(
         "auto" to "Detect", "en" to "English", "hi" to "हिन्दी", "ml" to "മലയാളം", "ta" to "தமிழ்", "te" to "తెలుగు", "kn" to "ಕನ್ನಡ", "bn" to "বাংলা", "mr" to "मराठी", "gu" to "ગુજરાતી", "pa" to "ਪੰਜਾਬੀ", "ur" to "اردو",
-        "ar" to "العربية", "es" to "Español", "fr" to "Français", "de" to "Deutsch", "pt" to "Português", "it" to "Italiano", "ru" to "Русский", "ja" to "日本語", "ko" to "한국어", "zh" to "中文", "id" to "Bahasa Indonesia", "tr" to "Türkçe"
+        "ar" to "العربية", "es" to "Español", "fr" to "Français", "de" to "Deutsch", "pt" to "Português", "it" to "Italiano", "ru" to "Русский", "ja" to "日本語", "ko" to "한국어", "zh" to "中文", "id" to "Indonesia", "tr" to "Türkçe"
     )
 
     private fun ensureOpen(): Boolean {
