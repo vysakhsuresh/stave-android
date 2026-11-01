@@ -1,5 +1,6 @@
 package com.layerbit.stave.ui.editor
 
+import com.layerbit.stave.engine.sequencer.toMidiFile
 import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -971,7 +972,7 @@ class EditorViewModel(private val app: StaveApplication, val projectId: String) 
     fun master(toneDb: Double, glue: Double) {
         val target = LoudnessTarget.byId(_finish.value.targetId)
         val T = com.layerbit.stave.processing.OfflineTools
-        val steps = ArrayList<T.Transform>()
+        val steps = ArrayList<com.layerbit.stave.processing.OfflineTools.Transform>()
         if (kotlin.math.abs(toneDb) > 0.05) steps += T.eq(com.layerbit.stave.engine.dsp.ParametricEq.tilt(toneDb))
         if (glue > 0.02) steps += T.compress(CompressorSettings(thresholdDb = -24.0 + 8.0 * (1 - glue), ratio = 1.5 + 1.5 * glue, kneeDb = 12.0, attackMs = 30.0, releaseMs = 250.0))
         steps += T.normaliseLoudness(target.lufs, target.truePeakDbtp)
@@ -1667,7 +1668,7 @@ class EditorViewModel(private val app: StaveApplication, val projectId: String) 
                 val grid = com.layerbit.stave.engine.sequencer.Ticks.perStep(b.division)
                 val length = com.layerbit.stave.engine.sequencer.Ticks.perStep(b.noteDivision).coerceAtMost(p.lengthTicks - step * grid).coerceAtLeast(1)
                 val intervals = if (com.layerbit.stave.beats.Instruments.hasPads(instrumentOf(p))) intArrayOf(0) else stampIntervals(b.stamp)
-                val notes = intervals.mapIndexedNotNull { i, iv ->
+                val notes = intervals.asList().mapIndexedNotNull { i, iv ->
                     val q = pitch + iv
                     if (q !in 0..127) null else {
                         val start = (step * grid + i.toLong() * b.strumTicks).coerceAtMost(p.lengthTicks - 1)

@@ -32,6 +32,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.layerbit.stave.ui.components.ChipShape
 import com.layerbit.stave.ui.theme.StaveColors
+import com.layerbit.stave.ui.theme.ToolAccents
 
 /**
  * A pad or a key: sounds on the press and releases on the lift (a gated pad or a held synth
@@ -70,7 +71,7 @@ fun DrumPads(labels: List<String>, basePitch: Int, onDown: (pitch: Int) -> Unit,
             Row(Modifier.fillMaxWidth().height(52.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 for (col in 0 until 4) {
                     val pad = row * 4 + col
-                    Trigger(labels.getOrNull(pad) ?: "Pad ${pad + 1}", StaveColors.Beats, dark = false, onDown = { onDown(basePitch + pad) }, onUp = { onUp(basePitch + pad) }, modifier = Modifier.weight(1f))
+                    Trigger(labels.getOrNull(pad) ?: "Pad ${pad + 1}", ToolAccents.Beats, dark = false, onDown = { onDown(basePitch + pad) }, onUp = { onUp(basePitch + pad) }, modifier = Modifier.weight(1f))
                 }
             }
         }
@@ -86,11 +87,11 @@ fun Keyboard(octave: Int, onDown: (pitch: Int) -> Unit, onUp: (pitch: Int) -> Un
     Column(modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
         Row(Modifier.fillMaxWidth().height(40.dp), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
             for (b in blacks) {
-                if (b == null) Box(Modifier.weight(1f)) else Trigger(noteName(base + b), StaveColors.Beats, dark = true, onDown = { onDown(base + b) }, onUp = { onUp(base + b) }, modifier = Modifier.weight(1f))
+                if (b == null) Box(Modifier.weight(1f)) else Trigger(noteName(base + b), ToolAccents.Beats, dark = true, onDown = { onDown(base + b) }, onUp = { onUp(base + b) }, modifier = Modifier.weight(1f))
             }
         }
         Row(Modifier.fillMaxWidth().height(56.dp), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-            for (w in whites) Trigger(noteName(base + w), StaveColors.Beats, dark = false, onDown = { onDown(base + w) }, onUp = { onUp(base + w) }, modifier = Modifier.weight(1f))
+            for (w in whites) Trigger(noteName(base + w), ToolAccents.Beats, dark = false, onDown = { onDown(base + w) }, onUp = { onUp(base + w) }, modifier = Modifier.weight(1f))
         }
     }
 }

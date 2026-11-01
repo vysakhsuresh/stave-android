@@ -19,6 +19,7 @@ import com.layerbit.stave.ui.components.SectionHeading
 import com.layerbit.stave.ui.components.ToggleRow
 import com.layerbit.stave.ui.editor.EditorViewModel
 import com.layerbit.stave.ui.theme.StaveColors
+import com.layerbit.stave.ui.theme.ToolAccents
 
 /**
  * Sing along: the transcript's words in lines of seven, the line under the play-head large with
@@ -43,7 +44,7 @@ fun KaraokeCard(vm: EditorViewModel, ui: EditorViewModel.Ui) {
             for (i in (currentIndex - 1).coerceAtLeast(0)..(currentIndex + 2).coerceAtMost(lyrics.size - 1)) {
                 val line = lyrics[i]
                 Text(line.text, style = if (i == currentIndex) MaterialTheme.typography.headlineSmall else MaterialTheme.typography.bodyLarge,
-                    color = when { i < currentIndex -> StaveColors.Dim; i == currentIndex -> StaveColors.Music; else -> StaveColors.Text }, modifier = Modifier.padding(top = 4.dp))
+                    color = when { i < currentIndex -> StaveColors.Dim; i == currentIndex -> ToolAccents.Music; else -> StaveColors.Text }, modifier = Modifier.padding(top = 4.dp))
             }
         } else if (t == null || t.isEmpty) Text(stringResource(R.string.music_karaoke_none), style = MaterialTheme.typography.bodySmall, color = StaveColors.Muted)
         else {
@@ -56,7 +57,7 @@ fun KaraokeCard(vm: EditorViewModel, ui: EditorViewModel.Ui) {
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(2.dp), modifier = Modifier.padding(top = 6.dp)) {
                 line.forEachIndexed { i, w ->
                     val index = lineStart + i
-                    Text(w.text, style = MaterialTheme.typography.headlineSmall, color = when { index < current -> StaveColors.Dim; index == current -> StaveColors.Music; else -> StaveColors.Text })
+                    Text(w.text, style = MaterialTheme.typography.headlineSmall, color = when { index < current -> StaveColors.Dim; index == current -> ToolAccents.Music; else -> StaveColors.Text })
                 }
             }
             if (next.isNotEmpty()) Text(next.joinToString(" ") { it.text }, style = MaterialTheme.typography.bodyLarge, color = StaveColors.Dim, modifier = Modifier.padding(top = 6.dp))

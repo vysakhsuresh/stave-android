@@ -11,6 +11,7 @@ import com.layerbit.stave.native.AvHandles
 import com.layerbit.stave.native.AvNative
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
 import kotlin.coroutines.coroutineContext
@@ -76,10 +77,8 @@ class MediaImport(private val context: Context) {
             if (AvHandles.failed(h)) throw ImportFailed("$name is not a sound this phone can decode.")
             try {
                 val info = AvNative.decInfo(h)
-                val watcher = kotlinx.coroutines.CoroutineScope(coroutineContext).let { scope ->
-                    kotlinx.coroutines.launch(Dispatchers.Default) {
-                        while (true) { onProgress(AvNative.decProgress(h) / 1000f); kotlinx.coroutines.delay(120) }
-                    }
+                val watcher = kotlinx.coroutines.CoroutineScope(coroutineContext).launch(Dispatchers.Default) {
+                    while (true) { onProgress(AvNative.decProgress(h) / 1000f); kotlinx.coroutines.delay(120) }
                 }
                 val frames = try {
                     AvNative.decRun(h, out.path, sampleRate, 0)

@@ -32,6 +32,7 @@ import com.layerbit.stave.ui.components.SectionHeading
 import com.layerbit.stave.ui.components.ToggleRow
 import com.layerbit.stave.ui.editor.EditorViewModel
 import com.layerbit.stave.ui.theme.StaveColors
+import com.layerbit.stave.ui.theme.ToolAccents
 import java.util.Locale
 
 /** Tempo, key and chords read off the song, with the click and the bar markers that follow. */
@@ -106,7 +107,7 @@ fun ChordDiagram(frets: IntArray, modifier: Modifier = Modifier) {
             when {
                 f < 0 -> { drawLine(StaveColors.Hot, Offset(x - 4f, top - 16f), Offset(x + 4f, top - 8f), 2f); drawLine(StaveColors.Hot, Offset(x + 4f, top - 16f), Offset(x - 4f, top - 8f), 2f) }
                 f == 0 -> drawCircle(StaveColors.Muted, 4f, Offset(x, top - 12f), style = Stroke(1.5f))
-                else -> { val row = f - base; if (row in 0 until fretsShown) drawCircle(StaveColors.Music, 6f, Offset(x, top + (row + 0.5f) * fy)) }
+                else -> { val row = f - base; if (row in 0 until fretsShown) drawCircle(ToolAccents.Music, 6f, Offset(x, top + (row + 0.5f) * fy)) }
             }
         }
     }

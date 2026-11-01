@@ -22,6 +22,7 @@ import com.layerbit.stave.ui.components.SecondaryButton
 import com.layerbit.stave.ui.components.SectionHeading
 import com.layerbit.stave.ui.editor.EditorViewModel
 import com.layerbit.stave.ui.theme.StaveColors
+import com.layerbit.stave.ui.theme.ToolAccents
 import kotlin.math.ceil
 import kotlin.math.floor
 
@@ -55,7 +56,7 @@ fun PitchTraceCard(vm: EditorViewModel, ui: EditorViewModel.Ui) {
                     val y = h - ((p.midi - lo) / (hi - lo)).toFloat() * h
                     val here = Offset(x, y)
                     // A jump of more than two semitones between neighbours is a new phrase, not a glide.
-                    if (prev != null && kotlin.math.abs(prev.y - y) < 2f * h / (hi - lo)) drawLine(StaveColors.Music, prev, here, 2.5f) else drawCircle(StaveColors.Music, 2f, here)
+                    if (prev != null && kotlin.math.abs(prev.y - y) < 2f * h / (hi - lo)) drawLine(ToolAccents.Music, prev, here, 2.5f) else drawCircle(ToolAccents.Music, 2f, here)
                     prev = here
                 }
             }

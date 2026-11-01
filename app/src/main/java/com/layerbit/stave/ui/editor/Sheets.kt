@@ -54,6 +54,7 @@ import com.layerbit.stave.ui.components.ToggleRow
 import com.layerbit.stave.ui.components.ValueSlider
 import com.layerbit.stave.ui.components.formatBytes
 import com.layerbit.stave.ui.theme.StaveColors
+import com.layerbit.stave.ui.theme.ToolAccents
 import kotlinx.coroutines.launch
 
 /** The Edit tab's sheets, one composable each; the rail picks. */
@@ -419,7 +420,7 @@ private fun MarkersSheet(vm: EditorViewModel, ui: EditorViewModel.Ui) {
     if (ui.session.regions.isEmpty()) Text(stringResource(R.string.regions_none), style = MaterialTheme.typography.bodySmall, color = StaveColors.Dim, modifier = Modifier.padding(top = 6.dp))
     for (r in ui.session.regions) {
         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text(Timecode.display(Timecode.ofSamples(r.start, ui.session.sampleRate), 1), style = com.layerbit.stave.ui.theme.Numerals, color = StaveColors.Studio, modifier = Modifier.width(64.dp))
+            Text(Timecode.display(Timecode.ofSamples(r.start, ui.session.sampleRate), 1), style = com.layerbit.stave.ui.theme.Numerals, color = ToolAccents.Studio, modifier = Modifier.width(64.dp))
             Text(r.name, style = MaterialTheme.typography.bodyMedium, color = StaveColors.Text, modifier = Modifier.weight(1f))
             SecondaryButton(stringResource(R.string.regions_select), onClick = { vm.selectRegion(r.id) }, tall = false)
             SecondaryButton(stringResource(R.string.app_delete), onClick = { vm.removeRegion(r.id) }, tall = false)

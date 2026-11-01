@@ -76,8 +76,9 @@ fun FinishPanel(vm: com.layerbit.stave.ui.editor.EditorViewModel, ui: com.layerb
             ValueSlider(stringResource(R.string.finish_glue), glue, 0f..1f, { glue = it }, format = Formats::percent)
             Text(stringResource(R.string.finish_master_hint), style = MaterialTheme.typography.bodySmall, color = StaveColors.Dim, modifier = Modifier.padding(vertical = 6.dp))
             PrimaryButton(stringResource(R.string.finish_master, target.label), onClick = { vm.master(tone.toDouble(), glue.toDouble()) }, modifier = Modifier.fillMaxWidth(), enabled = ui.session.length > 0 && ui.busy == null)
-            if (finish.abGainDb != null && ui.canUndo) {
-                ToggleRow(stringResource(R.string.finish_compare), finish.comparing, { vm.compareBefore(it) }, detail = stringResource(R.string.finish_compare_hint, Formats.db(finish.abGainDb.toFloat())))
+            val abGain = finish.abGainDb
+            if (abGain != null && ui.canUndo) {
+                ToggleRow(stringResource(R.string.finish_compare), finish.comparing, { vm.compareBefore(it) }, detail = stringResource(R.string.finish_compare_hint, Formats.db(abGain.toFloat())))
             }
         }
 

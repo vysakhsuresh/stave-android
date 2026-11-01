@@ -46,6 +46,7 @@ import com.layerbit.stave.ui.components.ToggleRow
 import com.layerbit.stave.ui.components.ValueSlider
 import com.layerbit.stave.ui.editor.EditorViewModel
 import com.layerbit.stave.ui.theme.StaveColors
+import com.layerbit.stave.ui.theme.ToolAccents
 import java.util.Locale
 
 /**
@@ -81,7 +82,7 @@ fun BeatsPanel(vm: EditorViewModel, ui: EditorViewModel.Ui, modifier: Modifier =
 
     Column(modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 8.dp, vertical = 6.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         if (vm.hasPendingNotes) {
-            Panel(modifier = Modifier.fillMaxWidth(), inset = 10.dp, tint = StaveColors.Beats) {
+            Panel(modifier = Modifier.fillMaxWidth(), inset = 10.dp, tint = ToolAccents.Beats) {
                 Text(stringResource(R.string.beats_pending_notes), style = MaterialTheme.typography.bodyMedium, color = StaveColors.Text)
                 PrimaryButton(stringResource(R.string.beats_pending_take), onClick = vm::takePendingNotes, tall = false, modifier = Modifier.fillMaxWidth().padding(top = 6.dp))
             }
@@ -160,7 +161,7 @@ fun BeatsPanel(vm: EditorViewModel, ui: EditorViewModel.Ui, modifier: Modifier =
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 4.dp)) {
                         SectionHeading(stringResource(R.string.beats_octave), modifier = Modifier.weight(1f))
                         SecondaryButton("−", onClick = { vm.setOctave(beats.octave - 1) }, tall = false, enabled = beats.octave > 1)
-                        Pill("C${beats.octave}", StaveColors.Beats, numeric = true)
+                        Pill("C${beats.octave}", ToolAccents.Beats, numeric = true)
                         SecondaryButton("+", onClick = { vm.setOctave(beats.octave + 1) }, tall = false, enabled = beats.octave < 7)
                     }
                 }
@@ -233,7 +234,7 @@ fun BeatsPanel(vm: EditorViewModel, ui: EditorViewModel.Ui, modifier: Modifier =
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.fillMaxWidth().padding(top = 6.dp)) {
                         Text("${i + 1}. ${p?.name ?: "?"}", style = MaterialTheme.typography.bodyMedium, color = StaveColors.Text, modifier = Modifier.weight(1f))
                         SecondaryButton("−", onClick = { vm.setSongRepeats(i, pl.repeats - 1) }, tall = false, enabled = pl.repeats > 1)
-                        Pill(stringResource(R.string.beats_repeats, pl.repeats), StaveColors.Beats, numeric = true)
+                        Pill(stringResource(R.string.beats_repeats, pl.repeats), ToolAccents.Beats, numeric = true)
                         SecondaryButton("+", onClick = { vm.setSongRepeats(i, pl.repeats + 1) }, tall = false)
                         SecondaryButton(stringResource(R.string.beats_remove), onClick = { vm.removeFromSong(i) }, tall = false, danger = true)
                     }

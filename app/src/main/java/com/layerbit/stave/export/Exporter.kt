@@ -18,6 +18,7 @@ import com.layerbit.stave.native.AvHandles
 import com.layerbit.stave.native.AvNative
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
 import kotlin.coroutines.coroutineContext
@@ -109,7 +110,7 @@ class Exporter(private val context: Context) {
                 }
                 val art = File(files.dir, "cover.jpg").takeIf { it.isFile && fmt.cover }
                 if (art != null) AvNative.encSetCover(h, art.readBytes(), "image/jpeg")
-                val watcher = kotlinx.coroutines.CoroutineScope(coroutineContext).let { scope -> kotlinx.coroutines.launch(Dispatchers.Default) { while (true) { onProgress(0.6f + 0.35f * AvNative.encProgress(h) / 1000f, "Encoding"); kotlinx.coroutines.delay(150) } } }
+                val watcher = kotlinx.coroutines.CoroutineScope(coroutineContext).launch(Dispatchers.Default) { while (true) { onProgress(0.6f + 0.35f * AvNative.encProgress(h) / 1000f, "Encoding"); kotlinx.coroutines.delay(150) } }
                 val rc = try { AvNative.encRun(h) } finally { watcher.cancel() }
                 coroutineContext.ensureActive()
                 if (rc != 0) throw ExportFailed("Encoding failed (${fmt.label}, code $rc).")

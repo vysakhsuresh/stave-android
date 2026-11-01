@@ -205,10 +205,12 @@ fun SecondaryButton(
     enabled: Boolean = true,
     icon: ImageVector? = null,
     iconRes: Int? = null,
-    tall: Boolean = true
+    tall: Boolean = true,
+    /** Red text for a quiet destructive action (Clear, Remove), the outline kept. */
+    danger: Boolean = false
 ) {
     val interaction = remember { MutableInteractionSource() }
-    val tint = if (enabled) StaveColors.Text else StaveColors.Dim
+    val tint = if (!enabled) StaveColors.Dim else if (danger) StaveColors.Record else StaveColors.Text
     Row(
         modifier = modifier
             .pressScale(interaction)

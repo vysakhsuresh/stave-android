@@ -36,6 +36,7 @@ import com.layerbit.stave.engine.sequencer.Pattern
 import com.layerbit.stave.engine.sequencer.Ticks
 import com.layerbit.stave.ui.components.ChipShape
 import com.layerbit.stave.ui.theme.StaveColors
+import com.layerbit.stave.ui.theme.ToolAccents
 import kotlin.math.abs
 import kotlin.math.roundToInt
 
@@ -137,7 +138,7 @@ fun StepGrid(
                 // The play-head column.
                 if (playTick >= 0 && pattern.lengthTicks > 0) {
                     val playStep = (playTick / stepTicks).toInt()
-                    if (playStep in 0 until steps) drawRect(StaveColors.Beats.copy(alpha = 0.18f), Offset(playStep * cellPx, 0f), Size(cellPx, h))
+                    if (playStep in 0 until steps) drawRect(ToolAccents.Beats.copy(alpha = 0.18f), Offset(playStep * cellPx, 0f), Size(cellPx, h))
                 }
                 // Lines.
                 for (s in 0..steps) {
@@ -156,7 +157,7 @@ fun StepGrid(
                     val x1 = (n.endTick.toFloat() / stepTicks * cellPx).coerceAtMost(w)
                     if (x0 >= w) continue
                     val alpha = 0.35f + 0.65f * (n.velocity / 127f)
-                    drawRoundRect(StaveColors.Beats.copy(alpha = alpha), Offset(x0 + pad, i * rowPx + pad), Size((x1 - x0 - 2 * pad).coerceAtLeast(cellPx * 0.4f), rowPx - 2 * pad), CornerRadius(5f, 5f))
+                    drawRoundRect(ToolAccents.Beats.copy(alpha = alpha), Offset(x0 + pad, i * rowPx + pad), Size((x1 - x0 - 2 * pad).coerceAtLeast(cellPx * 0.4f), rowPx - 2 * pad), CornerRadius(5f, 5f))
                     if (n.probability < 1.0) drawRoundRect(StaveColors.SurfaceDim.copy(alpha = 0.6f), Offset(x0 + pad, i * rowPx + rowPx * 0.55f), Size((x1 - x0 - 2 * pad) * (1 - n.probability.toFloat()), rowPx * 0.45f - pad), CornerRadius(4f, 4f))
                     if (n.ratchet > 1) for (k in 1 until n.ratchet) { val xr = x0 + (x1 - x0) * k / n.ratchet; drawLine(StaveColors.SurfaceDim, Offset(xr, i * rowPx + pad), Offset(xr, (i + 1) * rowPx - pad), 1.5f) }
                 }

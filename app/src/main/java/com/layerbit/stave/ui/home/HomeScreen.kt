@@ -36,6 +36,7 @@ import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.times
 import com.layerbit.stave.R
 import com.layerbit.stave.engine.text.Timecode
 import com.layerbit.stave.files.ProjectStore
