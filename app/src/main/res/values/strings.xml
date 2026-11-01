@@ -296,8 +296,8 @@
     <string name="voice_permission_denied">The microphone was refused. Allow it in the phone\'s Settings to record.</string>
     <string name="voice_recording">Recording · %1$s</string>
     <plurals name="voice_dropped">
-        <item quantity="one">%1 frame was dropped while writing. The take is kept; the storage was slow.</item>
-        <item quantity="other">%1 frames were dropped while writing. The take is kept; the storage was slow.</item>
+        <item quantity="one">%1$d frame was dropped while writing. The take is kept; the storage was slow.</item>
+        <item quantity="other">%1$d frames were dropped while writing. The take is kept; the storage was slow.</item>
     </plurals>
     <string name="voice_take_name">Take %1$d</string>
     <string name="voice_transcript_title">Words</string>
@@ -308,14 +308,14 @@
     <string name="voice_no_whisper">This build has no speech library.</string>
     <string name="voice_transcript_hint">Transcribe a recording and its words appear here. Tap words to select that stretch of sound; delete them and the sound goes with them.</string>
     <plurals name="voice_delete_words">
-        <item quantity="one">Delete %1 word</item>
-        <item quantity="other">Delete %1 words</item>
+        <item quantity="one">Delete %1$d word</item>
+        <item quantity="other">Delete %1$d words</item>
     </plurals>
     <string name="voice_remove_fillers">Take out every um and uh</string>
     <string name="voice_fillers_none">No um or uh heard.</string>
     <plurals name="voice_fillers_removed">
-        <item quantity="one">%1 filler taken out</item>
-        <item quantity="other">%1 fillers taken out</item>
+        <item quantity="one">%1$d filler taken out</item>
+        <item quantity="other">%1$d fillers taken out</item>
     </plurals>
     <string name="voice_stale">The sound changed since the words were heard. Transcribe again to line them up.</string>
     <string name="voice_cleanup_title">Clean up</string>
@@ -365,8 +365,8 @@
     <string name="studio_automation_add">Add point at play-head</string>
     <string name="studio_automation_clear">Clear</string>
     <plurals name="studio_automation_points">
-        <item quantity="one">%1 point</item>
-        <item quantity="other">%1 points</item>
+        <item quantity="one">%1$d point</item>
+        <item quantity="other">%1$d points</item>
     </plurals>
     <string name="studio_metronome">Click</string>
     <string name="studio_tempo">Tempo</string>
@@ -574,8 +574,8 @@
     <string name="looper_stop">Stop and lay it</string>
     <string name="looper_off">Loop off</string>
     <plurals name="looper_layers">
-        <item quantity="one">%1 layer</item>
-        <item quantity="other">%1 layers</item>
+        <item quantity="one">%1$d layer</item>
+        <item quantity="other">%1$d layers</item>
     </plurals>
     <string name="music_karaoke">Sing along</string>
     <string name="music_karaoke_hint">The words follow the play-head; mute the vocals once the song is pulled apart and sing over the rest.</string>
@@ -611,8 +611,8 @@
     <string name="beats_clear_pad">Clear pad %1$d</string>
     <string name="beats_slicing">Slicing at the hits</string>
     <plurals name="beats_sliced">
-        <item quantity="one">%1 slice on the pads; the pattern plays the new kit.</item>
-        <item quantity="other">%1 slices on the pads; the pattern plays the new kit.</item>
+        <item quantity="one">%1$d slice on the pads; the pattern plays the new kit.</item>
+        <item quantity="other">%1$d slices on the pads; the pattern plays the new kit.</item>
     </plurals>
 
     <string name="voice_pause">Pause</string>
@@ -660,15 +660,15 @@
     <string name="convert_hint">Any number of files from the phone, to one format, saved to Music/Stave. Tags and loudness as an export does; the rate is kept.</string>
     <string name="convert_pick">Pick files</string>
     <plurals name="convert_picked">
-        <item quantity="one">%1 file picked - pick again to change</item>
-        <item quantity="other">%1 files picked - pick again to change</item>
+        <item quantity="one">%1$d file picked - pick again to change</item>
+        <item quantity="other">%1$d files picked - pick again to change</item>
     </plurals>
     <string name="convert_more">and %1$d more</string>
     <string name="convert_normalise">Normalise loudness</string>
     <string name="convert_normalise_hint">Every file brought to the podcast target with a true-peak ceiling, so a set of recordings sits at one level.</string>
     <plurals name="convert_go">
-        <item quantity="one">Convert %1 file</item>
-        <item quantity="other">Convert %1 files</item>
+        <item quantity="one">Convert %1$d file</item>
+        <item quantity="other">Convert %1$d files</item>
     </plurals>
     <string name="convert_done">%1$d of %2$d converted</string>
 
