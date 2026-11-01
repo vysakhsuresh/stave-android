@@ -4,6 +4,8 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.ui.semantics.Role
+import com.layerbit.stave.ui.components.GridAction
+import com.layerbit.stave.ui.components.ActionGrid
 import com.layerbit.stave.ui.components.ChipShape
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -188,24 +190,21 @@ private fun TrackDetail(vm: EditorViewModel, ui: EditorViewModel.Ui, t: Track) {
         }
         SectionHeading(stringResource(R.string.studio_inserts), modifier = Modifier.padding(top = 8.dp))
         for (ins in t.inserts) InsertRow(vm, t, ins)
-        FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.padding(top = 6.dp)) {
-            for ((kind, label) in listOf("eq" to R.string.studio_insert_eq, "compressor" to R.string.studio_insert_compressor, "limiter" to R.string.studio_insert_limiter, "gate" to R.string.studio_insert_gate)) {
-                SecondaryButton(stringResource(label), onClick = {
-                    val insert = if (kind == "eq") Insert(Ids.next("i"), "eq", bands = listOf(mapOf("kind" to 1.0, "hz" to 80.0, "gain" to 0.0, "q" to 0.707, "enabled" to 1.0), mapOf("kind" to 5.0, "hz" to 1000.0, "gain" to 0.0, "q" to 1.0, "enabled" to 1.0), mapOf("kind" to 7.0, "hz" to 8000.0, "gain" to 0.0, "q" to 0.7, "enabled" to 1.0))) else Insert(Ids.next("i"), kind)
-                    vm.updateTrack(t.id, "Add $kind") { it.copy(inserts = it.inserts + insert) }
-                }, tall = false)
-            }
-        }
+        ActionGrid(listOf("eq" to R.string.studio_insert_eq, "compressor" to R.string.studio_insert_compressor, "limiter" to R.string.studio_insert_limiter, "gate" to R.string.studio_insert_gate).map { (kind, label) ->
+            GridAction(stringResource(label), {
+                val insert = if (kind == "eq") Insert(Ids.next("i"), "eq", bands = listOf(mapOf("kind" to 1.0, "hz" to 80.0, "gain" to 0.0, "q" to 0.707, "enabled" to 1.0), mapOf("kind" to 5.0, "hz" to 1000.0, "gain" to 0.0, "q" to 1.0, "enabled" to 1.0), mapOf("kind" to 7.0, "hz" to 8000.0, "gain" to 0.0, "q" to 0.7, "enabled" to 1.0))) else Insert(Ids.next("i"), kind)
+                vm.updateTrack(t.id, "Add $kind") { it.copy(inserts = it.inserts + insert) }
+            })
+        }, modifier = Modifier.padding(top = 6.dp))
         if (ui.session.buses.any { it.id != t.id }) {
             SectionHeading(stringResource(R.string.studio_sends), modifier = Modifier.padding(top = 10.dp))
             for (send in t.sends) {
                 val bus = ui.session.track(send.toTrackId) ?: continue
                 ValueSlider(bus.name, send.gainDb.toFloat(), -60f..6f, { v -> vm.updateTrack(t.id, "Send", gesture = "send-${t.id}-${bus.id}") { tr -> tr.copy(sends = tr.sends.map { if (it.toTrackId == bus.id) it.copy(gainDb = v.toDouble()) else it }) } }, format = Formats::db, onCommit = vm::endGesture)
             }
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                for (bus in ui.session.buses.filter { b -> b.id != t.id && t.sends.none { it.toTrackId == b.id } })
-                    SecondaryButton(stringResource(R.string.studio_send_add, bus.name), onClick = { vm.updateTrack(t.id, "Add send") { it.copy(sends = it.sends + Send(bus.id)) } }, tall = false)
-            }
+            ActionGrid(ui.session.buses.filter { b -> b.id != t.id && t.sends.none { it.toTrackId == b.id } }.map { bus ->
+                GridAction(stringResource(R.string.studio_send_add, bus.name), { vm.updateTrack(t.id, "Add send") { it.copy(sends = it.sends + Send(bus.id)) } })
+            })
         }
         SectionHeading(stringResource(R.string.studio_automation), modifier = Modifier.padding(top = 10.dp))
         Text(stringResource(R.string.studio_draw_hint), style = MaterialTheme.typography.bodySmall, color = StaveColors.Dim, modifier = Modifier.padding(vertical = 4.dp))

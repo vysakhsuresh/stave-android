@@ -45,6 +45,8 @@ import com.layerbit.stave.engine.export.AudioFormat
 import com.layerbit.stave.engine.project.Marker
 import com.layerbit.stave.engine.text.Timecode
 import com.layerbit.stave.processing.OfflineTools
+import com.layerbit.stave.ui.components.GridAction
+import com.layerbit.stave.ui.components.ActionGrid
 import com.layerbit.stave.ui.components.ChipRow
 import com.layerbit.stave.ui.components.Formats
 import com.layerbit.stave.ui.components.PrimaryButton
@@ -91,21 +93,21 @@ private fun SelectionLine(ui: EditorViewModel.Ui) {
 private fun SelectSheet(vm: EditorViewModel, ui: EditorViewModel.Ui) {
     val has = ui.selection != null
     SelectionLine(ui)
-    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        SecondaryButton(stringResource(R.string.edit_cut), onClick = vm::cutSelection, enabled = has, tall = false)
-        SecondaryButton(stringResource(R.string.edit_copy), onClick = vm::copySelection, enabled = has, tall = false)
-        SecondaryButton(stringResource(R.string.edit_paste), onClick = { vm.paste(true) }, enabled = ui.clipboard != null, tall = false)
-        SecondaryButton(stringResource(R.string.edit_delete), onClick = { vm.deleteSelection(true) }, enabled = has, tall = false)
-        SecondaryButton(stringResource(R.string.edit_delete_keep_gap), onClick = { vm.deleteSelection(false) }, enabled = has, tall = false)
-        SecondaryButton(stringResource(R.string.edit_silence), onClick = vm::silenceSelection, enabled = has, tall = false)
-        SecondaryButton(stringResource(R.string.edit_crop), onClick = vm::cropToSelection, enabled = has, tall = false)
-        SecondaryButton(stringResource(R.string.edit_split), onClick = vm::splitAtPlayhead, tall = false)
-        SecondaryButton(stringResource(R.string.edit_insert_silence), onClick = { vm.insertSilence(ui.session.sampleRate.toLong()) }, tall = false)
-        SecondaryButton(stringResource(R.string.edit_select_all), onClick = vm::selectAll, tall = false)
-        SecondaryButton(stringResource(R.string.edit_mute), onClick = vm::toggleMuteClips, tall = false)
-        SecondaryButton(stringResource(R.string.edit_reverse), onClick = vm::reverseClips, enabled = has, tall = false)
-        SecondaryButton(stringResource(R.string.edit_add_track), onClick = { vm.addTrack() }, tall = false)
-    }
+    ActionGrid(listOf(
+        GridAction(stringResource(R.string.edit_cut), vm::cutSelection, enabled = has),
+        GridAction(stringResource(R.string.edit_copy), vm::copySelection, enabled = has),
+        GridAction(stringResource(R.string.edit_paste), { vm.paste(true) }, enabled = ui.clipboard != null),
+        GridAction(stringResource(R.string.edit_delete), { vm.deleteSelection(true) }, enabled = has),
+        GridAction(stringResource(R.string.edit_delete_keep_gap), { vm.deleteSelection(false) }, enabled = has),
+        GridAction(stringResource(R.string.edit_silence), vm::silenceSelection, enabled = has),
+        GridAction(stringResource(R.string.edit_crop), vm::cropToSelection, enabled = has),
+        GridAction(stringResource(R.string.edit_split), vm::splitAtPlayhead),
+        GridAction(stringResource(R.string.edit_insert_silence), { vm.insertSilence(ui.session.sampleRate.toLong()) }),
+        GridAction(stringResource(R.string.edit_select_all), vm::selectAll),
+        GridAction(stringResource(R.string.edit_mute), vm::toggleMuteClips),
+        GridAction(stringResource(R.string.edit_reverse), vm::reverseClips, enabled = has),
+        GridAction(stringResource(R.string.edit_add_track), { vm.addTrack() })
+    ))
     // The undo history: every step by its label, newest first; a tap goes back to just before it.
     Spacer(Modifier.height(12.dp))
     Text(stringResource(R.string.select_history), style = MaterialTheme.typography.bodyMedium, color = StaveColors.Text)

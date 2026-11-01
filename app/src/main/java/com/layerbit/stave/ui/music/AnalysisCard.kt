@@ -23,6 +23,8 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.layerbit.stave.R
 import com.layerbit.stave.engine.text.Timecode
+import com.layerbit.stave.ui.components.GridAction
+import com.layerbit.stave.ui.components.ActionGrid
 import com.layerbit.stave.ui.components.LabelledValue
 import com.layerbit.stave.ui.components.Panel
 import com.layerbit.stave.ui.components.Pill

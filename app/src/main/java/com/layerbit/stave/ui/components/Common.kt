@@ -219,9 +219,9 @@ fun SecondaryButton(
         modifier = modifier
             .pressScale(interaction)
             .height(if (tall) 52.dp else 40.dp)
-            .clip(ButtonShape)
+            .clip(CellShape)
             .background(StaveColors.Surface)
-            .border(1.dp, StaveColors.BorderStrong, ButtonShape)
+            .border(1.dp, StaveColors.BorderStrong, CellShape)
             .clickable(enabled = enabled, interactionSource = interaction, indication = null, role = Role.Button, onClick = onClick)
             .padding(horizontal = 18.dp),
         horizontalArrangement = Arrangement.Center,
@@ -229,7 +229,7 @@ fun SecondaryButton(
     ) {
         if (icon != null) { Icon(icon, contentDescription = null, tint = tint, modifier = Modifier.size(18.dp)); Box(Modifier.size(8.dp)) }
         else if (iconRes != null) { Icon(painterResource(iconRes), contentDescription = null, tint = tint, modifier = Modifier.size(18.dp)); Box(Modifier.size(8.dp)) }
-        Text(text, style = MaterialTheme.typography.titleMedium, color = tint, maxLines = 1)
+        Text(text, style = MaterialTheme.typography.bodyLarge.copy(fontWeight = androidx.compose.ui.text.font.FontWeight.Medium), color = tint, maxLines = 1)
     }
 }
 
@@ -296,31 +296,49 @@ fun Pill(text: String, colour: Color, modifier: Modifier = Modifier, filled: Boo
  */
 @Composable
 fun <T> ChipRow(options: List<Pair<T, String>>, selected: T, onSelect: (T) -> Unit, modifier: Modifier = Modifier, enabled: (T) -> Boolean = { true }) {
-    // An even grid, not a flow: every cell the same width and height, the columns set by the
-    // widest label and balanced so the rows fill evenly (nine choices are three by three, not
-    // five and four). Chips of their own widths wrapping freely looked, in the owner's words,
-    // like stones of different sizes thrown on the ground.
-    if (options.isEmpty()) return
+    EvenGrid(options.map { it.second }, modifier) { i, cellModifier, fontSize ->
+        val (value, label) = options[i]
+        ChoiceCell(label, value == selected, enabled(value), { onSelect(value) }, cellModifier, fontSize)
+    }
+}
+
+/** One button in an [ActionGrid]. A [danger] action (Clear, Delete) has red type. */
+class GridAction(val label: String, val onClick: () -> Unit, val enabled: Boolean = true, val danger: Boolean = false)
+
+/** Several actions side by side, laid out as [EvenGrid] cells: one size, one line, no stones. */
+@Composable
+fun ActionGrid(actions: List<GridAction>, modifier: Modifier = Modifier) {
+    EvenGrid(actions.map { it.label }, modifier) { i, cellModifier, fontSize -> ActionCell(actions[i], cellModifier, fontSize) }
+}
+
+/**
+ * An even grid: every cell the same width and height, the columns set by the typical label
+ * (the 80th percentile, at most four) and balanced so the rows fill evenly (nine are three by
+ * three, not five and four); a label longer than its cell shrinks its type to fit rather than
+ * widening every cell. Chips and buttons of their own widths wrapping freely looked, in the
+ * owner's words, like stones of different sizes thrown on the ground; 26 languages were
+ * thirteen rows of two while the widest label set the columns.
+ */
+@Composable
+fun EvenGrid(labels: List<String>, modifier: Modifier = Modifier, cell: @Composable (index: Int, modifier: Modifier, fontSize: androidx.compose.ui.unit.TextUnit) -> Unit) {
+    if (labels.isEmpty()) return
     val style = MaterialTheme.typography.bodyMedium
     val measurer = rememberTextMeasurer()
     val density = LocalDensity.current
     val gap = 8.dp
     BoxWithConstraints(modifier.fillMaxWidth()) {
-        // Columns from the typical label (the 80th percentile), at most four; a label longer than
-        // its cell shrinks its type to fit rather than widening every cell (26 languages were
-        // thirteen rows of two because of "Bahasa Indonesia").
-        val widths = remember(options, style) { options.map { measurer.measure(it.second, style, maxLines = 1).size.width } }
+        val widths = remember(labels, style) { labels.map { measurer.measure(it, style, maxLines = 1).size.width } }
         val typical = widths.sorted()[((widths.size - 1) * 4) / 5]
         val cellMin = with(density) { typical.toDp() } + 28.dp
-        val fit = (((maxWidth + gap) / (cellMin + gap)).toInt()).coerceIn(1, minOf(4, options.size))
-        val rows = (options.size + fit - 1) / fit
-        val columns = (options.size + rows - 1) / rows
+        val fit = (((maxWidth + gap) / (cellMin + gap)).toInt()).coerceIn(1, minOf(4, labels.size))
+        val rows = (labels.size + fit - 1) / fit
+        val columns = (labels.size + rows - 1) / rows
         val textRoom = with(density) { ((maxWidth - gap * (columns - 1)) / columns - 16.dp).toPx() }
-        val sizes = options.indices.map { i -> if (widths[i] <= textRoom) style.fontSize else (style.fontSize * (textRoom / widths[i]) * 0.97f).let { if (it.value < 10f) 10.sp else it } }
+        val sizes = labels.indices.map { i -> if (widths[i] <= textRoom) style.fontSize else (style.fontSize * (textRoom / widths[i]) * 0.97f).let { if (it.value < 10f) 10.sp else it } }
         Column(verticalArrangement = Arrangement.spacedBy(gap)) {
-            options.withIndex().chunked(columns).forEach { row ->
+            labels.indices.chunked(columns).forEach { row ->
                 Row(horizontalArrangement = Arrangement.spacedBy(gap), modifier = Modifier.fillMaxWidth()) {
-                    row.forEach { (i, option) -> val (value, label) = option; ChoiceCell(label, value == selected, enabled(value), { onSelect(value) }, Modifier.weight(1f), sizes[i]) }
+                    row.forEach { i -> cell(i, Modifier.weight(1f), sizes[i]) }
                     repeat(columns - row.size) { Spacer(Modifier.weight(1f)) }
                 }
             }
@@ -349,6 +367,26 @@ private fun ChoiceCell(label: String, active: Boolean, on: Boolean, onClick: () 
         Text(text = label, style = MaterialTheme.typography.bodyMedium.copy(fontSize = fontSize), color = ink, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
     }
 }
+
+@Composable
+private fun ActionCell(action: GridAction, modifier: Modifier, fontSize: androidx.compose.ui.unit.TextUnit) {
+    val interaction = remember { MutableInteractionSource() }
+    val ink = if (!action.enabled) StaveColors.Dim else if (action.danger) StaveColors.Record else StaveColors.Text
+    Box(
+        modifier = modifier
+            .height(40.dp)
+            .pressScale(interaction, 0.97f)
+            .clip(CellShape)
+            .background(StaveColors.SurfaceDim.copy(alpha = 0.5f), CellShape)
+            .border(1.dp, StaveColors.Border, CellShape)
+            .clickable(enabled = action.enabled, interactionSource = interaction, indication = null, role = Role.Button, onClick = action.onClick)
+            .padding(horizontal = 8.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(text = action.label, style = MaterialTheme.typography.bodyMedium.copy(fontSize = fontSize), color = ink, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+    }
+}
+
 
 /** A setting that is on or off, with the sentence that says what it costs. `toggleable`, so the state is spoken. */
 @Composable

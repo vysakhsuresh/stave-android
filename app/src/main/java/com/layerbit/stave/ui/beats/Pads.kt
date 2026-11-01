@@ -30,6 +30,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.foundation.layout.fillMaxHeight
 import com.layerbit.stave.ui.components.ChipShape
 import com.layerbit.stave.ui.theme.StaveColors
 import com.layerbit.stave.ui.theme.ToolAccents
@@ -44,11 +45,15 @@ private fun Trigger(label: String, colour: Color, dark: Boolean, onDown: () -> U
     var pressed by remember { mutableStateOf(false) }
     val down by rememberUpdatedState(onDown)
     val up by rememberUpdatedState(onUp)
+    // The whole cell, not the label's height: without fillMaxHeight each pad was a thin pill
+    // floating in its row (seen on the phone, 1 Nov 2026).
+    val shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp)
     Box(
         modifier
-            .clip(ChipShape)
-            .background(if (pressed) colour else if (dark) StaveColors.Surface else StaveColors.SurfaceDim)
-            .border(1.dp, if (pressed) colour else StaveColors.Border, ChipShape)
+            .fillMaxHeight()
+            .clip(shape)
+            .background(if (pressed) colour else if (dark) StaveColors.Surface else colour.copy(alpha = 0.10f))
+            .border(1.dp, if (pressed) colour else if (dark) StaveColors.BorderStrong else colour.copy(alpha = 0.35f), shape)
             .semantics { contentDescription = label; role = Role.Button }
             .pointerInput(Unit) {
                 detectTapGestures(onPress = {
@@ -59,16 +64,16 @@ private fun Trigger(label: String, colour: Color, dark: Boolean, onDown: () -> U
             },
         contentAlignment = Alignment.Center
     ) {
-        Text(label, style = MaterialTheme.typography.labelSmall, color = if (pressed) StaveColors.OnBand else if (dark) StaveColors.Dim else StaveColors.Muted, textAlign = TextAlign.Center, maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(2.dp))
+        Text(label, style = MaterialTheme.typography.labelMedium, color = if (pressed) StaveColors.OnBand else if (dark) StaveColors.Muted else StaveColors.Text, textAlign = TextAlign.Center, maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(2.dp))
     }
 }
 
 /** Sixteen pads in four rows, the first pad at the bottom left as on every drum machine. */
 @Composable
 fun DrumPads(labels: List<String>, basePitch: Int, onDown: (pitch: Int) -> Unit, onUp: (pitch: Int) -> Unit, modifier: Modifier = Modifier) {
-    Column(modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+    Column(modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         for (row in 3 downTo 0) {
-            Row(Modifier.fillMaxWidth().height(52.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            Row(Modifier.fillMaxWidth().height(64.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 for (col in 0 until 4) {
                     val pad = row * 4 + col
                     Trigger(labels.getOrNull(pad) ?: "Pad ${pad + 1}", ToolAccents.Beats, dark = false, onDown = { onDown(basePitch + pad) }, onUp = { onUp(basePitch + pad) }, modifier = Modifier.weight(1f))

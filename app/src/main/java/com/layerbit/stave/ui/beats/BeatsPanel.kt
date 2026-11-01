@@ -34,6 +34,8 @@ import com.layerbit.stave.engine.sequencer.Arpeggiator
 import com.layerbit.stave.engine.sequencer.DrumInstrument
 import com.layerbit.stave.engine.sequencer.Pattern
 import com.layerbit.stave.engine.sequencer.Ticks
+import com.layerbit.stave.ui.components.GridAction
+import com.layerbit.stave.ui.components.ActionGrid
 import com.layerbit.stave.ui.components.ChipRow
 import com.layerbit.stave.ui.components.Formats
 import com.layerbit.stave.ui.components.LabelledValue
@@ -140,7 +142,7 @@ fun BeatsPanel(vm: EditorViewModel, ui: EditorViewModel.Ui, modifier: Modifier =
                     onToggle = vm::toggleStep, onVelocity = vm::setStepVelocity, onVelocityDone = vm::endGesture,
                     modifier = Modifier.padding(top = 8.dp)
                 )
-                FlowRow(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp), modifier = Modifier.padding(top = 8.dp)) {
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.padding(top = 8.dp)) {
                     Column { SectionHeading(stringResource(R.string.beats_grid)); ChipRow(listOf(8 to "1/8", 16 to "1/16", 32 to "1/32"), beats.division, vm::setDivision, modifier = Modifier.padding(top = 4.dp)) }
                     Column { SectionHeading(stringResource(R.string.beats_bars)); ChipRow(listOf(1, 2, 4, 8).map { it to "$it" }, (pattern.lengthTicks / Ticks.PER_BAR).toInt(), vm::setBars, modifier = Modifier.padding(top = 4.dp)) }
                     Column { SectionHeading(stringResource(R.string.beats_note_length)); ChipRow(listOf(32 to "1/32", 16 to "1/16", 8 to "1/8", 4 to "1/4", 2 to "1/2", 1 to "1"), beats.noteDivision, vm::setNoteDivision, modifier = Modifier.padding(top = 4.dp)) }
@@ -196,19 +198,20 @@ fun BeatsPanel(vm: EditorViewModel, ui: EditorViewModel.Ui, modifier: Modifier =
             // -- tools
             Panel(modifier = Modifier.fillMaxWidth(), inset = 10.dp) {
                 SectionHeading(stringResource(R.string.beats_tools))
-                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 8.dp)) {
-                    SecondaryButton(stringResource(R.string.beats_quantise), onClick = { vm.quantiseNotes(1.0) }, tall = false, enabled = pattern.notes.isNotEmpty())
-                    SecondaryButton(stringResource(R.string.beats_humanise), onClick = vm::humaniseNotes, tall = false, enabled = pattern.notes.isNotEmpty())
-                    SecondaryButton(stringResource(R.string.beats_legato), onClick = vm::legatoNotes, tall = false, enabled = pattern.notes.isNotEmpty() && !drums)
-                    SecondaryButton(stringResource(R.string.beats_double), onClick = vm::duplicatePattern, tall = false, enabled = pattern.lengthTicks < Ticks.PER_BAR * 16)
-                    SecondaryButton(stringResource(R.string.beats_clear), onClick = vm::clearPattern, tall = false, enabled = pattern.notes.isNotEmpty(), danger = true)
+                val has = pattern.notes.isNotEmpty()
+                ActionGrid(buildList {
+                    add(GridAction(stringResource(R.string.beats_quantise), { vm.quantiseNotes(1.0) }, enabled = has))
+                    add(GridAction(stringResource(R.string.beats_humanise), vm::humaniseNotes, enabled = has))
+                    if (!drums) add(GridAction(stringResource(R.string.beats_legato), vm::legatoNotes, enabled = has))
+                    add(GridAction(stringResource(R.string.beats_double), vm::duplicatePattern, enabled = pattern.lengthTicks < Ticks.PER_BAR * 16))
                     if (!drums) {
-                        SecondaryButton(stringResource(R.string.beats_transpose_down), onClick = { vm.transposeNotes(-12) }, tall = false, enabled = pattern.notes.isNotEmpty())
-                        SecondaryButton("−1", onClick = { vm.transposeNotes(-1) }, tall = false, enabled = pattern.notes.isNotEmpty())
-                        SecondaryButton("+1", onClick = { vm.transposeNotes(1) }, tall = false, enabled = pattern.notes.isNotEmpty())
-                        SecondaryButton(stringResource(R.string.beats_transpose_up), onClick = { vm.transposeNotes(12) }, tall = false, enabled = pattern.notes.isNotEmpty())
+                        add(GridAction(stringResource(R.string.beats_transpose_down), { vm.transposeNotes(-12) }, enabled = has))
+                        add(GridAction("−1", { vm.transposeNotes(-1) }, enabled = has))
+                        add(GridAction("+1", { vm.transposeNotes(1) }, enabled = has))
+                        add(GridAction(stringResource(R.string.beats_transpose_up), { vm.transposeNotes(12) }, enabled = has))
                     }
-                }
+                    add(GridAction(stringResource(R.string.beats_clear), vm::clearPattern, enabled = has, danger = true))
+                }, modifier = Modifier.padding(top = 8.dp))
                 if (!drums) {
                     SectionHeading(stringResource(R.string.beats_arpeggio), modifier = Modifier.padding(top = 10.dp))
                     Text(stringResource(R.string.beats_arpeggio_hint), style = MaterialTheme.typography.bodySmall, color = StaveColors.Dim, modifier = Modifier.padding(vertical = 4.dp))
