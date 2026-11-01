@@ -77,9 +77,9 @@ fun StudioPanel(vm: EditorViewModel, ui: EditorViewModel.Ui, modifier: Modifier 
                     Strip(t, selected = t.id == ui.selectedTrackId, heard = ui.session.heard(t),
                         peakL = meters.getOrNull(index * 2) ?: 0f, peakR = meters.getOrNull(index * 2 + 1) ?: 0f,
                         onSelect = { vm.selectTrack(t.id) },
-                        onVolume = { db -> vm.liveVolume(t.id, db); vm.updateTrack(t.id, "Volume", gesture = "vol-${t.id}") { it.copy(volumeDb = db) } },
+                        onVolume = { db -> vm.liveVolume(t.id, db); vm.setTrackVolume(t.id, db) },
                         onVolumeDone = vm::endGesture,
-                        onPan = { p -> vm.livePan(t.id, p); vm.updateTrack(t.id, "Pan", gesture = "pan-${t.id}") { it.copy(pan = p) } },
+                        onPan = { p -> vm.livePan(t.id, p); vm.setTrackPan(t.id, p) },
                         onMute = { vm.updateTrack(t.id, "Mute") { it.copy(muted = !it.muted) } },
                         onSolo = { vm.updateTrack(t.id, "Solo") { it.copy(solo = !it.solo) } },
                         onArm = { vm.updateTrack(t.id, "Arm") { it.copy(armed = !it.armed) } })
@@ -197,6 +197,12 @@ private fun TrackDetail(vm: EditorViewModel, ui: EditorViewModel.Ui, t: Track) {
             }
         }
         SectionHeading(stringResource(R.string.studio_automation), modifier = Modifier.padding(top = 10.dp))
+        Text(stringResource(R.string.studio_draw_hint), style = MaterialTheme.typography.bodySmall, color = StaveColors.Dim, modifier = Modifier.padding(vertical = 4.dp))
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(stringResource(R.string.studio_draw), style = MaterialTheme.typography.bodyMedium, color = StaveColors.Text)
+            ChipRow(listOf<Pair<String?, String>>(null to stringResource(R.string.studio_draw_off), "volume" to stringResource(R.string.studio_automation_volume), "pan" to stringResource(R.string.studio_automation_pan)), ui.automationParam, { vm.setAutomationDraw(it) }, modifier = Modifier.weight(1f))
+        }
+        ToggleRow(stringResource(R.string.studio_write), ui.automationWrite, { vm.setAutomationWrite(it) }, detail = stringResource(R.string.studio_write_hint))
         for ((param, label, range) in listOf(Triple("volume", R.string.studio_automation_volume, -60f..12f), Triple("pan", R.string.studio_automation_pan, -1f..1f))) {
             val track = t.automationOf(param)
             val at = track.valueAt(ui.window.playhead, if (param == "volume") t.volumeDb else t.pan)

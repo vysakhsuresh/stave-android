@@ -77,7 +77,10 @@ fun VoicePanel(vm: EditorViewModel, ui: EditorViewModel.Ui, modifier: Modifier =
                 if (!voice.armed) SecondaryButton(stringResource(R.string.voice_arm), onClick = { if (hasMic) vm.armInput() else ask.launch(Manifest.permission.RECORD_AUDIO) }, tall = false, modifier = Modifier.weight(1f))
                 else SecondaryButton(stringResource(R.string.voice_disarm), onClick = vm::disarmInput, tall = false, modifier = Modifier.weight(1f), enabled = !transport.recording)
                 if (!transport.recording) PrimaryButton(stringResource(R.string.voice_record), onClick = { if (hasMic) vm.startRecording() else ask.launch(Manifest.permission.RECORD_AUDIO) }, danger = true, tall = false, modifier = Modifier.weight(1f), enabled = hasMic || !voice.armed)
-                else PrimaryButton(stringResource(R.string.voice_stop), onClick = vm::stopRecording, tall = false, modifier = Modifier.weight(1f))
+                else {
+                    SecondaryButton(stringResource(if (voice.recordPaused) R.string.voice_resume else R.string.voice_pause), onClick = { vm.pauseRecording(!voice.recordPaused) }, tall = false, modifier = Modifier.weight(1f))
+                    PrimaryButton(stringResource(R.string.voice_stop), onClick = vm::stopRecording, tall = false, modifier = Modifier.weight(1f))
+                }
             }
             if (transport.recording) Text(stringResource(R.string.voice_recording, Timecode.display(voice.recordedMs, 1)), style = MaterialTheme.typography.titleMedium, color = StaveColors.Record, modifier = Modifier.padding(top = 8.dp))
             ToggleRow(stringResource(R.string.voice_monitor), voice.monitor, { vm.setMonitor(it) }, detail = stringResource(R.string.voice_monitor_detail), enabled = voice.armed, modifier = Modifier.padding(top = 4.dp))
@@ -167,6 +170,18 @@ fun VoicePanel(vm: EditorViewModel, ui: EditorViewModel.Ui, modifier: Modifier =
                 val scale = when (kind) { "major" -> com.layerbit.stave.engine.dsp.PitchCorrect.Scale.major(root); "minor" -> com.layerbit.stave.engine.dsp.PitchCorrect.Scale.minor(root); "pentatonic" -> com.layerbit.stave.engine.dsp.PitchCorrect.Scale.pentatonic(root); else -> com.layerbit.stave.engine.dsp.PitchCorrect.Scale.CHROMATIC }
                 vm.tune(scale, strength, retune.toDouble())
             }, tall = false, modifier = Modifier.fillMaxWidth().padding(top = 4.dp), enabled = ui.session.length > 0)
+            // Live: the same scale, strength and retune on the monitored voice through the graph's corrector.
+            ToggleRow(stringResource(R.string.tune_live), voice.liveTune, { on -> if (on && !hasMic) ask.launch(Manifest.permission.RECORD_AUDIO) else vm.setLiveTune(on, kind, root, strength.toDouble(), retune.toDouble()) },
+                detail = stringResource(R.string.tune_live_hint), modifier = Modifier.padding(top = 6.dp))
+            if (voice.liveTune) {
+                androidx.compose.runtime.LaunchedEffect(kind, root, strength, retune) { vm.setLiveTune(true, kind, root, strength.toDouble(), retune.toDouble()) }
+                val heard = voice.liveHeardHz; val target = voice.liveTargetHz
+                Text(
+                    if (heard > 0f && target > 0f) stringResource(R.string.tune_live_hearing, com.layerbit.stave.engine.dsp.Notes.name(com.layerbit.stave.engine.dsp.Notes.nearest(heard.toDouble())), com.layerbit.stave.engine.dsp.Notes.name(com.layerbit.stave.engine.dsp.Notes.nearest(target.toDouble()))) else stringResource(R.string.tune_live_quiet),
+                    style = MaterialTheme.typography.titleMedium, color = StaveColors.Voice, modifier = Modifier.padding(top = 6.dp)
+                )
+                ToggleRow(stringResource(R.string.tune_record_tuned), voice.recordTuned, { vm.setLiveTune(true, kind, root, strength.toDouble(), retune.toDouble(), recordTuned = it) }, detail = stringResource(R.string.tune_record_tuned_hint))
+            }
         }
         // ---- Effects ----
         Panel(modifier = Modifier.fillMaxWidth()) {

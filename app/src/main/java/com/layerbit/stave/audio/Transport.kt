@@ -96,6 +96,10 @@ class Transport(private val scope: CoroutineScope) {
     fun inputLatencyMs(): Double = if (handle != 0L) EngineNative.inputLatencyMs(handle) else 0.0
     /** The last [out].size input samples, mono; 0 when the input is closed. */
     fun readInputTap(out: FloatArray): Int = if (handle != 0L) EngineNative.readInputTap(handle, out) else 0
+    fun setLiveTune(on: Boolean, root: Int, scaleMask: Int, strength: Float, retuneMs: Float, recordTuned: Boolean) { if (handle != 0L) EngineNative.setLiveTune(handle, on, root, scaleMask, strength, retuneMs, recordTuned) }
+    fun liveTuneHz(): Float = if (handle != 0L) EngineNative.liveTuneHz(handle) else 0f
+    fun liveTuneTargetHz(): Float = if (handle != 0L) EngineNative.liveTuneTargetHz(handle) else 0f
+    fun setRecordPaused(paused: Boolean) { if (handle != 0L) EngineNative.setRecordPaused(handle, paused) }
 
     /** The current snapshot rendered to a raw stereo float file; not while playing. Frames, or negative. */
     fun renderOffline(from: Long, to: Long, out: File): Long = if (handle != 0L) EngineNative.renderOffline(handle, from, to, out.path) else -1

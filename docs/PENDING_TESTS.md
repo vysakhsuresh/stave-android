@@ -89,3 +89,11 @@ back into the roadmap with what broke.
 62. Edit → EQ → 10 bands: the faders are vertical, each named by its frequency and reading its gain to TalkBack; +6 at 1 kHz draws a bump on the curve and Apply renders it (Measure before and after on Finish shows the mids up); 31 bands the same, narrower.
 63. `./gradlew bundlePlayRelease` builds with the `models` asset pack present (`sh tools/models/fetch_models.sh play` first), and `bundletool` lists the pack as install-time; the play flavour's ModelStore finds the model through assets/models/.
 
+## Live tune, drawn automation, effects, convert
+64. Voice → Ready the mic, headphones on, Tune live on with C major: sing a slow scale - each note is pulled to the scale within the retune time and the readout shows "Hearing X → Y"; a note bent across a boundary does not trill (the hold); strength 50% pulls half way; retune 0 ms snaps. Record a take with "Record the tuned voice" off and the clip is dry; on, it is tuned. Then the null test the C++ owes the Kotlin: Tune the dry take offline with the same scale and compare by ear with the tuned take - they should sit on the same notes (the shifter's timbre will differ).
+65. The live tune's latency: tap the mic once with tune on and off and read the two echoes in a recording of the monitor output (or `inputLatencyMs` plus 11 ms); under 30 ms total is what headphones tolerate.
+66. Studio → Automation → Draw on the strip: Volume; drag a finger across the selected track's lane: a teal curve follows it, the stroke's corners become points (the count under Automation), the lane outside the stroke is untouched; the mix follows the curve when played; one Undo takes the whole stroke back. Pan the same. With Write on, move a fader while playing: points land at the play-head, the fader itself does not change.
+67. Edit → Effects: each of the eight on a spoken line sounds like its name and none clips; Stereo → Swap L/R on a file with speech on the left puts it on the right; Balance +6 dB leans right.
+68. Voice → Record, Pause after five seconds, wait, Resume, Stop: one take whose length is the recorded time without the pause, with no click at the join.
+69. Home → Convert files: pick six files of mixed formats, MP3 192: six files land in Music/Stave with their names, the list says 6 of 6, and the cache holds no scratch folder afterwards (`run-as … ls cache`).
+

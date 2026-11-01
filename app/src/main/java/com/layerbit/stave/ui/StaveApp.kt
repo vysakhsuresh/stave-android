@@ -59,6 +59,7 @@ object Routes {
     const val GUIDE = "guide"
     const val CONTACT = "contact"
     const val LIBRARY = "library"
+    const val CONVERT = "convert"
     const val EDITOR = "editor?project={project}&tool={tool}"
 
     fun editor(project: String, tool: String? = null): String =
@@ -149,8 +150,12 @@ fun StaveApp(
                     onContact = { navController.navigate(Routes.CONTACT) },
                     onSettings = { navController.navigate(Routes.SETTINGS) },
                     onAbout = { navController.navigate(Routes.ABOUT) },
-                    onLibrary = { navController.navigate(Routes.LIBRARY) }
+                    onLibrary = { navController.navigate(Routes.LIBRARY) },
+                    onConvert = { navController.navigate(Routes.CONVERT) }
                 )
+            }
+            composable(Routes.CONVERT) {
+                com.layerbit.stave.ui.convert.ConvertScreen(onBack = { navController.popBackStack() })
             }
             composable(Routes.LIBRARY) {
                 Column { StaveTopBar(title = stringResource(R.string.library_title), subtitle = stringResource(R.string.library_subtitle), onBack = { navController.popBackStack() }); com.layerbit.stave.ui.library.LibraryScreen() }

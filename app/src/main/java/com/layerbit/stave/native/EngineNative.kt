@@ -52,6 +52,11 @@ object EngineNative {
     /** The newest input samples (mono, newest last) into [out]; how many were copied. For the tuner. */
     @JvmStatic external fun readInputTap(engine: Long, out: FloatArray): Int
     @JvmStatic external fun setMetronome(engine: Long, on: Boolean, bpm: Double, beatsPerBar: Int, gain: Float)
+    /** Live pitch correction on the monitored input: the scale as a 12-bit mask from the root, strength 0..1, the retune time; recordTuned sends it to the take too. */
+    @JvmStatic external fun setLiveTune(engine: Long, on: Boolean, root: Int, scaleMask: Int, strength: Float, retuneMs: Float, recordTuned: Boolean)
+    @JvmStatic external fun liveTuneHz(engine: Long): Float
+    @JvmStatic external fun liveTuneTargetHz(engine: Long): Float
+    @JvmStatic external fun setRecordPaused(engine: Long, paused: Boolean)
     @JvmStatic external fun scheduleClick(engine: Long, atFrame: Long)
 
     /** Renders [from, to) of the current snapshot to a raw interleaved stereo float file. Returns frames, or negative. */

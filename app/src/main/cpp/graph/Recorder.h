@@ -19,9 +19,13 @@ public:
     bool recording() const { return running.load(); }
     // From the audio callback: never blocks. Frames dropped when the ring is full are counted.
     void push(const float* interleaved, int frames);
+    // Paused: frames are dropped on the floor and the file stays open, so Resume continues the same take.
+    void setPaused(bool p) { paused.store(p); }
+    bool isPaused() const { return paused.load(); }
     int64_t framesWritten() const { return written.load(); }
     int64_t framesDropped() const { return dropped.load(); }
     int channels = 1;
+    std::atomic<bool> paused{false};
 private:
     std::atomic<bool> running{false};
     std::atomic<int64_t> written{0}, dropped{0};

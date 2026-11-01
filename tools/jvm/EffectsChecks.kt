@@ -3,6 +3,7 @@ import com.layerbit.stave.engine.dsp.Crusher
 import com.layerbit.stave.engine.dsp.Delay
 import com.layerbit.stave.engine.dsp.DelayLine
 import com.layerbit.stave.engine.dsp.Gain
+import com.layerbit.stave.engine.dsp.Phaser
 import com.layerbit.stave.engine.dsp.Reverb
 import com.layerbit.stave.engine.dsp.Saturator
 import com.layerbit.stave.engine.dsp.Tremolo
@@ -74,5 +75,20 @@ object EffectsChecks : Suite {
             check(Gain.rms(outp[0], rate / 4, rate / 2) > 0.01f) { "${p.id} is not silent" }
         }
         check(VocalPresets.byId("echo") != null && VocalPresets.byId("x") == null) { "by id" }
+
+        section("a phaser: notches that move; frozen, it is an all-pass pair that cancels at its corner and passes elsewhere")
+        val ph = Phaser(rate, rateHz = 0.0, depth = 0f, feedback = 0f, mix = 0.5f, stages = 2, lowHz = 1000.0, highHz = 1000.0)
+        // With the LFO still and the sweep at its middle the corner sits at 1 kHz: two all-pass stages turn 1 kHz by 180 degrees, so dry + wet cancels there.
+        fun level(hz: Double, f: (Float) -> Float): Double { val n = rate; var e = 0.0; for (i in 0 until n) { val y = f(sin(2 * PI * hz * i / rate).toFloat()); if (i > n / 2) e += y * y }; return 10 * Math.log10(e / (n / 2) + 1e-20) }
+        val atCorner = level(1000.0) { ph.process(it) }
+        val ph2 = Phaser(rate, rateHz = 0.0, depth = 0f, feedback = 0f, mix = 0.5f, stages = 2, lowHz = 1000.0, highHz = 1000.0)
+        val far = level(100.0) { ph2.process(it) }
+        check(far - atCorner > 30) { "the notch at the corner is ${far - atCorner} dB deep against 100 Hz" }
+        check(abs(far - 10 * Math.log10(0.5)) < 0.5) { "away from the notch the level is the sine's own (-3 dB for a sine's power): $far" }
+        val moving = Phaser(rate, rateHz = 2.0, depth = 1f, feedback = 0.3f, mix = 0.5f)
+        val swept = FloatArray(rate) { moving.process(sin(2 * PI * 1000.0 * it / rate).toFloat()) }
+        val sweptEarly = Gain.rms(swept, rate / 4, rate / 4 + 2000); val sweptLater = Gain.rms(swept, rate / 4 + 12_000, rate / 4 + 14_000)
+        check(abs(Gain.linearToDb(sweptEarly) - Gain.linearToDb(sweptLater)) > 1) { "with the LFO moving a 1 kHz tone's level changes over a quarter cycle: ${Gain.linearToDb(sweptEarly)} then ${Gain.linearToDb(sweptLater)}" }
+        check(swept.none { it.isNaN() } && swept.maxOf { abs(it) } < 1.5f) { "stable with feedback" }
     }
 }

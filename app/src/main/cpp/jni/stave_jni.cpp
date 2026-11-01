@@ -80,6 +80,10 @@ JNIEXPORT jint JNICALL FN(readInputTap)(JNIEnv* env, jclass, jlong h, jfloatArra
     return n;
 }
 JNIEXPORT void JNICALL FN(setMetronome)(JNIEnv*, jclass, jlong h, jboolean on, jdouble bpm, jint beats, jfloat gain) { ENGINE(h)->setMetronome(on, bpm, beats, gain); }
+JNIEXPORT void JNICALL FN(setLiveTune)(JNIEnv*, jclass, jlong h, jboolean on, jint root, jint mask, jfloat strength, jfloat retuneMs, jboolean recordTuned) { ENGINE(h)->setLiveTune(on, root, mask, strength, retuneMs, recordTuned); }
+JNIEXPORT jfloat JNICALL FN(liveTuneHz)(JNIEnv*, jclass, jlong h) { return ENGINE(h)->liveTuneHz(); }
+JNIEXPORT jfloat JNICALL FN(liveTuneTargetHz)(JNIEnv*, jclass, jlong h) { return ENGINE(h)->liveTuneTargetHz(); }
+JNIEXPORT void JNICALL FN(setRecordPaused)(JNIEnv*, jclass, jlong h, jboolean paused) { ENGINE(h)->setRecordPaused(paused); }
 JNIEXPORT void JNICALL FN(scheduleClick)(JNIEnv*, jclass, jlong h, jlong at) { ENGINE(h)->scheduleClick(at); }
 
 // Renders [from, to) of the current snapshot into a raw interleaved stereo float file at [path].

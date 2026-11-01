@@ -74,6 +74,9 @@ fun WaveformStrip(
     onSpectralBox: (com.layerbit.stave.engine.dsp.SpectralEdit.Box?) -> Unit = {},
     /** A clip under a long press follows the finger: (clipId, position, trackId, done). */
     onCarry: (String, Long, String?, Boolean) -> Unit = { _, _, _, _ -> },
+    /** The automation lane being drawn ("volume", "pan") on the selected track, or null; a finger on that track then draws rather than selects. */
+    automationParam: String? = null,
+    onDrawAutomation: (trackId: String, samples: List<com.layerbit.stave.engine.project.ValueTrack.Point>, done: Boolean) -> Unit = { _, _, _ -> },
     modifier: Modifier = Modifier
 ) {
     val density = LocalDensity.current
@@ -125,6 +128,15 @@ fun WaveformStrip(
                     var carrying: com.layerbit.stave.engine.project.Clip? = null
                     var carryGrab = 0L
                     val spectralMode = spectrogram != null && downTrack == selectedTrackId && downTrack != null
+                    // Drawing automation: on the selected track with a lane chosen, the finger is a pen.
+                    val drawMode = automationParam != null && downTrack == selectedTrackId && downTrack != null
+                    val drawn = ArrayList<com.layerbit.stave.engine.project.ValueTrack.Point>()
+                    fun laneValue(y: Float): Double {
+                        val laneH = max(minLanePx, lanesHeight / laneCount)
+                        val laneTop = rulerPx + tracks.indexOfFirst { it.id == downTrack } * laneH
+                        return com.layerbit.stave.engine.project.AutomationDraw.fromLane(automationParam ?: "volume", ((y - laneTop) / laneH).toDouble())
+                    }
+                    if (drawMode) drawn += com.layerbit.stave.engine.project.ValueTrack.Point(currentWindow.sampleAt(first.position.x).coerceIn(0L, currentSession.length), laneValue(first.position.y))
                     var twoFinger = false
                     var moved = false
                     while (true) {
@@ -132,10 +144,11 @@ fun WaveformStrip(
                         val pressed = event.changes.filter { it.pressed }
                         if (pressed.isEmpty()) {
                             carrying?.let { c -> onCarry(c.id, c.position, c.trackId, true) }
+                            if (drawMode && !twoFinger) onDrawAutomation(downTrack!!, drawn.toList(), true)
                             break
                         }
                         // Held still on a clip for 400 ms: pick it up.
-                        if (!moved && !twoFinger && editingEdge == 0 && carrying == null && downClip != null && !spectralMode && System.currentTimeMillis() - downTime > 400) {
+                        if (!moved && !twoFinger && editingEdge == 0 && carrying == null && downClip != null && !spectralMode && !drawMode && System.currentTimeMillis() - downTime > 400) {
                             carrying = downClip; carryGrab = currentWindow.sampleAt(first.position.x) - downClip.position
                             onCarry(downClip.id, downClip.position, downClip.trackId, false)
                         }
@@ -157,6 +170,12 @@ fun WaveformStrip(
                         carrying?.let { c ->
                             change.consume()
                             onCarry(c.id, (currentWindow.sampleAt(x) - carryGrab).coerceAtLeast(0L), trackAt(change.position.y) ?: c.trackId, false)
+                            continue
+                        }
+                        if (drawMode) {
+                            change.consume()
+                            drawn += com.layerbit.stave.engine.project.ValueTrack.Point(sample, laneValue(change.position.y))
+                            onDrawAutomation(downTrack!!, drawn.toList(), false)
                             continue
                         }
                         if (!moved && abs(change.position.x - first.position.x) < 6f && abs(change.position.y - first.position.y) < 6f) continue

@@ -71,7 +71,11 @@ class EditorViewModel(private val app: StaveApplication, val projectId: String) 
         val loaded: Boolean = false,
         val exportSettings: ExportSettings = ExportSettings(),
         val lastExport: Exporter.Result? = null,
-        val clipboard: SessionEdits.Clipboard? = null
+        val clipboard: SessionEdits.Clipboard? = null,
+        /** The automation lane a finger draws on the selected track ("volume", "pan"), or null for the ordinary gestures. */
+        val automationParam: String? = null,
+        /** Fader moves while playing land as points at the play-head. */
+        val automationWrite: Boolean = false
     )
 
     private val _ui = MutableStateFlow(Ui())
@@ -295,6 +299,46 @@ class EditorViewModel(private val app: StaveApplication, val projectId: String) 
     fun livePan(id: String, pan: Double) { val i = session.tracks.indexOfFirst { it.id == id }; if (i >= 0) transport.livePan(i, pan.toFloat()) }
     fun setMasterVolume(db: Double, gesture: String? = "master") { commit(session.copy(masterVolumeDb = db), "Master", gesture) }
 
+    // ---- automation: drawn and written ----------------------------------------------------
+
+    fun setAutomationDraw(param: String?) { _ui.value = _ui.value.copy(automationParam = param) }
+    fun setAutomationWrite(on: Boolean) { _ui.value = _ui.value.copy(automationWrite = on) }
+
+    /** A fader moved: while playing with Write on, a point at the play-head; otherwise the track's own level. */
+    fun setTrackVolume(id: String, db: Double) {
+        if (_ui.value.automationWrite && transport.state.value.playing) writeAutomation(id, "volume", db)
+        else updateTrack(id, "Volume", gesture = "vol-$id") { it.copy(volumeDb = db) }
+    }
+    fun setTrackPan(id: String, pan: Double) {
+        if (_ui.value.automationWrite && transport.state.value.playing) writeAutomation(id, "pan", pan)
+        else updateTrack(id, "Pan", gesture = "pan-$id") { it.copy(pan = pan) }
+    }
+    private fun writeAutomation(id: String, param: String, value: Double) {
+        val at = _ui.value.window.playhead
+        updateTrack(id, "Write automation", gesture = "write-$id-$param") { t -> t.copy(automation = t.automation + (param to com.layerbit.stave.engine.project.AutomationDraw.write(t.automationOf(param), at, value))) }
+    }
+
+    /** The lane as it was when the stroke began: every event of the stroke replaces its span on this, not on its own last result. */
+    private var strokeBase: com.layerbit.stave.engine.project.ValueTrack? = null
+    private var strokeTrack: String? = null
+
+    /**
+     * A stroke on the strip, one call per pointer event with every sample so far and once more
+     * with [done]: thinned to its corners (AutomationDraw.simplify) and set over the base lane
+     * (replaceSpan), committed under one gesture id so the whole stroke is one undo step.
+     */
+    fun drawAutomation(trackId: String, samples: List<com.layerbit.stave.engine.project.ValueTrack.Point>, done: Boolean) {
+        val param = _ui.value.automationParam ?: return
+        val track = session.track(trackId) ?: return
+        if (strokeBase == null || strokeTrack != trackId) { strokeBase = track.automationOf(param); strokeTrack = trackId }
+        val base = strokeBase!!
+        val default = if (param == "volume") track.volumeDb else track.pan
+        val drawn = com.layerbit.stave.engine.project.AutomationDraw.simplify(com.layerbit.stave.engine.project.AutomationDraw.stroke(samples), com.layerbit.stave.engine.project.AutomationDraw.toleranceFor(param))
+        val lane = com.layerbit.stave.engine.project.AutomationDraw.replaceSpan(base, drawn, default)
+        updateTrack(trackId, "Draw ${if (param == "volume") "volume" else "pan"}", gesture = "draw-$trackId-$param") { it.copy(automation = it.automation + (param to lane)) }
+        if (done) { endGesture(); strokeBase = null; strokeTrack = null }
+    }
+
     // ---- export -----------------------------------------------------------------------------
 
     fun export(fallbackName: String) {
@@ -324,7 +368,13 @@ class EditorViewModel(private val app: StaveApplication, val projectId: String) 
         /** Record only inside the selection: the take starts at its start and stops at its end. */
         val punch: Boolean = false,
         /** Typed lyrics aligned to the transcript's words, a line each with its time, for Sing along. */
-        val lyrics: List<com.layerbit.stave.engine.transcript.Lyrics.Line> = emptyList()
+        val lyrics: List<com.layerbit.stave.engine.transcript.Lyrics.Line> = emptyList(),
+        /** Live pitch correction on the monitored voice (graph/LiveTune), what it hears and where it pulls to. */
+        val liveTune: Boolean = false,
+        val liveHeardHz: Float = 0f,
+        val liveTargetHz: Float = 0f,
+        val recordTuned: Boolean = false,
+        val recordPaused: Boolean = false
     )
 
     private val _voice = MutableStateFlow(VoiceState(targetId = app.settings.current.loudnessTargetId).let { v -> loadTranscript()?.let { v.copy(transcript = it) } ?: v })
@@ -396,6 +446,8 @@ class EditorViewModel(private val app: StaveApplication, val projectId: String) 
 
     fun stopRecording() {
         recordJob?.cancel(); recordJob = null
+        transport.setRecordPaused(false)
+        _voice.value = _voice.value.copy(recordPaused = false)
         transport.stopRecording()
         transport.pause()
         AudioService.start(app, recording = false, title = session.name.ifBlank { "Stave" })
@@ -426,6 +478,38 @@ class EditorViewModel(private val app: StaveApplication, val projectId: String) 
 
     fun setLanguage(code: String) { _voice.value = _voice.value.copy(language = code) }
     fun setPunch(on: Boolean) { _voice.value = _voice.value.copy(punch = on) }
+
+    private var liveTuneJob: Job? = null
+
+    /** The pitch corrector's scale from the Tune card's chips: the same Scale the offline Tune uses. */
+    fun scaleOf(kind: String, root: Int): com.layerbit.stave.engine.dsp.PitchCorrect.Scale = when (kind) {
+        "major" -> com.layerbit.stave.engine.dsp.PitchCorrect.Scale.major(root)
+        "minor" -> com.layerbit.stave.engine.dsp.PitchCorrect.Scale.minor(root)
+        "pentatonic" -> com.layerbit.stave.engine.dsp.PitchCorrect.Scale.pentatonic(root)
+        else -> com.layerbit.stave.engine.dsp.PitchCorrect.Scale.CHROMATIC
+    }
+
+    /**
+     * Live autotune on what is monitored (and on the take when [recordTuned]): the graph's
+     * LiveTune, parameterised from the Tune card. The input must be armed for anything to be
+     * heard; the needle readout polls the graph while it is on.
+     */
+    fun setLiveTune(on: Boolean, kind: String, root: Int, strength: Double, retuneMs: Double, recordTuned: Boolean = _voice.value.recordTuned) {
+        if (on && !_voice.value.armed) armInput()
+        val mask = com.layerbit.stave.engine.dsp.LiveTuneRules.mask(scaleOf(kind, root))
+        transport.setLiveTune(on && _voice.value.armed, root, mask, strength.toFloat(), retuneMs.toFloat(), recordTuned)
+        _voice.value = _voice.value.copy(liveTune = on && _voice.value.armed, recordTuned = recordTuned, liveHeardHz = 0f, liveTargetHz = 0f)
+        liveTuneJob?.cancel()
+        if (_voice.value.liveTune) liveTuneJob = viewModelScope.launch { while (true) { _voice.value = _voice.value.copy(liveHeardHz = transport.liveTuneHz(), liveTargetHz = transport.liveTuneTargetHz()); delay(80) } }
+    }
+
+    /** Pause keeps the take's file open and drops frames; Resume continues the same take. The transport pauses with it. */
+    fun pauseRecording(paused: Boolean) {
+        if (!transport.state.value.recording) return
+        transport.setRecordPaused(paused)
+        if (paused) transport.pause() else transport.play()
+        _voice.value = _voice.value.copy(recordPaused = paused)
+    }
 
     /** Typed lyrics laid against the transcript: each line gets the time of the words it matches (engine Lyrics, executed in LyricsChecks). */
     fun alignLyrics(text: String) {

@@ -32,6 +32,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.layerbit.stave.R
+import kotlin.math.abs
 import com.layerbit.stave.engine.dsp.CompressorSettings
 import com.layerbit.stave.engine.dsp.EqBand
 import com.layerbit.stave.engine.dsp.FadeShape
@@ -67,6 +68,7 @@ fun EditSheetContent(sheet: EditSheet, vm: EditorViewModel, ui: EditorViewModel.
         EditSheet.EQ -> EqSheet(vm, ui)
         EditSheet.DYNAMICS -> DynamicsSheet(vm, ui)
         EditSheet.TIME -> TimeSheet(vm, ui)
+        EditSheet.EFFECTS -> EffectsSheet(vm, ui)
         EditSheet.MARKERS -> MarkersSheet(vm, ui)
         EditSheet.EXPORT -> ExportSheet(vm, ui)
     }
@@ -207,6 +209,60 @@ private fun SpectralSheet(vm: EditorViewModel, ui: EditorViewModel.Ui) {
         PrimaryButton(stringResource(R.string.spectral_attenuate), onClick = { vm.spectralAttenuate(gain.toDouble()) }, enabled = box != null && spectral.shown, tall = false, modifier = Modifier.weight(1f))
         SecondaryButton(stringResource(R.string.spectral_remove), onClick = { vm.spectralAttenuate(-60.0) }, enabled = box != null && spectral.shown, tall = false, modifier = Modifier.weight(1f))
         SecondaryButton(stringResource(R.string.spectral_fill), onClick = vm::spectralFill, enabled = box != null && spectral.shown, tall = false, modifier = Modifier.weight(1f))
+    }
+}
+
+/**
+ * The effects every plain editor has, with their knobs: an echo, a chorus, a flanger, a phaser,
+ * a tremolo, a reverb, saturation and a bit crusher, each rendered over the selection; and the
+ * stereo housekeeping - swap, one side on both, balance. The vocal presets on the Voice tab are
+ * these with their numbers chosen.
+ */
+@Composable
+private fun EffectsSheet(vm: EditorViewModel, ui: EditorViewModel.Ui) {
+    var kind by remember { mutableStateOf("delay") }
+    SelectionLine(ui)
+    ChipRow(options = listOf("delay" to stringResource(R.string.fx_delay), "chorus" to stringResource(R.string.fx_chorus), "flanger" to stringResource(R.string.fx_flanger), "phaser" to stringResource(R.string.fx_phaser), "tremolo" to stringResource(R.string.fx_tremolo), "reverb" to stringResource(R.string.fx_reverb), "saturate" to stringResource(R.string.fx_saturate), "crush" to stringResource(R.string.fx_crush), "stereo" to stringResource(R.string.fx_stereo)), selected = kind, onSelect = { kind = it }, modifier = Modifier.padding(vertical = 8.dp))
+    var mix by remember { mutableStateOf(0.4f) }
+    var rate by remember { mutableStateOf(0.8f) }
+    var depth by remember { mutableStateOf(0.5f) }
+    var feedback by remember { mutableStateOf(0.3f) }
+    var time by remember { mutableStateOf(320f) }
+    var drive by remember { mutableStateOf(2f) }
+    var bits by remember { mutableStateOf(8f) }
+    var balance by remember { mutableStateOf(0f) }
+    when (kind) {
+        "delay" -> { ValueSlider(stringResource(R.string.fx_time), time, 20f..1500f, { time = it }, format = Formats::ms); ValueSlider(stringResource(R.string.fx_feedback), feedback, 0f..0.9f, { feedback = it }, format = Formats::percent); ValueSlider(stringResource(R.string.fx_mix), mix, 0f..1f, { mix = it }, format = Formats::percent) }
+        "chorus", "flanger" -> { ValueSlider(stringResource(R.string.fx_rate), rate, 0.05f..5f, { rate = it }, format = { String.format(java.util.Locale.getDefault(), "%.2f Hz", it) }); ValueSlider(stringResource(R.string.fx_depth), depth, 0f..1f, { depth = it }, format = Formats::percent); if (kind == "flanger") ValueSlider(stringResource(R.string.fx_feedback), feedback, 0f..0.9f, { feedback = it }, format = Formats::percent); ValueSlider(stringResource(R.string.fx_mix), mix, 0f..1f, { mix = it }, format = Formats::percent) }
+        "phaser" -> { ValueSlider(stringResource(R.string.fx_rate), rate, 0.05f..4f, { rate = it }, format = { String.format(java.util.Locale.getDefault(), "%.2f Hz", it) }); ValueSlider(stringResource(R.string.fx_depth), depth, 0f..1f, { depth = it }, format = Formats::percent); ValueSlider(stringResource(R.string.fx_feedback), feedback, 0f..0.9f, { feedback = it }, format = Formats::percent); ValueSlider(stringResource(R.string.fx_mix), mix, 0f..1f, { mix = it }, format = Formats::percent) }
+        "tremolo" -> { ValueSlider(stringResource(R.string.fx_rate), rate, 0.5f..16f, { rate = it }, format = { String.format(java.util.Locale.getDefault(), "%.1f Hz", it) }); ValueSlider(stringResource(R.string.fx_depth), depth, 0f..1f, { depth = it }, format = Formats::percent) }
+        "reverb" -> { ValueSlider(stringResource(R.string.fx_decay), feedback, 0.3f..0.98f, { feedback = it }, format = Formats::percent); ValueSlider(stringResource(R.string.fx_damping), depth, 0f..1f, { depth = it }, format = Formats::percent); ValueSlider(stringResource(R.string.fx_predelay), time, 0f..120f, { time = it }, format = Formats::ms); ValueSlider(stringResource(R.string.fx_mix), mix, 0f..1f, { mix = it }, format = Formats::percent) }
+        "saturate" -> { ValueSlider(stringResource(R.string.fx_drive), drive, 1f..12f, { drive = it }, format = Formats::times); ValueSlider(stringResource(R.string.fx_mix), mix, 0f..1f, { mix = it }, format = Formats::percent) }
+        "crush" -> { ValueSlider(stringResource(R.string.fx_bits), bits, 2f..16f, { bits = it }, format = { String.format(java.util.Locale.getDefault(), "%d bit", it.toInt()) }, steps = 13); ValueSlider(stringResource(R.string.fx_hold), drive, 1f..16f, { drive = it }, format = { String.format(java.util.Locale.getDefault(), "%d×", it.toInt()) }, steps = 14) }
+        "stereo" -> {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 4.dp)) {
+                SecondaryButton(stringResource(R.string.fx_swap), onClick = { vm.applyOffline("Swap channels", OfflineTools.swapChannels()) }, tall = false, modifier = Modifier.weight(1f))
+                SecondaryButton(stringResource(R.string.fx_left_both), onClick = { vm.applyOffline("Left on both", OfflineTools.oneSide(false)) }, tall = false, modifier = Modifier.weight(1f))
+                SecondaryButton(stringResource(R.string.fx_right_both), onClick = { vm.applyOffline("Right on both", OfflineTools.oneSide(true)) }, tall = false, modifier = Modifier.weight(1f))
+            }
+            ValueSlider(stringResource(R.string.fx_balance), balance, -12f..12f, { balance = it }, format = { b -> if (abs(b) < 0.05f) "centre" else if (b > 0) "right ${Formats.dbPlain(b)}" else "left ${Formats.dbPlain(-b)}" })
+            SecondaryButton(stringResource(R.string.fx_apply_balance), onClick = { vm.applyOffline("Balance", OfflineTools.balance(balance.toDouble())) }, tall = false, modifier = Modifier.fillMaxWidth(), enabled = abs(balance) >= 0.05f)
+        }
+    }
+    if (kind != "stereo") {
+        PrimaryButton(stringResource(R.string.fx_apply), onClick = {
+            val t = when (kind) {
+                "delay" -> OfflineTools.delay(time.toDouble(), feedback, mix, 4000.0)
+                "chorus" -> OfflineTools.chorus(rate.toDouble(), 2.0 + 10.0 * depth, mix)
+                "flanger" -> OfflineTools.flanger(rate.toDouble(), 0.5 + 3.0 * depth, feedback, mix)
+                "phaser" -> OfflineTools.phaser(rate.toDouble(), depth, feedback, mix)
+                "tremolo" -> OfflineTools.tremolo(rate.toDouble(), depth)
+                "reverb" -> OfflineTools.reverb(feedback, depth, mix, time.toDouble())
+                "saturate" -> OfflineTools.saturate(drive, mix)
+                else -> OfflineTools.crush(bits.toInt(), drive.toInt())
+            }
+            vm.applyOffline(kind.replaceFirstChar { it.uppercase() }, t)
+        }, tall = false, modifier = Modifier.fillMaxWidth().padding(top = 8.dp), enabled = ui.session.length > 0)
     }
 }
 

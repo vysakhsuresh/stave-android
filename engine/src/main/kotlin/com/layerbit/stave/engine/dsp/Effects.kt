@@ -76,6 +76,34 @@ class Flanger(val sampleRate: Int, var rateHz: Double = 0.3, var depthMs: Double
     }
 }
 
+/**
+ * A phaser: [stages] first-order all-pass sections in series, their corner swept by an LFO
+ * between [lowHz] and [highHz] on a log scale, the wet summed with the dry so the notches fall
+ * where the all-pass turns the phase through 180 degrees. [feedback] feeds the wet back in for
+ * the deeper, resonant sweep.
+ */
+class Phaser(val sampleRate: Int, var rateHz: Double = 0.5, var depth: Float = 1f, var feedback: Float = 0.3f, var mix: Float = 0.5f, val stages: Int = 4, var lowHz: Double = 300.0, var highHz: Double = 3000.0) {
+    private val lfo = Lfo(sampleRate, rateHz)
+    private val z = FloatArray(stages)
+    private var last = 0f
+    fun process(x: Float): Float {
+        lfo.hz = rateHz
+        val sweep = 0.5 + 0.5 * lfo.next() * depth
+        val hz = lowHz * Math.pow(highHz / lowHz, sweep)
+        // First-order all-pass coefficient for a corner at hz.
+        val t = Math.tan(Math.PI * hz / sampleRate)
+        val a = ((t - 1) / (t + 1)).toFloat()
+        var y = x + last * feedback
+        for (i in 0 until stages) {
+            val out = a * y + z[i]
+            z[i] = y - a * out
+            y = out
+        }
+        last = y
+        return x * (1 - mix) + y * mix
+    }
+}
+
 class Tremolo(val sampleRate: Int, var rateHz: Double = 5.0, var depth: Float = 0.5f) {
     private val lfo = Lfo(sampleRate, rateHz)
     fun process(x: Float): Float { lfo.hz = rateHz; val g = 1f - depth * (0.5f + 0.5f * lfo.next()); return x * g }

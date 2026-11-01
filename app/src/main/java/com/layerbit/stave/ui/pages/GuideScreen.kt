@@ -39,7 +39,8 @@ fun GuideScreen(modifier: Modifier = Modifier) {
         Triple(R.drawable.ic_finish, R.string.guide_finish_title, R.string.guide_finish_body),
         Triple(R.drawable.ic_lock, R.string.guide_privacy_title, R.string.guide_privacy_body)
     )
-    val accents = listOf(StaveColors.Band, ToolAccents.Edit, ToolAccents.Edit, ToolAccents.Voice, ToolAccents.Studio, ToolAccents.Music, ToolAccents.Finish, StaveColors.Good)
+    // One accent per section above, in the same order; a ninth section without a ninth colour would read past the list.
+    val accents = listOf(StaveColors.Band, ToolAccents.Edit, ToolAccents.Edit, ToolAccents.Voice, ToolAccents.Studio, ToolAccents.Music, ToolAccents.Beats, ToolAccents.Finish, StaveColors.Good)
     Box(modifier.fillMaxSize()) {
         AmbientBackdrop(strength = 0.7f)
         LazyColumn(modifier = Modifier.fillMaxWidth().testTag("guideList"), contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 4.dp, bottom = 36.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {

@@ -22,19 +22,30 @@ public:
         for (int i = 0; i < frames * ch; i++) { float a = std::fabs(in[i]); if (a > peak) peak = a; }
         float old = engine->inPeak.load(std::memory_order_relaxed);
         while (peak > old && !engine->inPeak.compare_exchange_weak(old, peak)) {}
-        engine->recorder.push(in, frames);
-        // Into the analysis tap, as mono.
+        // Into the analysis tap, as mono - the raw voice, so the tuner's needle reads what was sung, not the correction.
         if (!engine->tap.empty()) {
             size_t cap = engine->tap.size(); size_t h = engine->tapHead.load(std::memory_order_relaxed);
             for (int f = 0; f < frames; f++) { float m = 0; for (int c = 0; c < ch; c++) m += in[f * ch + c]; engine->tap[h] = m / ch; h = (h + 1) % cap; }
             engine->tapHead.store(h, std::memory_order_release);
         }
+        // Live tune: the mono sum through the corrector, then copied to every channel; the recorder
+        // takes the corrected voice only when asked (recordTuned), the monitor always does.
+        const float* monitored = in;
+        bool tuned = engine->liveTune.enabled() && (int) engine->tuneMono.size() >= frames && (int) engine->tuneOut.size() >= frames * ch;
+        if (tuned) {
+            float* mono = engine->tuneMono.data(); float* out = engine->tuneOut.data();
+            for (int f = 0; f < frames; f++) { float m = 0; for (int c = 0; c < ch; c++) m += in[f * ch + c]; mono[f] = m / ch; }
+            engine->liveTune.process(mono, frames);
+            for (int f = 0; f < frames; f++) for (int c = 0; c < ch; c++) out[f * ch + c] = mono[f];
+            monitored = out;
+        }
+        engine->recorder.push(tuned && engine->recordTuned.load(std::memory_order_relaxed) ? monitored : in, frames);
         // Into the monitor ring, as stereo.
         size_t cap = engine->inRing.size();
         if (cap > 0) {
             size_t h = engine->inHead.load(std::memory_order_relaxed);
             for (int f = 0; f < frames; f++) {
-                float l = in[f * ch], r = ch > 1 ? in[f * ch + 1] : l;
+                float l = monitored[f * ch], r = ch > 1 ? monitored[f * ch + 1] : l;
                 engine->inRing[h] = l; engine->inRing[(h + 1) % cap] = r;
                 h = (h + 2) % cap;
             }
@@ -121,6 +132,9 @@ bool Engine::openInput(int channels, int preset) {
     inRing.assign((size_t) rate * 2, 0.0f);   // a second of stereo
     inHead = 0; inTail = 0;
     tap.assign(8192, 0.0f); tapHead = 0;
+    // A tenth of a second of scratch for the live tuner: more than any input burst Oboe hands over.
+    tuneMono.assign((size_t) rate / 10, 0.0f); tuneOut.assign((size_t) rate / 10 * inChannels, 0.0f);
+    liveTune.configure(rate);
     oboe::AudioStreamBuilder b;
     b.setDirection(oboe::Direction::Input)
      ->setPerformanceMode(oboe::PerformanceMode::LowLatency)

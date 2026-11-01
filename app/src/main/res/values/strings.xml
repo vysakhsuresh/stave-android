@@ -173,6 +173,7 @@
     <string name="sheet_eq">EQ</string>
     <string name="sheet_dynamics">Dynamics</string>
     <string name="sheet_time">Time &amp; pitch</string>
+    <string name="sheet_effects">Effects</string>
     <string name="sheet_markers">Markers</string>
     <string name="sheet_export">Export</string>
     <string name="edit_cut">Cut</string>
@@ -592,6 +593,57 @@
     <string name="beats_clear_pad">Clear pad %1$d</string>
     <string name="beats_slicing">Slicing at the hits</string>
     <string name="beats_sliced">%1$d slices on the pads; the pattern plays the new kit.</string>
+
+    <string name="voice_pause">Pause</string>
+    <string name="voice_resume">Resume</string>
+    <string name="tune_live">Tune live while monitoring</string>
+    <string name="tune_live_hint">The scale, strength and retune above, on your voice as you hear it in the headphones - about 11 ms behind. Ready the mic first.</string>
+    <string name="tune_live_hearing">Hearing %1$s → %2$s</string>
+    <string name="tune_live_quiet">Listening…</string>
+    <string name="tune_record_tuned">Record the tuned voice</string>
+    <string name="tune_record_tuned_hint">Off, the take is recorded dry and you can Tune it later with the choice kept; on, what you hear is what lands.</string>
+    <string name="studio_draw">Draw on the strip</string>
+    <string name="studio_draw_off">Off</string>
+    <string name="studio_draw_hint">With a lane chosen, a finger on the selected track draws its automation; the stroke replaces only what it covers and is thinned to the corners that matter.</string>
+    <string name="studio_write">Write fader moves while playing</string>
+    <string name="studio_write_hint">A volume or pan move while the mix plays lands as an automation point at the play-head instead of changing the track.</string>
+
+    <string name="fx_delay">Echo</string>
+    <string name="fx_chorus">Chorus</string>
+    <string name="fx_flanger">Flanger</string>
+    <string name="fx_phaser">Phaser</string>
+    <string name="fx_tremolo">Tremolo</string>
+    <string name="fx_reverb">Reverb</string>
+    <string name="fx_saturate">Saturate</string>
+    <string name="fx_crush">Crush</string>
+    <string name="fx_stereo">Stereo</string>
+    <string name="fx_time">Time</string>
+    <string name="fx_feedback">Feedback</string>
+    <string name="fx_mix">Mix</string>
+    <string name="fx_rate">Rate</string>
+    <string name="fx_depth">Depth</string>
+    <string name="fx_decay">Decay</string>
+    <string name="fx_damping">Damping</string>
+    <string name="fx_predelay">Pre-delay</string>
+    <string name="fx_drive">Drive</string>
+    <string name="fx_bits">Bits</string>
+    <string name="fx_hold">Hold</string>
+    <string name="fx_apply">Apply to the selection</string>
+    <string name="fx_swap">Swap L/R</string>
+    <string name="fx_left_both">Left on both</string>
+    <string name="fx_right_both">Right on both</string>
+    <string name="fx_balance">Balance</string>
+    <string name="fx_apply_balance">Apply balance</string>
+
+    <string name="convert_title">Convert files</string>
+    <string name="convert_hint">Any number of files from the phone, to one format, saved to Music/Stave. Tags and loudness as an export does; the rate is kept.</string>
+    <string name="convert_pick">Pick files</string>
+    <string name="convert_picked">%1$d files picked - pick again to change</string>
+    <string name="convert_more">and %1$d more</string>
+    <string name="convert_normalise">Normalise loudness</string>
+    <string name="convert_normalise_hint">Every file brought to the podcast target with a true-peak ceiling, so a set of recordings sits at one level.</string>
+    <string name="convert_go">Convert %1$d files</string>
+    <string name="convert_done">%1$d of %2$d converted</string>
 
     <!-- Notifications -->
     <string name="notification_channel">Recording and playback</string>

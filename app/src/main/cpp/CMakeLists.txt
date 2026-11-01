@@ -26,6 +26,7 @@ add_library(stave SHARED
     graph/Snapshot.cpp
     graph/Dsp.cpp
     graph/Recorder.cpp
+    graph/LiveTune.cpp
     graph/SoundFont.cpp
     graph/Stretch.cpp
     jni/stave_jni.cpp

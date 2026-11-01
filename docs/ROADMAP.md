@@ -51,14 +51,14 @@ Built-not-seen is never called done.
 - [~] Projects: ProjectStore, atomic save, ten-minute snapshots, bin with a 30-day sweep
 - [~] Waveform canvas: peaks at every zoom, selection with edge handles, fixed play-head, two-finger scroll and zoom, double tap to fit — samples-when-fine not yet (zoom stops at the peak buckets)
 - [~] Spectrogram in the selected lane (log frequency, a thousand columns at any zoom), a box dragged over it, Turn down / Remove / Fill from around on the Spectral sheet
-- [~] Edit, Gain, Fades, Repair (clicks, clipping, hum, noise, S), EQ (parametric, and 10- or 31-band graphic on the same curve), Dynamics, Time & pitch sheets — each an offline render to a new source, undoable
+- [~] Edit, Gain, Fades, Repair (clicks, clipping, hum, noise, S), EQ (parametric, and 10- or 31-band graphic on the same curve), Dynamics, Time & pitch, Effects (echo, chorus, flanger, phaser, tremolo, reverb, saturation, crusher, with their knobs; swap, one side on both, balance) sheets — each an offline render to a new source, undoable
 - [~] Markers and chapters (regions are in the model, not yet on a sheet)
 - [~] Export sheet: format, bitrate, depth, rate, mono, loudness target, tags, chapters, estimate; published to Music/Stave; Share and Open — no batch yet
-- [~] Library of exports across projects (open, share, delete the private copy)
+- [~] Library of exports across projects (open, share, delete the private copy); Convert files: any number of files to one format, through the same exporter, to Music/Stave
 - [~] Guide, Contact, About, Settings complete
 
 ## P3 — Recorder and podcast desk (v0.2)
-- [~] Recorder: arm the mic (permission asked on the first press), level meter with hold, round-trip readout, monitor switch, Record over the existing sound onto a new lane, Stop lands the take as a clip at its start (the WAV header repaired first, so a take cut short by a crash still lands)
+- [~] Recorder: arm the mic (permission asked on the first press), level meter with hold, round-trip readout, monitor switch, Record over the existing sound onto a new lane, Pause and Resume within one take, Stop lands the take as a clip at its start (the WAV header repaired first, so a take cut short by a crash still lands)
 - [~] Whisper transcript over the mix (or the selection), language chips (Indian languages first), words kept per project in transcript.json, stale flag when the sound changes under them
 - [~] Transcript editor: tap words (the sound under them becomes the selection), Delete words, Take out every um and uh; no search yet
 - [~] One-tap chain: Clean up voice (DC, denoise, de-ess, compress, loudness), Even out volume, Remove silences (adaptive threshold, min length, kept margin), Loudness to target; Duck under music is P4's (needs two tracks' levels)
@@ -68,7 +68,7 @@ Built-not-seen is never called done.
 ## P4 — Multitrack studio (v0.3)
 - [~] Arrangement strip: tracks as lanes under one play-head, clips carried by a long press, snapped to the beat grid
 - [~] Mixer: a strip per track and the master (fader, pan, mute, solo, arm, meter), inserts with live parameters, sends and buses
-- [~] Automation: volume and pan points per track, played by the graph; Duck under speech writes them; no drawn lane yet
+- [~] Automation: volume and pan lanes drawn on the strip with a finger (the stroke thinned to its corners and replacing only its span, `AutomationChecks`), written by fader moves while playing, set by points, written by Duck under speech; played by the graph
 - [~] Takes land on their own lanes; loop the selection; punch in and out over the selection; Takes chips on a track choose the lane heard (the others' clips muted as one edit); swipe comping across lanes not yet
 - [~] Bounce to a new track; every track exported as a stem; Freeze (the track alone through its inserts to one clip, inserts off, Undo unfreezes); latency compensation not yet
 - [~] MIDI controllers over USB and Bluetooth through MidiManager play the Beats tab's instrument and record into the loop (running status and real-time bytes handled); USB audio interfaces, MIDI out and MIDI clock not yet
@@ -86,7 +86,7 @@ Built-not-seen is never called done.
 - [~] Arpeggiator, swing, quantise, humanise, legato, transpose, double; MIDI files in and out; MIDI in/out/clock over USB not yet
 
 ## P7 — Vocal and live (v0.6)
-- [~] Tune: TD-PSOLA pitch correction to a scale (any note, major, minor, pentatonic in a key) with strength and retune time, over the selection (`PitchCorrectChecks`); twelve vocal effect presets from delay, chorus, flanger, tremolo, reverb, saturation and a crusher (`EffectsChecks`); a looper (a loop of bars at the play-head, each take folded into layers on their own lanes); live autotune not built - it needs pitch tracking and shifting inside the C++ callback, which this sandbox cannot compile or hear
+- [~] Tune: TD-PSOLA pitch correction to a scale (any note, major, minor, pentatonic in a key) with strength and retune time, over the selection (`PitchCorrectChecks`); twelve vocal effect presets from delay, chorus, flanger, tremolo, reverb, saturation and a crusher (`EffectsChecks`); a looper (a loop of bars at the play-head, each take folded into layers on their own lanes); **live autotune** on the monitored voice (`graph/LiveTune`: YIN on the decimated input, the nearest scale note with hysteresis, a two-tap delay-line shifter, about 11 ms behind; the rules mirrored from `LiveTuneRules`, executed in `LiveTuneChecks`; the take recorded dry or tuned) - written, never compiled or heard
 
 ## P8 — Mastering (v0.7)
 - [~] Finish tab: Measure (integrated, range, true peak, sample peak, the distance to the target), the target, Tone and Glue, Master to the target in one step; the report (correlation, balance, lows/mids/highs); Match a reference (its spectrum read off the file, the bands solved jointly, strength, Apply); Width; Three bands; Transients; Compare with before at matched loudness

@@ -26,6 +26,7 @@ enum class EditSheet(val id: String, val titleRes: Int) {
     EQ("eq", R.string.sheet_eq),
     DYNAMICS("dynamics", R.string.sheet_dynamics),
     TIME("time", R.string.sheet_time),
+    EFFECTS("effects", R.string.sheet_effects),
     MARKERS("markers", R.string.sheet_markers),
     EXPORT("export", R.string.sheet_export)
 }

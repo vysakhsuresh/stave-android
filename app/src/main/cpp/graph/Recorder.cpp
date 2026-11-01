@@ -27,7 +27,7 @@ bool Recorder::start(const std::string& path, int sampleRate, int ch) {
 }
 
 void Recorder::push(const float* in, int frames) {
-    if (!running.load(std::memory_order_relaxed)) return;
+    if (!running.load(std::memory_order_relaxed) || paused.load(std::memory_order_relaxed)) return;
     size_t n = (size_t) frames * channels;
     size_t h = head.load(std::memory_order_relaxed), t = tail.load(std::memory_order_acquire);
     size_t cap = ring.size();

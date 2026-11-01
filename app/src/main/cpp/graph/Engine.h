@@ -9,6 +9,7 @@
 #include <oboe/Oboe.h>
 #include "Dsp.h"
 #include "Recorder.h"
+#include "LiveTune.h"
 #include "Snapshot.h"
 
 namespace stave {
@@ -69,6 +70,11 @@ public:
     float inputPeak() { float p = inPeak.exchange(0.0f); return p; }
     // The most recent input samples (mono, the newest last), for the tuner; returns how many were copied.
     int readInputTap(float* out, int capacity);
+    // Live pitch correction on the monitored input (LiveTune.h); recordTuned sends the corrected voice to the take too.
+    void setLiveTune(bool on, int rootPc, int scaleMask, float strength, float retuneMs, bool recordTuned) { liveTune.setParams(on, rootPc, scaleMask, strength, retuneMs); this->recordTuned.store(recordTuned); }
+    float liveTuneHz() const { return liveTune.detectedHz(); }
+    float liveTuneTargetHz() const { return liveTune.targetHz(); }
+    void setRecordPaused(bool paused) { recorder.setPaused(paused); }
 
     // Metronome: a click on every beat, accented on the bar.
     void setMetronome(bool on, double bpm, int beatsPerBar, float gainLinear) { metroOn = on; metroBpm = bpm; metroBeats = beatsPerBar; metroGain = gainLinear; }
@@ -115,6 +121,10 @@ private:
     // A tap of the input for analysis on the UI side: a ring the input callback writes and Kotlin reads whole.
     std::vector<float> tap; std::atomic<size_t> tapHead{0};
     Recorder recorder;
+    LiveTune liveTune;
+    std::atomic<bool> recordTuned{false};
+    // Scratch for the tuned input, sized in openInput: the mono the tuner works on and it copied back to every channel.
+    std::vector<float> tuneMono, tuneOut;
     class InputCallback;
     std::unique_ptr<InputCallback> inputCallback;
 

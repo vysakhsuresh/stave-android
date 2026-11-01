@@ -161,6 +161,29 @@ object OfflineTools {
         val inter = interleave(chs); Compressor(rate, chs.size, settings).process(inter); deinterleave(inter, chs.size)
     }
 
+    /** One per-sample effect built per channel ([build] gets the rate and the channel index, so a chorus can offset its LFO on the right). */
+    fun perSample(build: (rate: Int, channel: Int) -> (Float) -> Float) = Transform { chs, rate -> chs.mapIndexed { c, a -> val fx = build(rate, c); FloatArray(a.size) { fx(a[it]) } } }
+
+    fun delay(timeMs: Double, feedback: Float, mix: Float, dampHz: Double) = perSample { r, _ -> val d = com.layerbit.stave.engine.dsp.Delay(r, timeMs, feedback, mix, dampHz); { x -> d.process(x) } }
+    fun chorus(rateHz: Double, depthMs: Double, mix: Float) = perSample { r, c -> val ch = com.layerbit.stave.engine.dsp.Chorus(r, rateHz, depthMs, 18.0, mix, if (c == 1) Math.PI / 2 else 0.0); { x -> ch.process(x) } }
+    fun flanger(rateHz: Double, depthMs: Double, feedback: Float, mix: Float) = perSample { r, _ -> val f = com.layerbit.stave.engine.dsp.Flanger(r, rateHz, depthMs, feedback, mix); { x -> f.process(x) } }
+    fun phaser(rateHz: Double, depth: Float, feedback: Float, mix: Float) = perSample { r, _ -> val p = com.layerbit.stave.engine.dsp.Phaser(r, rateHz, depth, feedback, mix); { x -> p.process(x) } }
+    fun tremolo(rateHz: Double, depth: Float) = perSample { r, _ -> val t = com.layerbit.stave.engine.dsp.Tremolo(r, rateHz, depth); { x -> t.process(x) } }
+    fun reverb(decay: Float, damping: Float, mix: Float, preDelayMs: Double) = perSample { r, _ -> val v = com.layerbit.stave.engine.dsp.Reverb(r, decay, damping, mix, preDelayMs); { x -> v.process(x) } }
+    fun saturate(drive: Float, mix: Float) = perSample { _, _ -> val sat = com.layerbit.stave.engine.dsp.Saturator(drive, mix); { x -> sat.process(x) } }
+    fun crush(bits: Int, hold: Int) = perSample { _, _ -> val cr = com.layerbit.stave.engine.dsp.Crusher(bits, hold); { x -> cr.process(x) } }
+
+    /** Stereo housekeeping: the channels swapped; one side on both; the balance moved by [db] toward the right (negative, the left). */
+    fun swapChannels() = Transform { chs, _ -> if (chs.size < 2) chs else listOf(chs[1].copyOf(), chs[0].copyOf()) + chs.drop(2) }
+    fun oneSide(right: Boolean) = Transform { chs, _ -> if (chs.size < 2) chs else { val side = chs[if (right) 1 else 0].copyOf(); listOf(side, side.copyOf()) + chs.drop(2) } }
+    fun balance(db: Double) = Transform { chs, _ ->
+        if (chs.size < 2) chs else {
+            val l = chs[0].copyOf(); val r = chs[1].copyOf()
+            if (db > 0) Gain.apply(l, Gain.dbToLinear(-db).toFloat()) else Gain.apply(r, Gain.dbToLinear(db).toFloat())
+            listOf(l, r) + chs.drop(2)
+        }
+    }
+
     fun multiband(lowHz: Double, highHz: Double, bands: List<CompressorSettings>) = Transform { chs, rate ->
         val inter = interleave(chs); com.layerbit.stave.engine.dsp.MultibandCompressor(rate, chs.size, lowHz, highHz, bands).process(inter); deinterleave(inter, chs.size)
     }
