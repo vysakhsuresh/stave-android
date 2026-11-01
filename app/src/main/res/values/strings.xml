@@ -645,6 +645,9 @@
     <string name="convert_go">Convert %1$d files</string>
     <string name="convert_done">%1$d of %2$d converted</string>
 
+    <string name="widget_record">Record</string>
+    <string name="widget_record_description">Start a recording in Stave</string>
+
     <!-- Notifications -->
     <string name="notification_channel">Recording and playback</string>
     <string name="notification_export_channel">Exports</string>

@@ -96,4 +96,4 @@ back into the roadmap with what broke.
 67. Edit → Effects: each of the eight on a spoken line sounds like its name and none clips; Stereo → Swap L/R on a file with speech on the left puts it on the right; Balance +6 dB leans right.
 68. Voice → Record, Pause after five seconds, wait, Resume, Stop: one take whose length is the recorded time without the pause, with no click at the join.
 69. Home → Convert files: pick six files of mixed formats, MP3 192: six files land in Music/Stave with their names, the list says 6 of 6, and the cache holds no scratch folder afterwards (`run-as … ls cache`).
-
+70. Long-press the home screen → widgets → Stave → Record: the pill lands; a tap opens the app on the Voice tab with the mic armed (the same route as the launcher shortcut); TalkBack reads "Start a recording in Stave".

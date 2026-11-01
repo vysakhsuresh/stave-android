@@ -138,5 +138,12 @@
             tools:node="merge">
             <meta-data android:name="androidx.emoji2.text.EmojiCompatInitializer" tools:node="remove" />
         </provider>
+        <!-- A home-screen button that starts a recording (widget/RecordWidget). -->
+        <receiver android:name=".widget.RecordWidget" android:exported="true" android:label="@string/widget_record">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_record_info" />
+        </receiver>
     </application>
 </manifest>
