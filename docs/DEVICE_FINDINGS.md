@@ -169,3 +169,15 @@ of that test is still open in `docs/PENDING_TESTS.md`.
   model (59.7 MB) and the full APK carries it in its own assets. bundletool not run here.
 - Both release builds (R8-minified) built; the minified perf build ran every tab without a
   missing class. **Not signed yet: the owner's keystore is needed.**
+
+**Every Edit tool on a selection (2 November)**
+- Fades, Remove clicks, Repair clipping, EQ, Dynamics and Effects (Delay) each rendered and
+  made one undo step in about 5 s, with no crash; Undo took each back. Gain and Time & pitch at
+  their defaults change nothing and make no step.
+- Time & pitch through Rubber Band (never run before): +12.6 semitones on a 440 Hz tone gave
+  913 Hz (expected 911); on speech the level held (-18.5 -> -18.7 dBFS RMS). On a pure tone
+  the level falls by 36 dB, which is the voice-character (formant) option doing its job.
+- 86 (part): Ctrl+A from the keyboard selected the whole 8 s session.
+- 34, 64: the tuners were fed a 440 Hz tone through the phone's own speaker, but the media
+  volume was at -39 dB and only 2% of what the mic caught was the tone; both read
+  "Listening…". **Needs a sung or played note.**
