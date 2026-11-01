@@ -136,3 +136,17 @@ of that test is still open in `docs/PENDING_TESTS.md`.
   not heard.**
 - 45 (part): the Beats tab's controls are named; the grid is one node described as
   "Pattern A: 7 notes over 16 steps…".
+
+**Speed, on the release build (perf), 2 November** (STEP 6)
+- Scrub, 12 drags across the strip: UI thread median 5.0 ms, p90 6.3 ms a frame (gate: under
+  8 ms); RenderThread median 10.2 ms; 3.1% janky frames (was 6.3% before the waveform's lines
+  were batched).
+- At rest: 0 frames rendered in 10 s (gate: 0).
+- Play: 377 frames in 5 s, 0.27% janky, after the play-head followed the frame clock and the
+  display was asked for 60 Hz while playing (before: 32 frames a second, 99% late).
+- Graph CPU: with one stereo track playing, the audio thread used about 5% of a core
+  (`top -H`). **24 tracks not yet measured.**
+- Master to Streaming on a 5:48 song: 47-62 s; Measure about 40 s. Both ran out of memory
+  before the whole-song tools were made to stream.
+- 28: Master to Streaming music: -14.4 LUFS, -1.0 dBTP (target -14, -1); true peak had been
+  -0.5 dBTP before the limiter's margin and the true-peak trim.
