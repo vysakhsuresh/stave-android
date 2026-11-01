@@ -50,6 +50,7 @@ import com.layerbit.stave.ui.components.ToggleRow
 import com.layerbit.stave.ui.components.ValueSlider
 import com.layerbit.stave.ui.editor.EditorViewModel
 import com.layerbit.stave.ui.theme.StaveColors
+import com.layerbit.stave.ui.theme.ToolAccents
 
 /**
  * The Voice tab: a recorder with a meter, the transcript as words you can select and delete,
@@ -205,7 +206,7 @@ fun VoicePanel(vm: EditorViewModel, ui: EditorViewModel.Ui, modifier: Modifier =
                 val heard = voice.liveHeardHz; val target = voice.liveTargetHz
                 Text(
                     if (heard > 0f && target > 0f) stringResource(R.string.tune_live_hearing, com.layerbit.stave.engine.dsp.Notes.name(com.layerbit.stave.engine.dsp.Notes.nearest(heard.toDouble())), com.layerbit.stave.engine.dsp.Notes.name(com.layerbit.stave.engine.dsp.Notes.nearest(target.toDouble()))) else stringResource(R.string.tune_live_quiet),
-                    style = MaterialTheme.typography.titleMedium, color = StaveColors.Voice, modifier = Modifier.padding(top = 6.dp)
+                    style = MaterialTheme.typography.titleMedium, color = ToolAccents.Voice, modifier = Modifier.padding(top = 6.dp)
                 )
                 ToggleRow(stringResource(R.string.tune_record_tuned), voice.recordTuned, { vm.setLiveTune(true, kind, root, strength.toDouble(), retune.toDouble(), recordTuned = it) }, detail = stringResource(R.string.tune_record_tuned_hint))
             }
@@ -216,7 +217,7 @@ fun VoicePanel(vm: EditorViewModel, ui: EditorViewModel.Ui, modifier: Modifier =
             var preset by remember { mutableStateOf("doubler") }
             ChipRow(options = com.layerbit.stave.engine.dsp.VocalPresets.all.map { it.id to it.label }, selected = preset, onSelect = { preset = it }, modifier = Modifier.padding(vertical = 8.dp))
             Text(com.layerbit.stave.engine.dsp.VocalPresets.byId(preset)?.note ?: "", style = MaterialTheme.typography.bodySmall, color = StaveColors.Dim)
-            PrimaryButton(stringResource(R.string.fx_apply, com.layerbit.stave.engine.dsp.VocalPresets.byId(preset)?.label ?: ""), onClick = { vm.applyEffect(preset) }, tall = false, modifier = Modifier.fillMaxWidth().padding(top = 8.dp), enabled = ui.session.length > 0)
+            PrimaryButton(stringResource(R.string.fx_apply_preset, com.layerbit.stave.engine.dsp.VocalPresets.byId(preset)?.label ?: ""), onClick = { vm.applyEffect(preset) }, tall = false, modifier = Modifier.fillMaxWidth().padding(top = 8.dp), enabled = ui.session.length > 0)
         }
         // ---- Clean up ----
         Panel(modifier = Modifier.fillMaxWidth()) {

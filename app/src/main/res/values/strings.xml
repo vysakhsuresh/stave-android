@@ -252,7 +252,7 @@
     <string name="dyn_apply">Apply to the sound</string>
     <string name="time_stretch">Length</string>
     <string name="time_pitch">Pitch</string>
-    <string name="time_formant">Keep the voice's character</string>
+    <string name="time_formant">Keep the voice\'s character</string>
     <string name="time_apply">Apply</string>
     <string name="time_speed">Speed (pitch follows)</string>
     <string name="time_speed_apply">Change speed</string>
@@ -293,7 +293,7 @@
     <string name="voice_latency">Round trip about %1$s</string>
     <string name="voice_level">Input level</string>
     <string name="voice_permission">Stave needs the microphone to record. Nothing recorded leaves the phone.</string>
-    <string name="voice_permission_denied">The microphone was refused. Allow it in the phone's Settings to record.</string>
+    <string name="voice_permission_denied">The microphone was refused. Allow it in the phone\'s Settings to record.</string>
     <string name="voice_recording">Recording · %1$s</string>
     <string name="voice_dropped">%1$d frames were dropped while writing. The take is kept; the storage was slow.</string>
     <string name="voice_take_name">Take %1$d</string>
@@ -377,7 +377,7 @@
     <string name="finish_glue">Glue</string>
     <string name="finish_width">Width</string>
     <string name="finish_master">Master to %1$s</string>
-    <string name="finish_master_hint">Tone, a gentle compressor for glue, a true-peak limiter at the target's ceiling, and the loudness brought to the target. One step; Undo takes it all back.</string>
+    <string name="finish_master_hint">Tone, a gentle compressor for glue, a true-peak limiter at the target\'s ceiling, and the loudness brought to the target. One step; Undo takes it all back.</string>
     <string name="finish_not_measured">Not measured yet.</string>
     <string name="finish_compare">Compare with before, level matched</string>
     <string name="finish_compare_hint">Plays the mix as it was before the last step, %1$s to match loudness, so you hear the colour and not the level.</string>
@@ -436,7 +436,7 @@
     <string name="tune_retune">Retune time</string>
     <string name="tune_apply">Tune the selection</string>
     <string name="fx_title">Effects</string>
-    <string name="fx_apply">Apply %1$s</string>
+    <string name="fx_apply_preset">Apply %1$s</string>
 
     <!-- Library -->
     <string name="library_title">Library</string>
@@ -475,7 +475,7 @@
     <string name="music_speed">Speed</string>
     <string name="music_transpose">Transpose</string>
     <string name="music_practice_apply">Make a practice copy</string>
-    <string name="music_click_to_beats">Click follows the song's beats</string>
+    <string name="music_click_to_beats">Click follows the song\'s beats</string>
     <string name="music_markers_from_beats">Mark every bar</string>
     <string name="music_to_midi">Notes to MIDI</string>
     <string name="music_to_midi_hint">The melody of the selection as notes, onto a new MIDI pattern on the Beats tab.</string>
