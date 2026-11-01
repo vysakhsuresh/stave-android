@@ -273,6 +273,24 @@ void Engine::renderTrack(const Snapshot& s, int t, int64_t pos, int frames, floa
         const Source& src = *s.sources[c.source];
         if (!src.data) continue;
         int64_t from = std::max(pos, c.position), to = std::min(pos + frames, c.end());
+        // The common case, a clip at its own rate, forwards, with no fade or envelope in this
+        // block: the Hermite interpolation reduces to the sample itself, so copy with the gain.
+        // At 24 tracks the per-sample interpolation took the audio thread to 35% of a core on the
+        // moto (1 Nov 2026).
+        if (c.stretch == 1.0 && !c.reversed && c.envelope.empty()
+            && (c.fadeIn <= 0 || from - c.position >= c.fadeIn)
+            && (c.fadeOut <= 0 || to - c.position <= c.length - c.fadeOut)) {
+            int64_t s0 = c.offset + (from - c.position);
+            const int sc = src.channels;
+            for (int64_t tl = from; tl < to; tl++, s0++) {
+                int o = (int) (tl - pos) * 2;
+                if (s0 < 0 || s0 >= src.frames) continue;
+                const float* p = src.data + s0 * sc;
+                buf[o] += p[0] * c.gain;
+                buf[o + 1] += (sc > 1 ? p[1] : p[0]) * c.gain;
+            }
+            continue;
+        }
         for (int64_t tl = from; tl < to; tl++) {
             int64_t local = tl - c.position;
             double srcPos = c.reversed ? c.offset + (double) (c.length - 1 - local) / c.stretch : c.offset + (double) local / c.stretch;

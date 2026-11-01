@@ -60,6 +60,36 @@ class Peaks private constructor(
         }
     }
 
+    /**
+     * [columns] the same as [columns], written as min, max, rms triples into [out] (at least
+     * 3 x columns long) instead of one object per column: the strip asks this of every lane every
+     * frame, and 24 lanes made the UI thread spend 12 ms a frame playing (1 Nov 2026).
+     */
+    fun columnsInto(fromSample: Long, toSample: Long, columns: Int, out: FloatArray) {
+        require(columns > 0 && out.size >= columns * 3)
+        val span = max(1L, toSample - fromSample)
+        val samplesPerColumn = span.toDouble() / columns
+        var level = 0
+        while (level + 1 < levels.size && bucketSamples(level + 1) * 2 <= samplesPerColumn) level++
+        val data = levels[level]
+        val bucket = bucketSamples(level)
+        val count = bucketCount(level)
+        for (c in 0 until columns) {
+            val s0 = fromSample + (c * samplesPerColumn).toLong()
+            val s1 = fromSample + ((c + 1) * samplesPerColumn).toLong()
+            val b0 = (s0 / bucket).toInt()
+            val b1 = max(b0 + 1, ((s1 + bucket - 1) / bucket).toInt())
+            var lo = 0f; var hi = 0f; var sq = 0.0; var n = 0
+            for (b in max(b0, 0) until min(b1, count)) {
+                val mn = data[b * 3]; val mx = data[b * 3 + 1]; val r = data[b * 3 + 2]
+                if (mn < lo) lo = mn
+                if (mx > hi) hi = mx
+                sq += r.toDouble() * r; n++
+            }
+            out[c * 3] = lo; out[c * 3 + 1] = hi; out[c * 3 + 2] = if (n == 0) 0f else sqrt(sq / n).toFloat()
+        }
+    }
+
     /** The loudest absolute sample in the whole file, for normalising the drawing. */
     val peak: Float by lazy {
         val top = levels.last()

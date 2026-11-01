@@ -66,5 +66,14 @@ object PeaksChecks : Suite {
         check(Ruler.majorMs(100.0, rate) == 200L) { "at 100 spp a label every ${Ruler.majorMs(100.0, rate)} ms" }
         check(Ruler.majorMs(20_000.0, rate) >= 30_000L) { "zoomed out, long intervals" }
         check(Ruler.minorPerMajor(1000) == 5 && Ruler.minorPerMajor(15_000) == 3 && Ruler.minorPerMajor(120_000) == 4) { "minor ticks" }
+
+        section("columnsInto writes exactly what columns returns, at every zoom")
+        val rnd = java.util.Random(7)
+        val sig = FloatArray(300_000) { (rnd.nextGaussian() * 0.3).toFloat() }
+        val pk = com.layerbit.stave.engine.wave.Peaks.of(sig, 48_000)
+        for ((from, to, cols) in listOf(Triple(0L, 300_000L, 1000), Triple(1234L, 5678L, 300), Triple(-5000L, 400_000L, 777), Triple(100L, 101L, 50))) {
+            val a = pk.columns(from, to, cols); val b = FloatArray(cols * 3); pk.columnsInto(from, to, cols, b)
+            for (i in 0 until cols) check(a[i].min == b[i * 3] && a[i].max == b[i * 3 + 1] && a[i].rms == b[i * 3 + 2]) { "column $i of $from..$to/$cols differs" }
+        }
     }
 }

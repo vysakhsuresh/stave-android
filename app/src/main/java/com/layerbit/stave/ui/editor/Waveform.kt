@@ -351,26 +351,35 @@ private fun DrawScope.drawClip(clip: com.layerbit.stave.engine.project.Clip, sou
     val wave = if (muted) StaveColors.Dim else StaveColors.Wave
     val rms = if (muted) StaveColors.Dim else StaveColors.WaveRms
     for (c in 0 until channels) {
-        val cols = if (clip.reversed) peaks[c].columns(srcStart, srcEnd, columns).reversedArray() else peaks[c].columns(srcStart, srcEnd, columns)
+        // Columns into one reused buffer (Peaks.columnsInto), lines into two more: no object per
+        // column and no array per lane per frame. With 24 lanes the UI thread spent 12 ms a frame.
+        val buf = DrawBuffers.get(columns)
+        peaks[c].columnsInto(srcStart, srcEnd, columns, buf.cols)
         val mid = top + chHeight * c + chHeight / 2
         val scale = (chHeight / 2 - 2f)
-        // Every column's line in one native drawLines call per colour: a drawLine per pixel column
-        // was ~4000 draw commands a frame, and the RenderThread took 17 ms a frame scrubbing.
-        val peaksLines = FloatArray(cols.size * 4); val rmsLines = FloatArray(cols.size * 4); var nr = 0
-        for ((i, col) in cols.withIndex()) {
+        var nr = 0
+        for (i in 0 until columns) {
+            val k = if (clip.reversed) columns - 1 - i else i
             val x = left + i + 0.5f
-            val yMax = mid - col.max.coerceIn(-1f, 1f) * scale
-            val yMin = mid - col.min.coerceIn(-1f, 1f) * scale
-            peaksLines[i * 4] = x; peaksLines[i * 4 + 1] = min(yMax, yMin); peaksLines[i * 4 + 2] = x; peaksLines[i * 4 + 3] = max(yMax, yMin) + 1f
-            val r = col.rms.coerceIn(0f, 1f) * scale
-            if (r > 0.5f) { rmsLines[nr] = x; rmsLines[nr + 1] = mid - r; rmsLines[nr + 2] = x; rmsLines[nr + 3] = mid + r; nr += 4 }
+            val yMax = mid - buf.cols[k * 3 + 1].coerceIn(-1f, 1f) * scale
+            val yMin = mid - buf.cols[k * 3].coerceIn(-1f, 1f) * scale
+            buf.peaks[i * 4] = x; buf.peaks[i * 4 + 1] = min(yMax, yMin); buf.peaks[i * 4 + 2] = x; buf.peaks[i * 4 + 3] = max(yMax, yMin) + 1f
+            val r = buf.cols[k * 3 + 2].coerceIn(0f, 1f) * scale
+            if (r > 0.5f) { buf.rms[nr] = x; buf.rms[nr + 1] = mid - r; buf.rms[nr + 2] = x; buf.rms[nr + 3] = mid + r; nr += 4 }
         }
         drawIntoCanvas { canvas ->
-            val paint = android.graphics.Paint().apply { strokeWidth = 1f; isAntiAlias = false }
-            paint.color = wave.toArgb(); canvas.nativeCanvas.drawLines(peaksLines, 0, cols.size * 4, paint)
-            if (nr > 0) { paint.color = rms.toArgb(); canvas.nativeCanvas.drawLines(rmsLines, 0, nr, paint) }
+            val paint = buf.paint
+            paint.color = wave.toArgb(); canvas.nativeCanvas.drawLines(buf.peaks, 0, columns * 4, paint)
+            if (nr > 0) { paint.color = rms.toArgb(); canvas.nativeCanvas.drawLines(buf.rms, 0, nr, paint) }
         }
     }
+}
+
+/** Scratch for drawing waveforms, grown to the widest clip seen; drawing is on the main thread only. */
+private object DrawBuffers {
+    class Set(n: Int) { val cols = FloatArray(n * 3); val peaks = FloatArray(n * 4); val rms = FloatArray(n * 4); val paint = android.graphics.Paint().apply { strokeWidth = 1f; isAntiAlias = false } }
+    private var set = Set(2048)
+    fun get(columns: Int): Set { if (set.cols.size < columns * 3) set = Set(columns * 2); return set }
 }
 
 /**
