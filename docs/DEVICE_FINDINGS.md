@@ -93,3 +93,18 @@ of that test is still open in `docs/PENDING_TESTS.md`.
 - Tapping "lazy" and "dog." selected 1.76-2.49 s; Delete 2 words cut 771 ms as one undo step
   ("Undo Delete words"), and every later word moved up by 770 ms. **Play on the two words not
   heard.** Hindi and Malayalam wait for the small model (not on the phone).
+
+**Fillers, silences, clean-up (PENDING 19-21)**
+- 19: Read aloud "So um, I think we should, uh, go home now. Um, yes." and Transcribe: whisper
+  kept all three fillers. Take out every um and uh: three cuts, 1.35 s (4 940 → 3 590 ms), one
+  undo step. **Undo restored the sound but not the transcript** (fillers gone, later words
+  1.35 s early); fixed so the transcript moves with the history, then seen: Undo 4 940 ms with
+  the fillers, Redo 3 590 ms without.
+- 20: Remove silences at the default "longer than 800 ms" left a clip whose longest pause was
+  590 ms alone (right); at 399 ms with 200 ms kept it shortened that pause by 260 ms as one
+  step, and the later words moved up by exactly 260 ms. The message read "1 pauses"; counts
+  are plurals now.
+- 21: Clean up voice on a mono read-aloud clip ran as one step, but Finish → Measure then read
+  the mix at -13.1 LUFS against a -16 target: a mono source was measured as mono and played
+  on two channels (+3 LU). Fixed (`integratedAsPlayed`, LoudnessChecks); **the re-measure on
+  the phone after the fix is still to do** (the phone dropped off the network mid-test).

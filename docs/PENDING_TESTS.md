@@ -15,9 +15,7 @@ back into the roadmap with what broke.
 
 ## P3 — the Voice tab
 18. (English seen 1 Nov 2026) Listen to Play on two tapped words: just those two are heard. Hindi and Malayalam in their own scripts with the small model (imported through Settings, or pushed by `run-as` into `files/models/`).
-19. "Take out every um and uh" on a take with three ums: three cuts, one Undo.
-20. Remove silences with the defaults on a take with two long pauses: the pauses shrink to the kept margin; the transcript's later words still sit under their sounds.
-21. Clean up voice on a noisy phone recording: the hiss drops, the S sounds soften, the level lands at -16 LUFS (read the Export sheet's measurement after an export).
+21. Clean up voice on a noisy phone recording: the hiss drops, the S sounds soften (listen), and Finish → Measure reads -16 LUFS within 0.5 LU (the mono fix of 1 Nov 2026 not yet re-measured).
 
 ## P2b/P4/P8 — spectral, studio, finish
 22. Spectral sheet → Show the spectrogram: the selected lane shows the picture within half a second; a box dragged over a whistle, Remove: the whistle goes and the words under it stay (listen, then look at the picture again).
