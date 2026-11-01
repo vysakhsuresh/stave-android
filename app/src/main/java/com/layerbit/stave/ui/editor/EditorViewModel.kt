@@ -125,8 +125,16 @@ class EditorViewModel(private val app: StaveApplication, val projectId: String) 
         _ui.value = _ui.value.copy(window = _ui.value.window.copy(playhead = f))
     }
     fun followPlayhead(frame: Long) { if (transport.state.value.playing) _ui.value = _ui.value.copy(window = _ui.value.window.copy(playhead = frame)) }
+    private var captureFrom = 0L
     fun togglePlay() {
-        if (transport.state.value.playing) transport.pause()
+        if (transport.state.value.playing) {
+            transport.pause()
+            if (com.layerbit.stave.BuildConfig.DEBUG) {
+                // The live output against the source, sample by sample, on the laptop: CLAUDE.md says how.
+                val n = transport.captureSave(java.io.File(app.cacheDir, "capture.f32"))
+                android.util.Log.i("StaveGraph", "capture: $n frames from frame $captureFrom")
+            }
+        }
         else {
             // A selection is heard once, from its start to its end; nothing loops unless the
             // looper set it. Play used to loop the selection, and on the phone a drag that made
@@ -135,6 +143,7 @@ class EditorViewModel(private val app: StaveApplication, val projectId: String) 
             if (!_looper.value.active) transport.setLoop(null)
             if (sel != null && !_looper.value.active) { seek(sel.first); transport.setPlayEnd(sel.last + 1) }
             else { transport.seek(_ui.value.window.playhead); transport.setPlayEnd(-1) }
+            if (com.layerbit.stave.BuildConfig.DEBUG) { captureFrom = if (sel != null && !_looper.value.active) sel.first else _ui.value.window.playhead; transport.captureStart(30) }
             transport.play()
         }
     }
@@ -1842,7 +1851,14 @@ class EditorViewModel(private val app: StaveApplication, val projectId: String) 
 
     fun startLoop() {
         if (currentPattern == null) newPattern()
-        if (transport.state.value.playing) transport.pause()
+        if (transport.state.value.playing) {
+            transport.pause()
+            if (com.layerbit.stave.BuildConfig.DEBUG) {
+                // The live output against the source, sample by sample, on the laptop: CLAUDE.md says how.
+                val n = transport.captureSave(java.io.File(app.cacheDir, "capture.f32"))
+                android.util.Log.i("StaveGraph", "capture: $n frames from frame $captureFrom")
+            }
+        }
         val pl = ensurePlayer()
         refreshInstrument(); refreshLoop()
         pl.startLoop()

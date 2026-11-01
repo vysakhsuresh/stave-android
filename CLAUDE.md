@@ -153,6 +153,13 @@ before writing the fix.
   `Waveform.kt`'s `labelAt` measures at the text's own width and clips.
 - **A missing `}` in Compose compiles.** The Export sheet's Artist/Album row swallowed the next
   row, which took the width and left two fields a few pixels wide. Only a screenshot showed it.
+- **Live playback is checked the same way: debug builds capture it.** Play starts a 30 s capture
+  of exactly what the output callback hands the speaker; Pause writes it to `cache/capture.f32`
+  and logs `StaveGraph: capture: N frames from frame F`. Pull it with `run-as ... cat`, pull the
+  source with `run-as ... dd if=files/projects/<id>/media/<src>.f32 bs=384000 count=N` (cut the
+  80 bytes of dd statistics exec-out appends), and diff with `od -tf4` and awk. On 1 November
+  12.4 s of a song came back bit-exact. The owner had heard "terrible" sound: Play was looping
+  a selection an accidental drag had made.
 - **Driving the phone**: `uiautomator dump` text matches are substrings unless anchored ("320"
   matched a sentence before the chip); a sheet's own buttons share names with the chip row
   ("Export"), so tap by position after checking the dump; a swipe starting below a sheet's

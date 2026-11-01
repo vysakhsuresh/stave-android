@@ -83,6 +83,9 @@ class Transport(private val scope: CoroutineScope) {
     fun setLoop(range: LongRange?) { if (handle != 0L) EngineNative.setLoop(handle, range?.first ?: 0, range?.let { it.last + 1 } ?: 0, range != null) }
     /** Play stops by itself at [end] (a frame), or runs on when it is -1. */
     fun setPlayEnd(end: Long) { if (handle != 0L) EngineNative.setPlayEnd(handle, end) }
+    /** Debug builds: record what the callback plays (a diff against the source finds dropouts). */
+    fun captureStart(seconds: Int) { if (handle != 0L) EngineNative.captureStart(handle, seconds) }
+    fun captureSave(file: java.io.File): Long = if (handle != 0L) EngineNative.captureSave(handle, file.path) else -1
     fun setStopAtEnd(on: Boolean) { if (handle != 0L) EngineNative.setStopAtEnd(handle, on) }
 
     /** A fader under the finger: heard at once, folded into the next snapshot on release. */

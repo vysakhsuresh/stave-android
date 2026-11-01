@@ -1,6 +1,7 @@
 // The render graph: one Oboe output stream, an optional input stream, a snapshot of the session
 // read lock-free by the callback, and the transport. ARCHITECTURE.md draws it.
 #pragma once
+#include <algorithm>
 #include <atomic>
 #include <memory>
 #include <mutex>
@@ -49,6 +50,10 @@ public:
     void setLoop(int64_t start, int64_t end, bool enabled) { loopStart = start; loopEnd = end; loopOn = enabled; }
     // Play stops by itself here (a selection heard once); -1 for no stop short of the end.
     void setPlayEnd(int64_t end) { playEnd = end; }
+    // Debug: what the output callback hands the speaker, kept for a diff against the source.
+    void captureStart(int seconds) { std::lock_guard<std::mutex> owner(renderLock); capturing = false; capture.assign((size_t) std::max(1, seconds) * (size_t) rate * 2, 0.0f); captureAt = 0; capturing = true; }
+    size_t captureStop() { std::lock_guard<std::mutex> owner(renderLock); capturing = false; return captureAt.load(); }
+    const float* captureData() const { return capture.data(); }
     void setStopAtEnd(bool v) { stopAtEnd = v; }
 
     // Live overrides for a fader under the finger: applied until the next snapshot carries the value.
@@ -115,6 +120,7 @@ private:
     std::atomic<int64_t> loopStart{0}, loopEnd{0};
     std::atomic<bool> loopOn{false}, stopAtEnd{true};
     std::atomic<int64_t> playEnd{-1};
+    std::vector<float> capture; std::atomic<size_t> captureAt{0}; std::atomic<bool> capturing{false};
     std::atomic<int> xrunCount{0};
 
     std::vector<TrackState> trackStates;

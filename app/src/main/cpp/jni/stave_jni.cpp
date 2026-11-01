@@ -49,6 +49,18 @@ JNIEXPORT void JNICALL FN(seek)(JNIEnv*, jclass, jlong h, jlong frame) { ENGINE(
 JNIEXPORT jlong JNICALL FN(position)(JNIEnv*, jclass, jlong h) { return ENGINE(h)->getPosition(); }
 JNIEXPORT void JNICALL FN(setLoop)(JNIEnv*, jclass, jlong h, jlong start, jlong end, jboolean on) { ENGINE(h)->setLoop(start, end, on); }
 JNIEXPORT void JNICALL FN(setPlayEnd)(JNIEnv*, jclass, jlong h, jlong end) { ENGINE(h)->setPlayEnd(end); }
+JNIEXPORT void JNICALL FN(captureStart)(JNIEnv*, jclass, jlong h, jint seconds) { ENGINE(h)->captureStart(seconds); }
+// Stops the debug capture and writes it to [path] as raw interleaved stereo floats; returns frames.
+JNIEXPORT jlong JNICALL FN(captureSave)(JNIEnv* env, jclass, jlong h, jstring path) {
+    size_t n = ENGINE(h)->captureStop();
+    const char* p = env->GetStringUTFChars(path, nullptr);
+    FILE* f = std::fopen(p, "wb");
+    env->ReleaseStringUTFChars(path, p);
+    if (!f) return -1;
+    std::fwrite(ENGINE(h)->captureData(), sizeof(float), n, f);
+    std::fclose(f);
+    return (jlong) (n / 2);
+}
 JNIEXPORT void JNICALL FN(setStopAtEnd)(JNIEnv*, jclass, jlong h, jboolean on) { ENGINE(h)->setStopAtEnd(on); }
 
 JNIEXPORT void JNICALL FN(setTrackVolume)(JNIEnv*, jclass, jlong h, jint track, jfloat gain) { ENGINE(h)->setTrackVolume(track, gain); }

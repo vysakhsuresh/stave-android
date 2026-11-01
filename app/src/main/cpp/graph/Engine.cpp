@@ -412,6 +412,11 @@ oboe::DataCallbackResult Engine::onAudioReady(oboe::AudioStream* stream, void* a
     while (done < numFrames) {
         int n = std::min(numFrames - done, MAX_BLOCK);
         processBlock(outBuf + done * 2, n);
+        if (capturing.load(std::memory_order_relaxed)) {
+            size_t at = captureAt.load(std::memory_order_relaxed), take = std::min((size_t) n * 2, capture.size() - at);
+            std::copy(outBuf + done * 2, outBuf + done * 2 + take, capture.begin() + (long) at);
+            captureAt.store(at + take, std::memory_order_relaxed);
+        }
         done += n;
     }
     if (latencyTuner) latencyTuner->tune();

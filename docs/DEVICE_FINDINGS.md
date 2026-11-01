@@ -108,3 +108,13 @@ of that test is still open in `docs/PENDING_TESTS.md`.
   the mix at -13.1 LUFS against a -16 target: a mono source was measured as mono and played
   on two channels (+3 LU). Fixed (`integratedAsPlayed`, LoudnessChecks); **the re-measure on
   the phone after the fix is still to do** (the phone dropped off the network mid-test).
+
+**Playback quality, gestures and the icon (the owner's own test, evening)**
+- The owner played songs and reported bad sound and that dragging made selections. Measured:
+  the decoded MP3s are healthy (smooth, channels 0.99 correlated, nothing clipped); the cause
+  was Play looping whatever was selected, and a drag selecting. Fixed: a drag scrolls (and
+  seeks), hold-then-drag selects, Play hears a selection once.
+- **Measured: live playback is bit-exact.** The debug capture of the output callback, 593 472
+  frames (12.4 s of Kalimba from frame 0), equals the decoded source sample for sample (zero
+  difference). The stream's underrun counter stayed at 0 through 20 s of playback.
+- The launcher icon was replaced (ink waveform on Signal lime).
