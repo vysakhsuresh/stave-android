@@ -49,3 +49,32 @@ of that test is still open in `docs/PENDING_TESTS.md`.
 - Found and fixed on the way: the first Undo after opening read "Undo Rename" (the session's
   name was a second step); Settings → Input listed "moto g84 5G (phone)" twice and the FM
   tuner, now "Phone mic (bottom)" and "Phone mic (back)" only.
+
+**The editor, export and the recorder (PENDING 10-17)**
+- 10: the MP3 decoded to `media/<id>.f32` (16 706 665 frames at 48 kHz = 348.06 s, the file's
+  5:48); peaks, waveform and Play as above. Opened by a share, not the picker (the system
+  picker cannot be driven over adb). **Not heard.**
+- 11: the 44.1 kHz MP3 was resampled to the 48 kHz session at decode, length exact (above).
+  **Pitch not heard.**
+- 12: a 2.09 s selection, Repair → Remove clicks: a new 2.095 s source in `media/`, the clip
+  split in three with the middle on it; Undo put the single original clip back. The work
+  finished inside 0.4 s, so the busy card was not caught. **Not heard.**
+- 13: Export MP3 320 with a title and a chapter marker at 2.77 s: `Music/Stave/Stave first
+  export.mp3`, MPEG-1 layer III 320 kbps 48 kHz stereo, ID3v2.4 with TIT2 and a CTOC/CHAP
+  "Chapter 1" from 2 772 to 6 104 ms (read from the bytes); MediaStore reads the title. FLAC
+  24-bit: 292 994 samples, exactly the source's frames. WAV 24-bit: **the first one was wrong**
+  (192 frames late, three bursts doubled; the offline render raced the output callback, fixed
+  with `renderLock`); the export after the fix equals the source sample for sample. The result
+  card reads size, LUFS and true peak, with Share and Open. Not played in a music app.
+- 14: the editor, Repair, Markers and Export sheets dump with 0 NAF once each control is fully
+  on screen (a field cut by the sheet's edge dumps as NAF with no text; that is uiautomator).
+  The Export sheet's Artist/Album fields were crushed by a brace slip; fixed.
+- 15: Ready the mic: the permission dialog showed once; the input opened with
+  `AUDIO_SOURCE_UNPROCESSED`; "Round trip about 92 ms"; the meter rose when the speaker played.
+- 16: Record over the clip while it played: "Take 1" landed on a second lane of Track 1 at
+  frame 181 824 (3.79 s; the recording began at about 3.84 s by the clock), the first clip
+  untouched; `takes/` holds the WAV (8.9 s, float mono) and `media/` the `.f32` copy.
+  **The two together not heard.**
+- 17: force-stopped mid-take: the WAV's RIFF and data sizes read 0xFFFFFFFF. Nothing sweeps the
+  orphaned take into the project yet (as the test says, not written).
+- 86 (part): typing spaces in the Export sheet's Title field did not start the transport.
