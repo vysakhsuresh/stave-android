@@ -14,9 +14,12 @@ find_package(oboe REQUIRED CONFIG)
 include(FetchContent)
 FetchContent_Declare(
     rubberband
-    URL https://breakfastquay.com/files/releases/rubberband-4.0.0.tar.bz2
-    # Pin the hash after the first build prints it (cmake -DFETCHCONTENT_QUIET=OFF shows the download):
-    # URL_HASH SHA256=<fill in from the first download>
+    # GitHub's tag archive, not breakfastquay.com's tarball: CMake 3.22's curl on Windows
+    # (schannel) fails the TLS handshake with breakfastquay.com, so the laptop could not
+    # configure. The two archives' sources were compared file by file on 1 November 2026 and
+    # are identical (the official one adds .hg_archival.txt, GitHub's adds otherbuilds/deploy).
+    URL https://github.com/breakfastquay/rubberband/archive/refs/tags/v4.0.0.tar.gz
+    URL_HASH SHA256=24300f48a8014b7c863b573a9647e61b1b19b37875e2cdd92005e64c6424d266
 )
 FetchContent_MakeAvailable(rubberband)
 
