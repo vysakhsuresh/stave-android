@@ -1,5 +1,7 @@
 package com.layerbit.stave.ui.library
 
+import androidx.compose.material.icons.outlined.Share
+import androidx.compose.material.icons.outlined.Delete
 import android.content.Context
 import android.content.Intent
 import androidx.compose.foundation.layout.Arrangement
@@ -78,8 +80,8 @@ fun LibraryScreen(modifier: Modifier = Modifier) {
                                     Pill(formatBytes(e.file.length()), StaveColors.Muted, numeric = true)
                                 }
                             }
-                            RoundIconButton(iconRes = R.drawable.ic_contact, contentDescription = stringResource(R.string.app_share), onClick = { share(context, e.file, mime) }, size = 36.dp)
-                            RoundIconButton(iconRes = R.drawable.ic_plus, contentDescription = stringResource(R.string.app_delete), onClick = { removing = e }, size = 36.dp)
+                            RoundIconButton(icon = androidx.compose.material.icons.Icons.Outlined.Share, contentDescription = stringResource(R.string.app_share), onClick = { share(context, e.file, mime) }, size = 36.dp)
+                            RoundIconButton(icon = androidx.compose.material.icons.Icons.Outlined.Delete, contentDescription = stringResource(R.string.app_delete), onClick = { removing = e }, size = 36.dp)
                         }
                     }
                 }

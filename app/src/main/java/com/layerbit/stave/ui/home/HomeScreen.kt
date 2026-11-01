@@ -1,5 +1,6 @@
 package com.layerbit.stave.ui.home
 
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -213,7 +214,7 @@ private fun ProjectRow(p: ProjectStore.Entry, modifier: Modifier, onOpen: () -> 
                 }
             }
             Box {
-                RoundIconButton(iconRes = R.drawable.ic_plus, contentDescription = stringResource(R.string.app_more), onClick = { menu = true }, size = 36.dp)
+                RoundIconButton(icon = androidx.compose.material.icons.Icons.Filled.MoreVert, contentDescription = stringResource(R.string.app_more), onClick = { menu = true }, size = 36.dp)
                 DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
                     DropdownMenuItem(text = { Text(stringResource(R.string.home_rename)) }, onClick = { menu = false; onRename() })
                     DropdownMenuItem(text = { Text(stringResource(R.string.home_duplicate)) }, onClick = { menu = false; onDuplicate() })

@@ -62,7 +62,8 @@ fun ConvertScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
     Column(modifier.fillMaxSize()) {
         StaveTopBar(title = stringResource(R.string.convert_title), onBack = onBack)
         Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            ScreenTitle(stringResource(R.string.convert_title), subtitle = stringResource(R.string.convert_hint))
+            // The top bar already names the screen; a second, larger title repeated it.
+            Text(stringResource(R.string.convert_hint), style = MaterialTheme.typography.bodyMedium, color = StaveColors.Muted)
             Panel(modifier = Modifier.fillMaxWidth()) {
                 SecondaryButton(if (picked.isEmpty()) stringResource(R.string.convert_pick) else pluralStringResource(R.plurals.convert_picked, picked.size, picked.size), onClick = { pick.launch(arrayOf("audio/*", "video/*")) }, tall = false, modifier = Modifier.fillMaxWidth(), enabled = !running)
                 for (u in picked.take(12)) Text(app.media.displayName(u), style = MaterialTheme.typography.bodySmall, color = StaveColors.Muted, modifier = Modifier.padding(top = 4.dp))
