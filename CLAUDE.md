@@ -121,6 +121,14 @@ before writing the fix.
   four checkers over the log. Everything but MainActivity and StaveApplication's Android
   overrides compiles; those two are the known cascade.
 
+- **`graph/LiveTune.cpp` mirrors `engine/dsp/LiveTuneRules.kt` line for line** (the target
+  with its hold, the ratio by strength, the one-pole by retune time). The Kotlin is executed by
+  `LiveTuneChecks`; the C++ is not executable here. Change one and change the other, and the
+  phone compares them by ear (PENDING_TESTS 64). The C++ has never been compiled.
+- **A stroke on the strip replaces its span on the lane as it was when the stroke began**
+  (`strokeBase` in the view model), not on its own last result, so every pointer event is one
+  idempotent replacement and the gesture folds into one undo step.
+
 ## Working agreement
 
 All work lands on `main` and is pushed when the suites pass. Commit messages say why. No model
