@@ -81,6 +81,7 @@ Java_com_layerbit_stave_native_WhisperNative_transcribeBytes(JNIEnv* env, jclass
 
     std::string out;
     const int segments = whisper_full_n_segments(ctx);
+    int64_t prevEnd = -1;
     for (int i = 0; i < segments; i++) {
         const char* text = whisper_full_get_segment_text(ctx, i);
         if (text == nullptr) continue;
@@ -92,13 +93,22 @@ Java_com_layerbit_stave_native_WhisperNative_transcribeBytes(JNIEnv* env, jclass
         for (char& c : word) if (c == '\t' || c == '\n') c = ' ';
         int64_t t0 = whisper_full_get_segment_t0(ctx, i) * 10;
         int64_t t1 = whisper_full_get_segment_t1(ctx, i) * 10;
-        // The word starts where DTW hears its first text token (special tokens carry no sound).
+        // DTW's time for a token sits at the token's end, measured on the phone (1 Nov 2026):
+        // a sentence's last word's DTW time fell within 0-180 ms of where its speech stopped,
+        // while taken as a start it was 120-230 ms late. So a word ends at its last text
+        // token's DTW time and starts where the word before it ended; the app then moves a
+        // start out of a pause (WordTiming). Special tokens carry no sound and are skipped.
+        int64_t dtwEnd = -1;
         const whisper_token eot = whisper_token_eot(ctx);
         for (int k = 0; k < whisper_full_n_tokens(ctx, i); k++) {
             const whisper_token_data td = whisper_full_get_token_data(ctx, i, k);
-            if (td.id >= eot) continue;
-            if (td.t_dtw >= 0) { t0 = td.t_dtw * 10; if (t1 < t0) t1 = t0; }
-            break;
+            if (td.id < eot && td.t_dtw >= 0) dtwEnd = td.t_dtw * 10;
+        }
+        if (dtwEnd >= 0) {
+            t1 = dtwEnd;
+            if (prevEnd >= 0) t0 = prevEnd;
+            if (t0 >= t1) t0 = t1 > 120 ? t1 - 120 : 0;
+            prevEnd = t1;
         }
         out += std::to_string(t0) + "\t" + std::to_string(t1) + "\t" + word + "\n";
     }
