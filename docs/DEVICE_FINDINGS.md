@@ -150,3 +150,14 @@ of that test is still open in `docs/PENDING_TESTS.md`.
   before the whole-song tools were made to stream.
 - 28: Master to Streaming music: -14.4 LUFS, -1.0 dBTP (target -14, -1); true peak had been
   -0.5 dBTP before the limiter's margin and the true-peak trim.
+
+**Studio, Musician, Library (2 November)**
+- 27: Bounce to a new track on the 5:48 song took 9 s; the bounce is byte-identical to the
+  source over the 10 s compared (one track at unity: the null test, exact).
+- 48: Freeze took 9 s and named itself ("Bounce 1 is frozen. Undo brings its clips and
+  inserts back."). **The sound before and after not compared by ear.**
+- 33: Read the song on the 5:48 song: 12 s, 119.0 bpm, E♭ minor, chords listed. **Not
+  checked against the record's known tempo and key.**
+- 32: Library lists every export newest first with Share and Delete (Delete had been drawn as
+  a plus). Convert files opens; picking files needs the system picker (not drivable).
+- Undo now survives closing the app (history.json).

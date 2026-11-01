@@ -23,14 +23,12 @@ back into the roadmap with what broke.
 24. Studio: a fader dragged while playing is heard at once and leaves one undo step per drag; mute, solo and arm read their state to TalkBack; an EQ insert's band slider changes the sound live.
 25. Add a bus, send the voice to it at -9 dB with a limiter on the bus: the bus meter moves; export plays the same as the preview.
 26. Two tracks (voice and music), Duck under speech on the music: the music's volume automation dips where the voice speaks (the points count shows), and the mix plays the dip.
-27. Bounce to a new track makes a stereo clip equal to the mix (null test: invert the bounce, mute nothing, the master meter should read near silence - the inversion tool is on the Gain sheet as "invert" when added; until then compare by ear).
 28. Finish: Measure reads a sensible LUFS; Master to Streaming brings a -23 LUFS mix to -14 within 0.5 LU and a true peak at or under -1 dBTP (read Measure again).
 
 ## P7 — tune and effects
 29. A flat sung line, Tune to C major at full strength, 0 ms: the notes snap (robotic on purpose); at 60%, 120 ms the line is quietly in tune. Listen for grain noise on long vowels - PSOLA's known artefact; if it is heard, the grain window in `PitchCorrect.psola` is the thing to widen.
 30. Each of the twelve effect presets on a spoken line: none clips (the Export sheet's true peak), each sounds like its name.
 31. Settings → Add a model file with ggml-small-q5_1.bin from Downloads: "Better speech model added" shows and Transcribe uses it (slower, better Hindi).
-32. Library: every export of every project listed newest first; Share hands the file to another app; Delete removes the private copy and leaves Music/Stave's.
 
 ## P5 — the Musician tab
 33. Open a song with drums, Musician → Read the song: the tempo lands within a BPM of the known one, the beats sit on the hits, the key reads right for a song you know, the chords change where the song changes; ½ tempo and 2× tempo move the figure and the beat list together; Mark every bar puts a marker on every downbeat and "Bar starts a beat later" moves them a beat; the click follows the song's beats when the toggle is on.
@@ -52,7 +50,6 @@ back into the roadmap with what broke.
 
 ## P3/P4/P5/P7 — read aloud, freeze, sing along, the looper
 47. Voice → Read aloud: type a sentence, Read it: the phone's engine speaks it into a clip at the play-head on a free lane, at the session's rate (play it: the pitch is right, not a semitone off from a rate mismatch); with the language chip on Hindi the Hindi voice is used, or the message names the missing voice.
-48. Studio → a track with an EQ insert → Freeze: a single clip the track's length replaces its clips, the inserts show off, the mix sounds the same before and after (null test by inverting a bounce of each); Undo brings the clips and the inserts back.
 49. Musician → Sing along: with a transcript, the words move with the play-head in lines of seven, the sung word lit; with stems separated, Mute the vocals silences the Vocals track and the switch reads its state.
 50. Voice → Looper: set 2 bars at the play-head (the selection and the transport loop follow), Record a layer, play two passes and a bit, Stop: two layers land on the Loop track on their own lanes starting at the loop's start, the late bit discarded, and the loop keeps running; a second Record adds layers on new lanes; Undo takes the last take's layers back as one step.
 
