@@ -114,6 +114,12 @@ private:
     std::atomic<float> masterOverride{-1.0f};
     std::vector<float> busScratch;   // interleaved stereo, per bus
     std::vector<float> masterBuf;
+    // processBlock's state (position, playing, the track and master buffers and their DSP) has
+    // one owner at a time: the output callback, or renderOffline. The callback only try_locks
+    // (it never waits) and plays silence while a render holds it. Without this the callback
+    // ran processBlock alongside the render on the phone: the first export came out 192 frames
+    // (one burst) late with bursts mixed in twice at +6 dB, and the play-head jumped on its own.
+    std::mutex renderLock;
 
     // Input ring for monitoring: the input callback writes, the output callback reads.
     std::vector<float> inRing; std::atomic<size_t> inHead{0}, inTail{0}; int inChannels = 1;

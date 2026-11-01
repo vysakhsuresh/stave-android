@@ -398,6 +398,12 @@ void Engine::processBlock(float* outBuf, int frames) {
 
 oboe::DataCallbackResult Engine::onAudioReady(oboe::AudioStream* stream, void* audioData, int32_t numFrames) {
     auto* outBuf = (float*) audioData;
+    std::unique_lock<std::mutex> owner(renderLock, std::try_to_lock);
+    if (!owner.owns_lock()) {
+        // An offline render has the graph: silence, and nothing advances.
+        std::fill(outBuf, outBuf + (size_t) numFrames * 2, 0.0f);
+        return oboe::DataCallbackResult::Continue;
+    }
     int done = 0;
     while (done < numFrames) {
         int n = std::min(numFrames - done, MAX_BLOCK);
@@ -410,6 +416,8 @@ oboe::DataCallbackResult Engine::onAudioReady(oboe::AudioStream* stream, void* a
 }
 
 int64_t Engine::renderOffline(int64_t from, int64_t to, std::vector<float>& outv) {
+    // Waits out a callback already inside processBlock, then keeps it out until the end.
+    std::lock_guard<std::mutex> owner(renderLock);
     Snapshot* s = current.load();
     if (!s || to <= from) return 0;
     bool wasPlaying = playing.load(); int64_t wasAt = position.load(); bool wasStop = stopAtEnd.load(); bool wasLoop = loopOn.load();
