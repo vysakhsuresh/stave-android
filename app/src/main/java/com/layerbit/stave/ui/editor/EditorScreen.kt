@@ -107,7 +107,7 @@ fun EditorScreen(vm: EditorViewModel, onBack: () -> Unit, onAddSounds: () -> Uni
     // While the film moves, ask the display for 60 Hz: on the moto (90 Hz, an 11 ms deadline)
     // the full-screen redraw took ~11 ms of GPU a frame and 99% of playback frames were late;
     // at 60 Hz they fit, and the battery is spared. Back to the phone's choice when stopped.
-    val activity = LocalContext.current as? android.app.Activity
+    val activity = androidx.activity.compose.LocalActivity.current
     androidx.compose.runtime.DisposableEffect(transport.playing) {
         val window = activity?.window
         if (window != null && transport.playing) window.attributes = window.attributes.apply { preferredRefreshRate = 60f }
