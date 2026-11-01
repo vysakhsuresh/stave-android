@@ -181,3 +181,13 @@ of that test is still open in `docs/PENDING_TESTS.md`.
 - 34, 64: the tuners were fed a 440 Hz tone through the phone's own speaker, but the media
   volume was at -39 dB and only 2% of what the mic caught was the tone; both read
   "Listening…". **Needs a sung or played note.**
+
+**Sweeps: Studio, Musician, Beats actions; Arabic (2 November)**
+- Studio (Add track, Add bus, an insert, Loop the selection, Export each track), Musician
+  (Read the song, Trace the selection, Make a practice copy, Notes to MIDI: "10 notes heard"),
+  Beats (instruments Pluck, Morph, Choir, Drums; Play loop and Stop; Humanise, Quantise,
+  Legato, transpose; Add to song; Render the song to tracks): no crash, each edit one undo step.
+  Stems: "Separate" with no model says so rather than failing.
+- The app in Arabic (per-app locale ar-EG): every tab, the Edit sheets and Settings opened with
+  no crash; the clock reads in Arabic digits as designed. The interface strings are English
+  only (no translations yet), so the layout stays left to right.
