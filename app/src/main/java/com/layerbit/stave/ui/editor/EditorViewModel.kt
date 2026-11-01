@@ -119,6 +119,8 @@ class EditorViewModel(private val app: StaveApplication, val projectId: String) 
     fun selectTrack(id: String?) { if (id != _ui.value.selectedTrackId) { _ui.value = _ui.value.copy(selectedTrackId = id); refreshSpectrogram() } }
     fun setTab(tab: EditorTab) { _ui.value = _ui.value.copy(tab = tab) }
     fun setSheet(sheet: EditSheet?) { _ui.value = _ui.value.copy(sheet = if (_ui.value.sheet == sheet) null else sheet) }
+    /** What to say when a tool fails: out of memory in words (the raw allocator text reached the screen), else the error's own message. */
+    private fun humane(e: Throwable): String? = if (e is OutOfMemoryError) app.getString(com.layerbit.stave.R.string.editor_too_long) else e.message
     fun dismissMessage() { _ui.value = _ui.value.copy(message = null) }
     fun setExportSettings(s: ExportSettings) { _ui.value = _ui.value.copy(exportSettings = s) }
 
@@ -231,7 +233,7 @@ class EditorViewModel(private val app: StaveApplication, val projectId: String) 
                     withContext(Dispatchers.IO) { peaksFor(source) }
                     addSource(source)
                 } catch (e: Exception) {
-                    _ui.value = _ui.value.copy(message = e.message ?: "Could not open $name")
+                    _ui.value = _ui.value.copy(message = humane(e) ?: "Could not open $name")
                 }
             }
             _ui.value = _ui.value.copy(busy = null)
@@ -322,7 +324,7 @@ class EditorViewModel(private val app: StaveApplication, val projectId: String) 
                     after()
                     onDone?.invoke()
                 }
-            }.onFailure { e -> _ui.value = _ui.value.copy(message = e.message ?: "$label failed") }
+            }.onFailure { e -> _ui.value = _ui.value.copy(message = humane(e) ?: "$label failed") }
         }
     }
 
@@ -402,7 +404,7 @@ class EditorViewModel(private val app: StaveApplication, val projectId: String) 
             }
             _ui.value = _ui.value.copy(busy = null)
             result.onSuccess { r -> _ui.value = _ui.value.copy(lastExport = r, message = null) }
-                .onFailure { e -> _ui.value = _ui.value.copy(message = e.message ?: "Export failed") }
+                .onFailure { e -> _ui.value = _ui.value.copy(message = humane(e) ?: "Export failed") }
         }
     }
 
@@ -691,7 +693,7 @@ class EditorViewModel(private val app: StaveApplication, val projectId: String) 
                     val kept = previous?.words?.filter { w -> (w.startMs + w.endMs) / 2 !in (range.first * 1000 / s.sampleRate) until ((range.last + 1) * 1000 / s.sampleRate) } ?: emptyList()
                     setTranscript(Transcript((kept + t.words).sortedBy { it.startMs }, t.language.ifBlank { previous?.language ?: "" }))
                 }
-            }.onFailure { e -> _ui.value = _ui.value.copy(message = e.message ?: "Transcription failed") }
+            }.onFailure { e -> _ui.value = _ui.value.copy(message = humane(e) ?: "Transcription failed") }
         }
     }
 
@@ -884,7 +886,7 @@ class EditorViewModel(private val app: StaveApplication, val projectId: String) 
                     exporter.export(solo, files, settings, t.name, render = { out ->
                         withContext(Dispatchers.IO) { transport.setSession(solo, files.dir); try { transport.renderOffline(0, s.length, out) } finally { transport.setSession(s, files.dir) } }
                     }) { _, _ -> }
-                }.onFailure { e -> _ui.value = _ui.value.copy(message = e.message ?: "Stem export failed") }
+                }.onFailure { e -> _ui.value = _ui.value.copy(message = humane(e) ?: "Stem export failed") }
             }
             _ui.value = _ui.value.copy(busy = null, message = "${tracks.size} stems saved to Music/Stave")
         }
@@ -977,7 +979,7 @@ class EditorViewModel(private val app: StaveApplication, val projectId: String) 
             }
             _ui.value = _ui.value.copy(busy = null)
             result.onSuccess { (name, profile) -> _finish.value = _finish.value.copy(referenceName = name, referenceProfile = profile, matchBands = emptyList()); matchToReference(1.0) }
-                .onFailure { e -> _ui.value = _ui.value.copy(message = e.message ?: "Could not read the reference") }
+                .onFailure { e -> _ui.value = _ui.value.copy(message = humane(e) ?: "Could not read the reference") }
         }
     }
 
@@ -1216,7 +1218,7 @@ class EditorViewModel(private val app: StaveApplication, val projectId: String) 
                 }
                 after()
                 _music.value = _music.value.copy(stemsDone = true)
-            }.onFailure { e -> _ui.value = _ui.value.copy(message = e.message ?: "Separation failed") }
+            }.onFailure { e -> _ui.value = _ui.value.copy(message = humane(e) ?: "Separation failed") }
         }
     }
 
@@ -1336,7 +1338,7 @@ class EditorViewModel(private val app: StaveApplication, val projectId: String) 
             }
             _ui.value = _ui.value.copy(busy = null)
             result.onSuccess { a -> _music.value = _music.value.copy(analysis = a) }
-                .onFailure { e -> _ui.value = _ui.value.copy(message = e.message ?: "Analysis failed") }
+                .onFailure { e -> _ui.value = _ui.value.copy(message = humane(e) ?: "Analysis failed") }
         }
     }
 
@@ -1392,7 +1394,7 @@ class EditorViewModel(private val app: StaveApplication, val projectId: String) 
                     next
                 }
                 after()
-            }.onFailure { e -> _ui.value = _ui.value.copy(message = e.message ?: "Could not read that aloud") }
+            }.onFailure { e -> _ui.value = _ui.value.copy(message = humane(e) ?: "Could not read that aloud") }
         }
     }
 
@@ -1589,7 +1591,7 @@ class EditorViewModel(private val app: StaveApplication, val projectId: String) 
                 next = next.copy(instruments = next.instruments + (p.id to "kit:${kit.id}"))
                 kitEdited(next, "Slice to pads")
                 _ui.value = _ui.value.copy(message = app.resources.getQuantityString(com.layerbit.stave.R.plurals.beats_sliced, sources.size, sources.size))
-            }.onFailure { e -> _ui.value = _ui.value.copy(message = e.message ?: "Could not slice") }
+            }.onFailure { e -> _ui.value = _ui.value.copy(message = humane(e) ?: "Could not slice") }
         }
     }
 
@@ -1611,7 +1613,7 @@ class EditorViewModel(private val app: StaveApplication, val projectId: String) 
                 val edited = kit.with(pad.coerceIn(0, com.layerbit.stave.engine.synth.DrumKit.PADS - 1), com.layerbit.stave.engine.synth.PadSpec(source.id, source.name.take(14)))
                 next = next.copy(kits = if (existing == null) next.kits + edited else next.kits.map { if (it.id == edited.id) edited else it }, instruments = next.instruments + (p.id to "kit:${edited.id}"))
                 kitEdited(next, "Sample on pad ${pad + 1}")
-            }.onFailure { e -> _ui.value = _ui.value.copy(message = e.message ?: "Could not open $name") }
+            }.onFailure { e -> _ui.value = _ui.value.copy(message = humane(e) ?: "Could not open $name") }
         }
     }
 
@@ -1951,7 +1953,7 @@ class EditorViewModel(private val app: StaveApplication, val projectId: String) 
                 after()
                 selectTrack(track.id)
                 _ui.value = _ui.value.copy(message = app.getString(com.layerbit.stave.R.string.beats_rendered, label))
-            }.onFailure { e -> _ui.value = _ui.value.copy(message = e.message ?: "Render failed") }
+            }.onFailure { e -> _ui.value = _ui.value.copy(message = humane(e) ?: "Render failed") }
         }
     }
 
@@ -1985,7 +1987,7 @@ class EditorViewModel(private val app: StaveApplication, val projectId: String) 
 
     /** A Standard MIDI File's tracks as patterns (the file's tempo becomes the session's when it has one). Returns how many patterns landed. */
     fun importMidi(bytes: ByteArray): Int {
-        val file = runCatching { com.layerbit.stave.engine.sequencer.MidiFile.read(bytes) }.getOrElse { e -> _ui.value = _ui.value.copy(message = e.message ?: "Not a MIDI file"); return 0 }
+        val file = runCatching { com.layerbit.stave.engine.sequencer.MidiFile.read(bytes) }.getOrElse { e -> _ui.value = _ui.value.copy(message = humane(e) ?: "Not a MIDI file"); return 0 }
         val made = file.toPatterns().map { it.copy(id = Ids.next("p")) }
         if (made.isEmpty()) { _ui.value = _ui.value.copy(message = app.getString(com.layerbit.stave.R.string.beats_midi_empty)); return 0 }
         val s = session
@@ -2014,7 +2016,7 @@ class EditorViewModel(private val app: StaveApplication, val projectId: String) 
                 _beats.value = _beats.value.copy(soundFonts = app.soundFonts.list())
                 if (presets.isEmpty()) { app.soundFonts.remove(file); _beats.value = _beats.value.copy(soundFonts = app.soundFonts.list()); _ui.value = _ui.value.copy(message = app.getString(com.layerbit.stave.R.string.beats_soundfont_bad)) }
                 else setInstrument(com.layerbit.stave.beats.Instruments.soundFontId(file, 0))
-            }.onFailure { e -> _ui.value = _ui.value.copy(message = e.message ?: "Could not add the SoundFont") }
+            }.onFailure { e -> _ui.value = _ui.value.copy(message = humane(e) ?: "Could not add the SoundFont") }
         }
     }
 

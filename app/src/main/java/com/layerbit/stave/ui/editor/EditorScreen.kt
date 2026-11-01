@@ -185,6 +185,8 @@ fun EditorScreen(vm: EditorViewModel, onBack: () -> Unit, onAddSounds: () -> Uni
             }
         }
         ui.message?.let { m ->
+            // A message leaves on its own after six seconds; it covered the controls until OK.
+            LaunchedEffect(m) { kotlinx.coroutines.delay(6000); vm.dismissMessage() }
             Snackbar(modifier = Modifier.padding(8.dp), containerColor = StaveColors.Surface, contentColor = StaveColors.Text, action = { TextButton(onClick = vm::dismissMessage) { Text(stringResource(R.string.app_ok), color = StaveColors.Band) } }) { Text(m) }
         }
     }
