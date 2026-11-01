@@ -284,9 +284,9 @@ fun WaveformStrip(
                     val source = session.source(clip.sourceId) ?: continue
                     val subTop = top + clip.lane.coerceIn(0, takeLanes - 1) * subH
                     drawClip(clip, source, peaksFor(source), x0, x1, subTop + 2f, subH - 4f, window, clip.muted)
-                    if (x1 - x0 > 40f && clip.name.isNotBlank() && subH > 30f) labelAt(measurer, clip.name, Offset(max(x0, 0f) + 6f, subTop + 4f), nameStyle)
+                    if (x1 - x0 > 40f && clip.name.isNotBlank() && subH > 30f) labelAt(measurer, clip.name, Offset(max(x0, 0f) + 6f, subTop + 4f), nameStyle, plate = true)
                 }
-                if (track.name.isNotBlank()) labelAt(measurer, track.name, Offset(6f, top + lane - measurer.measure(track.name, labelStyle).size.height - 4f), labelStyle)
+                if (track.name.isNotBlank()) labelAt(measurer, track.name, Offset(6f, top + lane - measurer.measure(track.name, labelStyle).size.height - 4f), labelStyle, plate = true)
             }
         }
         // Selection.
@@ -390,8 +390,13 @@ private object DrawBuffers {
  * guarded, stood as a column of single characters. The label is laid out at its own width and
  * clipped to the canvas instead.
  */
-private fun DrawScope.labelAt(measurer: androidx.compose.ui.text.TextMeasurer, text: String, at: Offset, style: TextStyle) {
+private fun DrawScope.labelAt(measurer: androidx.compose.ui.text.TextMeasurer, text: String, at: Offset, style: TextStyle, plate: Boolean = false) {
     if (at.x >= size.width || at.y >= size.height) return
     val layout = measurer.measure(text, style, maxLines = 1, softWrap = false)
-    clipRect(0f, 0f, size.width, size.height) { drawText(layout, topLeft = at) }
+    clipRect(0f, 0f, size.width, size.height) {
+        // A clip or track name sits on its own small plate so it reads over a loud waveform;
+        // in the first screenshots the names were lost in the wave's ink.
+        if (plate) drawRoundRect(StaveColors.Canvas.copy(alpha = 0.78f), Offset(at.x - 4f, at.y - 1f), Size(layout.size.width + 8f, layout.size.height + 2f), androidx.compose.ui.geometry.CornerRadius(6f, 6f))
+        drawText(layout, topLeft = at)
+    }
 }

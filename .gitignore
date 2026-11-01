@@ -29,3 +29,4 @@ __pycache__/
 /models_pack/src/main/assets/models/*.bin
 /models_pack/src/main/assets/models/*.tflite
 /models_pack/src/main/assets/models/*.onnx
+/models_pack/build
