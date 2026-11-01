@@ -1,5 +1,9 @@
 package com.layerbit.stave.ui.components
 
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.text.rememberTextMeasurer
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
@@ -290,27 +294,53 @@ fun Pill(text: String, colour: Color, modifier: Modifier = Modifier, filled: Boo
  * so the answer to a question is visible from across the room. Each chip is `selectable`, not
  * `clickable`: a tint is not a state a screen reader can hear (Squish's sweep ten).
  */
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun <T> ChipRow(options: List<Pair<T, String>>, selected: T, onSelect: (T) -> Unit, modifier: Modifier = Modifier, enabled: (T) -> Boolean = { true }) {
-    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp), modifier = modifier.fillMaxWidth()) {
-        options.forEach { (value, label) ->
-            val active = value == selected
-            val on = enabled(value)
-            val fill by animateColorAsState(if (active) StaveColors.Band else StaveColors.SurfaceDim, label = "chip")
-            val ink by animateColorAsState(if (!on) StaveColors.Dim else if (active) StaveColors.OnBand else StaveColors.Muted, label = "chipInk")
-            val interaction = remember { MutableInteractionSource() }
-            Row(
-                modifier = Modifier
-                    .pressScale(interaction, 0.95f)
-                    .background(fill, ChipShape)
-                    .border(1.dp, if (active) StaveColors.Band else StaveColors.Border, ChipShape)
-                    .selectable(selected = active, enabled = on, interactionSource = interaction, indication = null, role = Role.RadioButton) { onSelect(value) }
-                    .padding(horizontal = 14.dp, vertical = 9.dp)
-            ) {
-                Text(text = label, style = MaterialTheme.typography.bodyMedium, color = ink)
+    // An even grid, not a flow: every cell the same width and height, the columns set by the
+    // widest label and balanced so the rows fill evenly (nine choices are three by three, not
+    // five and four). Chips of their own widths wrapping freely looked, in the owner's words,
+    // like stones of different sizes thrown on the ground.
+    if (options.isEmpty()) return
+    val style = MaterialTheme.typography.bodyMedium
+    val measurer = rememberTextMeasurer()
+    val density = LocalDensity.current
+    val gap = 8.dp
+    BoxWithConstraints(modifier.fillMaxWidth()) {
+        val widest = remember(options, style) { options.maxOf { measurer.measure(it.second, style, maxLines = 1).size.width } }
+        val cellMin = with(density) { widest.toDp() } + 28.dp
+        val fit = (((maxWidth + gap) / (cellMin + gap)).toInt()).coerceIn(1, options.size)
+        val rows = (options.size + fit - 1) / fit
+        val columns = (options.size + rows - 1) / rows
+        Column(verticalArrangement = Arrangement.spacedBy(gap)) {
+            options.chunked(columns).forEach { row ->
+                Row(horizontalArrangement = Arrangement.spacedBy(gap), modifier = Modifier.fillMaxWidth()) {
+                    row.forEach { (value, label) -> ChoiceCell(label, value == selected, enabled(value), { onSelect(value) }, Modifier.weight(1f)) }
+                    repeat(columns - row.size) { Spacer(Modifier.weight(1f)) }
+                }
             }
         }
+    }
+}
+
+private val CellShape = RoundedCornerShape(10.dp)
+
+@Composable
+private fun ChoiceCell(label: String, active: Boolean, on: Boolean, onClick: () -> Unit, modifier: Modifier) {
+    val fill by animateColorAsState(if (active) StaveColors.Band else Color.Transparent, label = "chip")
+    val ink by animateColorAsState(if (!on) StaveColors.Dim else if (active) StaveColors.OnBand else StaveColors.Text, label = "chipInk")
+    val interaction = remember { MutableInteractionSource() }
+    Box(
+        modifier = modifier
+            .height(40.dp)
+            .pressScale(interaction, 0.97f)
+            .clip(CellShape)
+            .background(fill, CellShape)
+            .border(1.dp, if (active) StaveColors.Band else StaveColors.Border, CellShape)
+            .selectable(selected = active, enabled = on, interactionSource = interaction, indication = null, role = Role.RadioButton, onClick = onClick)
+            .padding(horizontal = 8.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(text = label, style = MaterialTheme.typography.bodyMedium, color = ink, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
     }
 }
 
