@@ -118,3 +118,21 @@ of that test is still open in `docs/PENDING_TESTS.md`.
   frames (12.4 s of Kalimba from frame 0), equals the decoded source sample for sample (zero
   difference). The stream's underrun counter stayed at 0 through 20 s of playback.
 - The launcher icon was replaced (ink waveform on Signal lime).
+
+**The night sweep: every tab and sheet, the controls' look (1-2 November)**
+- Every Edit sheet (Edit, Gain, Fades, Repair, Spectral, EQ, Dynamics, Time & pitch, Effects,
+  Markers, Export) and every tab (Voice, Studio, Musician, Beats, Finish) opened without a
+  crash once the plural formats were mended; uiautomator found no unnamed control except
+  slivers cut by a panel's edge.
+- The Studio tab **crashed** on opening ("%1 points", a format broken by the evening's plural
+  change); fixed, and ResourceChecks now reads strings.xml as aapt2 and Formatter do.
+- Choices and actions are even grids now (the owner: "stones of different sizes thrown on the
+  ground"); sliders are a thin track and a round thumb; the drum pads were thin pills floating
+  in their rows and now fill 64 dp cells; the step grid's pill clip hid its corner steps.
+- 23 (changed by design): a hold, not a plain drag, picks up a clip, and only on the Studio tab;
+  on the other tabs a hold-then-drag selects.
+- 37: kick on steps 1, 5 and 9, Play loop: the button became Stop, the play-head column moved
+  across the grid, both audio outputs were open; Stop stopped it. **Timing and the loop point
+  not heard.**
+- 45 (part): the Beats tab's controls are named; the grid is one node described as
+  "Pattern A: 7 notes over 16 steps…".
