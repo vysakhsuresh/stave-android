@@ -663,6 +663,7 @@
     <string name="settings_input_device">Input</string>
     <string name="settings_input_device_detail">What Record and the live tuner listen to: the phone\'s mic, a wired or Bluetooth headset, or a USB audio interface. The list is what is plugged in now.</string>
     <string name="settings_input_device_auto">Phone\'s choice</string>
+    <string name="settings_input_phone_mic">Phone mic</string>
 
     <string name="voice_count_in">Count in one bar</string>
     <string name="voice_count_in_detail">A bar of the click before the take starts, so the first beat is the first thing recorded. Stop during the count cancels.</string>

@@ -84,8 +84,27 @@ fun SettingsScreen(
                     Text(stringResource(R.string.settings_input_device_detail), style = MaterialTheme.typography.bodySmall, color = StaveColors.Dim, modifier = Modifier.padding(bottom = 8.dp))
                     val inputs = remember {
                         val am = context.getSystemService(android.content.Context.AUDIO_SERVICE) as android.media.AudioManager
-                        am.getDevices(android.media.AudioManager.GET_DEVICES_INPUTS).filter { it.type != android.media.AudioDeviceInfo.TYPE_TELEPHONY && it.type != android.media.AudioDeviceInfo.TYPE_REMOTE_SUBMIX }
-                            .map { d -> d.id to (d.productName?.toString()?.takeIf { it.isNotBlank() } ?: "Input ${d.id}") + when (d.type) { android.media.AudioDeviceInfo.TYPE_USB_DEVICE, android.media.AudioDeviceInfo.TYPE_USB_HEADSET -> " (USB)"; android.media.AudioDeviceInfo.TYPE_BLUETOOTH_SCO -> " (Bluetooth)"; android.media.AudioDeviceInfo.TYPE_WIRED_HEADSET -> " (wired)"; android.media.AudioDeviceInfo.TYPE_BUILTIN_MIC -> " (phone)"; else -> "" } }
+                        // Only what a person records through. The moto lists its FM tuner as an input
+                        // and both its mics under the phone's own name, so the first list on a phone
+                        // showed "moto g84 5G (phone)" twice beside a bare "moto g84 5G" (the tuner).
+                        // A phone mic is named by where it sits (the address is "bottom", "back", ...).
+                        val I = android.media.AudioDeviceInfo::class.java
+                        val recordable = setOf(android.media.AudioDeviceInfo.TYPE_BUILTIN_MIC, android.media.AudioDeviceInfo.TYPE_WIRED_HEADSET,
+                            android.media.AudioDeviceInfo.TYPE_USB_DEVICE, android.media.AudioDeviceInfo.TYPE_USB_HEADSET, android.media.AudioDeviceInfo.TYPE_USB_ACCESSORY,
+                            android.media.AudioDeviceInfo.TYPE_BLUETOOTH_SCO, android.media.AudioDeviceInfo.TYPE_LINE_ANALOG, android.media.AudioDeviceInfo.TYPE_LINE_DIGITAL) +
+                            // TYPE_BLE_HEADSET is API 31; read by name so minSdk 26 never touches it.
+                            listOfNotNull(runCatching { I.getField("TYPE_BLE_HEADSET").getInt(null) }.getOrNull())
+                        am.getDevices(android.media.AudioManager.GET_DEVICES_INPUTS).filter { it.type in recordable }
+                            .map { d ->
+                                val name = d.productName?.toString()?.takeIf { it.isNotBlank() } ?: "Input ${d.id}"
+                                d.id to when (d.type) {
+                                    android.media.AudioDeviceInfo.TYPE_BUILTIN_MIC -> context.getString(R.string.settings_input_phone_mic) + ((if (android.os.Build.VERSION.SDK_INT >= 28) d.address else "").takeIf { it.isNotBlank() }?.let { " ($it)" } ?: "")
+                                    android.media.AudioDeviceInfo.TYPE_USB_DEVICE, android.media.AudioDeviceInfo.TYPE_USB_HEADSET, android.media.AudioDeviceInfo.TYPE_USB_ACCESSORY -> "$name (USB)"
+                                    android.media.AudioDeviceInfo.TYPE_WIRED_HEADSET -> "$name (wired)"
+                                    android.media.AudioDeviceInfo.TYPE_LINE_ANALOG, android.media.AudioDeviceInfo.TYPE_LINE_DIGITAL -> "$name (line in)"
+                                    else -> "$name (Bluetooth)"
+                                }
+                            }
                     }
                     ChipRow(options = listOf(0 to stringResource(R.string.settings_input_device_auto)) + inputs, selected = if (inputs.any { it.first == settings.inputDeviceId }) settings.inputDeviceId else 0, onSelect = { id -> onChange { it.copy(inputDeviceId = id) } })
                     Text(stringResource(R.string.settings_latency), style = MaterialTheme.typography.bodyLarge, color = StaveColors.Text, modifier = Modifier.padding(top = 14.dp, bottom = 8.dp))
