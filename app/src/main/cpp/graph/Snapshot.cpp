@@ -20,6 +20,10 @@ bool Source::open() {
     mappedBytes = (size_t) st.st_size;
     void* p = mmap(nullptr, mappedBytes, PROT_READ, MAP_PRIVATE, fd, 0);
     if (p == MAP_FAILED) { LOGW("cannot map %s", path.c_str()); mappedBytes = 0; close(); return false; }
+    // Ask for the pages now, asynchronously, so the audio callback does not take a page fault
+    // on its first touch of each 4 KB. Without it the moto's fast mixer found the track empty
+    // more often than full while a 6-minute song played (1 Nov 2026).
+    madvise(p, mappedBytes, MADV_WILLNEED);
     data = (const float*) p;
     int64_t available = (int64_t) (mappedBytes / sizeof(float) / channels);
     if (frames <= 0 || frames > available) frames = available;

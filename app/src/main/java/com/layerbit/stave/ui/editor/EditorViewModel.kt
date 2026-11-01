@@ -127,7 +127,16 @@ class EditorViewModel(private val app: StaveApplication, val projectId: String) 
     fun followPlayhead(frame: Long) { if (transport.state.value.playing) _ui.value = _ui.value.copy(window = _ui.value.window.copy(playhead = frame)) }
     fun togglePlay() {
         if (transport.state.value.playing) transport.pause()
-        else { transport.seek(_ui.value.window.playhead); transport.setLoop(_ui.value.selection); transport.play() }
+        else {
+            // A selection is heard once, from its start to its end; nothing loops unless the
+            // looper set it. Play used to loop the selection, and on the phone a drag that made
+            // a selection by accident turned a song into a stutter repeating a second of itself.
+            val sel = _ui.value.selection
+            if (!_looper.value.active) transport.setLoop(null)
+            if (sel != null && !_looper.value.active) { seek(sel.first); transport.setPlayEnd(sel.last + 1) }
+            else { transport.seek(_ui.value.window.playhead); transport.setPlayEnd(-1) }
+            transport.play()
+        }
     }
 
     /** The current track's clips' peaks, by source id, for the canvas. */

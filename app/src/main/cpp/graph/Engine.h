@@ -47,6 +47,8 @@ public:
     void seek(int64_t frame) { position.store(frame < 0 ? 0 : frame); }
     int64_t getPosition() const { return position.load(); }
     void setLoop(int64_t start, int64_t end, bool enabled) { loopStart = start; loopEnd = end; loopOn = enabled; }
+    // Play stops by itself here (a selection heard once); -1 for no stop short of the end.
+    void setPlayEnd(int64_t end) { playEnd = end; }
     void setStopAtEnd(bool v) { stopAtEnd = v; }
 
     // Live overrides for a fader under the finger: applied until the next snapshot carries the value.
@@ -95,6 +97,12 @@ private:
     int rate;
     int burst = 192;
     std::shared_ptr<oboe::AudioStream> out, in;
+    // Raises the output buffer a burst at a time whenever the stream underruns (Oboe's own).
+    // The buffer was fixed at two bursts and never grew: on the moto the fast mixer found the
+    // track empty 322 times to 99 full while a song played, which is what "the sound is
+    // terrible" was. Created with the stream, called from the callback, as Oboe intends.
+    std::unique_ptr<oboe::LatencyTuner> latencyTuner;
+    bool safeLatency = false;
     std::mutex streamLock;
 
     std::atomic<Snapshot*> current{nullptr};
@@ -106,6 +114,7 @@ private:
     std::atomic<int64_t> position{0};
     std::atomic<int64_t> loopStart{0}, loopEnd{0};
     std::atomic<bool> loopOn{false}, stopAtEnd{true};
+    std::atomic<int64_t> playEnd{-1};
     std::atomic<int> xrunCount{0};
 
     std::vector<TrackState> trackStates;

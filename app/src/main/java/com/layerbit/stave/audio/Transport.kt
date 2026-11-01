@@ -46,6 +46,10 @@ class Transport(private val scope: CoroutineScope) {
             while (isActive) {
                 val h = handle
                 if (h != 0L) {
+                    // Every new underrun is logged with the output latency it led to: the only
+                    // way to read dropouts on a phone without an ear on it.
+                    val x = EngineNative.xruns(h)
+                    if (x != _state.value.xruns) android.util.Log.i("StaveGraph", "underruns $x, output latency ${"%.1f".format(java.util.Locale.ROOT, EngineNative.outputLatencyMs(h))} ms")
                     _state.value = _state.value.copy(
                         playing = EngineNative.isPlaying(h), position = EngineNative.position(h), recording = EngineNative.isRecording(h),
                         latencyMs = EngineNative.outputLatencyMs(h), xruns = EngineNative.xruns(h), inputPeak = EngineNative.inputPeak(h)
@@ -77,6 +81,8 @@ class Transport(private val scope: CoroutineScope) {
     fun toggle() { if (_state.value.playing) pause() else play() }
     fun seek(frame: Long) { if (handle != 0L) EngineNative.seek(handle, frame); _state.value = _state.value.copy(position = frame) }
     fun setLoop(range: LongRange?) { if (handle != 0L) EngineNative.setLoop(handle, range?.first ?: 0, range?.let { it.last + 1 } ?: 0, range != null) }
+    /** Play stops by itself at [end] (a frame), or runs on when it is -1. */
+    fun setPlayEnd(end: Long) { if (handle != 0L) EngineNative.setPlayEnd(handle, end) }
     fun setStopAtEnd(on: Boolean) { if (handle != 0L) EngineNative.setStopAtEnd(handle, on) }
 
     /** A fader under the finger: heard at once, folded into the next snapshot on release. */

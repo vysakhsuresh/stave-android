@@ -88,7 +88,9 @@ bool Engine::start() {
     }
     rate = out->getSampleRate();
     burst = out->getFramesPerBurst();
-    out->setBufferSizeInFrames(burst * 2);
+    // "Safer" in Settings starts at four bursts; either way the tuner grows it on an underrun.
+    out->setBufferSizeInFrames(burst * (safeLatency ? 4 : 2));
+    latencyTuner = std::make_unique<oboe::LatencyTuner>(*out);
     r = out->requestStart();
     if (r != oboe::Result::OK) { LOGW("start: %s", oboe::convertToText(r)); out->close(); out.reset(); return false; }
     LOGI("output %d Hz, burst %d, %s", rate, burst, out->getSharingMode() == oboe::SharingMode::Exclusive ? "exclusive" : "shared");
@@ -99,6 +101,7 @@ void Engine::stop() {
     std::lock_guard<std::mutex> g(streamLock);
     if (!out) return;
     out->requestStop();
+    latencyTuner.reset();
     out->close();
     out.reset();
 }
@@ -106,7 +109,7 @@ void Engine::stop() {
 void Engine::onErrorAfterClose(oboe::AudioStream* stream, oboe::Result error) {
     // Headphones out, a route change: Oboe closed the stream; open a new one on the new route.
     LOGW("stream closed: %s; reopening", oboe::convertToText(error));
-    { std::lock_guard<std::mutex> g(streamLock); out.reset(); }
+    { std::lock_guard<std::mutex> g(streamLock); latencyTuner.reset(); out.reset(); }
     start();
 }
 
@@ -373,6 +376,7 @@ void Engine::processBlock(float* outBuf, int frames) {
         // Advance, looping or stopping at the end.
         int64_t next = pos + frames;
         if (loopOn.load() && loopEnd.load() > loopStart.load() && next >= loopEnd.load()) next = loopStart.load() + (next - loopEnd.load());
+        else if (playEnd.load() > 0 && next >= playEnd.load()) { next = playEnd.load(); playing = false; playEnd = -1; }
         else if (stopAtEnd.load()) {
             int64_t length = 0;
             for (const auto& c : s->clips) length = std::max(length, c.end());
@@ -410,6 +414,7 @@ oboe::DataCallbackResult Engine::onAudioReady(oboe::AudioStream* stream, void* a
         processBlock(outBuf + done * 2, n);
         done += n;
     }
+    if (latencyTuner) latencyTuner->tune();
     auto x = stream->getXRunCount();
     if (x) xrunCount.store(x.value());
     return oboe::DataCallbackResult::Continue;
@@ -421,7 +426,8 @@ int64_t Engine::renderOffline(int64_t from, int64_t to, std::vector<float>& outv
     Snapshot* s = current.load();
     if (!s || to <= from) return 0;
     bool wasPlaying = playing.load(); int64_t wasAt = position.load(); bool wasStop = stopAtEnd.load(); bool wasLoop = loopOn.load();
-    playing = true; stopAtEnd = false; loopOn = false; position.store(from);
+    int64_t wasEnd = playEnd.load();
+    playing = true; stopAtEnd = false; loopOn = false; playEnd = -1; position.store(from);
     for (auto& st : trackStates) st.configuredFor = 0xFFFFFFFFu;
     master.configuredFor = 0xFFFFFFFFu;
     outv.assign((size_t) (to - from) * 2, 0.0f);
@@ -433,7 +439,7 @@ int64_t Engine::renderOffline(int64_t from, int64_t to, std::vector<float>& outv
         std::copy(block.begin(), block.begin() + n * 2, outv.begin() + (at - from) * 2);
         at += n;
     }
-    playing = wasPlaying; stopAtEnd = wasStop; loopOn = wasLoop; position.store(wasAt);
+    playing = wasPlaying; stopAtEnd = wasStop; loopOn = wasLoop; playEnd = wasEnd; position.store(wasAt);
     for (auto& st : trackStates) st.configuredFor = 0xFFFFFFFFu;
     master.configuredFor = 0xFFFFFFFFu;
     return to - from;

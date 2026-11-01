@@ -29,6 +29,7 @@ object EngineNative {
     @JvmStatic external fun seek(engine: Long, frame: Long)
     @JvmStatic external fun position(engine: Long): Long
     @JvmStatic external fun setLoop(engine: Long, start: Long, end: Long, on: Boolean)
+    @JvmStatic external fun setPlayEnd(engine: Long, end: Long)
     @JvmStatic external fun setStopAtEnd(engine: Long, on: Boolean)
 
     @JvmStatic external fun setTrackVolume(engine: Long, track: Int, gain: Float)

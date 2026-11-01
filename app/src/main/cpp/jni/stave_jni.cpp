@@ -48,6 +48,7 @@ JNIEXPORT jboolean JNICALL FN(isPlaying)(JNIEnv*, jclass, jlong h) { return ENGI
 JNIEXPORT void JNICALL FN(seek)(JNIEnv*, jclass, jlong h, jlong frame) { ENGINE(h)->seek(frame); }
 JNIEXPORT jlong JNICALL FN(position)(JNIEnv*, jclass, jlong h) { return ENGINE(h)->getPosition(); }
 JNIEXPORT void JNICALL FN(setLoop)(JNIEnv*, jclass, jlong h, jlong start, jlong end, jboolean on) { ENGINE(h)->setLoop(start, end, on); }
+JNIEXPORT void JNICALL FN(setPlayEnd)(JNIEnv*, jclass, jlong h, jlong end) { ENGINE(h)->setPlayEnd(end); }
 JNIEXPORT void JNICALL FN(setStopAtEnd)(JNIEnv*, jclass, jlong h, jboolean on) { ENGINE(h)->setStopAtEnd(on); }
 
 JNIEXPORT void JNICALL FN(setTrackVolume)(JNIEnv*, jclass, jlong h, jint track, jfloat gain) { ENGINE(h)->setTrackVolume(track, gain); }
