@@ -173,7 +173,7 @@ fun VoicePanel(vm: EditorViewModel, ui: EditorViewModel.Ui, modifier: Modifier =
                 if (voice.stale) Text(stringResource(R.string.voice_stale), style = MaterialTheme.typography.bodySmall, color = StaveColors.Hot, modifier = Modifier.padding(top = 8.dp))
                 WordFlow(t.words.map { it.text }, voice.selectedWords, onToggle = vm::toggleWord)
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 8.dp)) {
-                    PrimaryButton(pluralStringResource(R.plurals.voice_delete_words, voice.selectedWords.size, voice.selectedWords.size), onClick = vm::deleteSelectedWords, enabled = voice.selectedWords.isNotEmpty(), tall = false, modifier = Modifier.weight(1f))
+                    PrimaryButton((if (voice.selectedWords.isEmpty()) stringResource(R.string.voice_delete_words_none) else pluralStringResource(R.plurals.voice_delete_words, voice.selectedWords.size, voice.selectedWords.size)), onClick = vm::deleteSelectedWords, enabled = voice.selectedWords.isNotEmpty(), tall = false, modifier = Modifier.weight(1f))
                     SecondaryButton(stringResource(R.string.voice_remove_fillers), onClick = vm::removeFillers, tall = false, modifier = Modifier.weight(1f))
                 }
                 SecondaryButton(stringResource(R.string.voice_chapter_here), onClick = { vm.addMarker(com.layerbit.stave.engine.project.Marker.Kind.CHAPTER) }, tall = false, modifier = Modifier.fillMaxWidth().padding(top = 8.dp))
