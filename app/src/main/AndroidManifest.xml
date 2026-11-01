@@ -33,6 +33,10 @@
     <uses-permission android:name="android.permission.READ_MEDIA_AUDIO" tools:node="remove" />
     <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" tools:node="remove" />
     <uses-permission android:name="android.permission.READ_MEDIA_VIDEO" tools:node="remove" />
+    <!-- Implied by the manifest merger because LiteRT's litert-gpu-api AAR declares no
+         targetSdkVersion (the merger adds the pre-API-4 implicit permissions for it). Nothing
+         here reads the phone's state. Seen in the first real merged manifest, 1 Nov 2026. -->
+    <uses-permission android:name="android.permission.READ_PHONE_STATE" tools:node="remove" />
 
     <uses-feature android:name="android.hardware.microphone" android:required="false" />
     <uses-feature android:name="android.hardware.audio.low_latency" android:required="false" />
