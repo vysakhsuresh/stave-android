@@ -144,8 +144,8 @@ of that test is still open in `docs/PENDING_TESTS.md`.
 - At rest: 0 frames rendered in 10 s (gate: 0).
 - Play: 377 frames in 5 s, 0.27% janky, after the play-head followed the frame clock and the
   display was asked for 60 Hz while playing (before: 32 frames a second, 99% late).
-- Graph CPU: with one stereo track playing, the audio thread used about 5% of a core
-  (`top -H`). **24 tracks not yet measured.**
+- Graph CPU at 24 tracks (one song on each): the audio thread 14-20% of a core (gate: under
+  30%), after a fast path for unstretched clips (it was 35%); playing them, 0.6% janky frames.
 - Master to Streaming on a 5:48 song: 47-62 s; Measure about 40 s. Both ran out of memory
   before the whole-song tools were made to stream.
 - 28: Master to Streaming music: -14.4 LUFS, -1.0 dBTP (target -14, -1); true peak had been
