@@ -156,6 +156,15 @@ class LoudnessMeter(val sampleRate: Int, val channels: Int) {
         /** One-shot: the integrated loudness of a whole interleaved buffer. */
         fun integrated(interleaved: FloatArray, sampleRate: Int, channels: Int): Double =
             LoudnessMeter(sampleRate, channels).also { it.process(interleaved) }.integratedLufs
+
+        /**
+         * The loudness a source is heard at in the mix: the graph plays a mono source on both
+         * channels at unity, so it is measured as two identical channels (3 LU over its mono
+         * reading). Measured as mono, Clean up voice left a mono take 3 dB over its target.
+         */
+        fun integratedAsPlayed(interleaved: FloatArray, sampleRate: Int, channels: Int): Double =
+            if (channels == 1) integrated(FloatArray(interleaved.size * 2) { interleaved[it / 2] }, sampleRate, 2)
+            else integrated(interleaved, sampleRate, channels)
     }
 }
 

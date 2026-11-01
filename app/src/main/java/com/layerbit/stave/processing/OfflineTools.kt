@@ -118,7 +118,8 @@ object OfflineTools {
 
     fun normaliseLoudness(targetLufs: Double, ceilingDbtp: Double) = Transform { chs, rate ->
         val inter = interleave(chs)
-        val measured = LoudnessMeter.integrated(inter, rate, chs.size)
+        // As the mix will play it: a mono source sounds on both channels (integratedAsPlayed).
+        val measured = LoudnessMeter.integratedAsPlayed(inter, rate, chs.size)
         val g = Gain.normaliseLoudness(measured, targetLufs)
         Gain.apply(inter, g)
         val lim = Limiter(rate, chs.size, ceilingDbtp, 5.0, 60.0)

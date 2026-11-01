@@ -40,6 +40,11 @@ object LoudnessChecks : Suite {
         val mono = LoudnessMeter.integrated(sine(1000.0, -20.0, 4.0, rate, 1), rate, 1)
         val stereo = LoudnessMeter.integrated(sine(1000.0, -20.0, 4.0, rate, 2), rate, 2)
         near(stereo - mono, 3.01, 0.05, "two correlated channels")
+        // A mono source is played on both channels at unity, so it is heard as the stereo one. On
+        // the phone (1 Nov 2026) Clean up voice brought a mono take to -16 measured as mono and
+        // the mix then read -13.1 LUFS.
+        near(LoudnessMeter.integratedAsPlayed(sine(1000.0, -20.0, 4.0, rate, 1), rate, 1), stereo, 0.05, "a mono source measured as it is played")
+        near(LoudnessMeter.integratedAsPlayed(sine(1000.0, -20.0, 4.0, rate, 2), rate, 2), stereo, 0.0001, "stereo is measured as it is")
 
         section("gating: silence between does not lower the number")
         val tone = sine(1000.0, -20.0, 3.0, rate, 1)
