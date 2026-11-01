@@ -78,3 +78,18 @@ of that test is still open in `docs/PENDING_TESTS.md`.
 - 17: force-stopped mid-take: the WAV's RIFF and data sizes read 0xFFFFFFFF. Nothing sweeps the
   orphaned take into the project yet (as the test says, not written).
 - 86 (part): typing spaces in the Export sheet's Title field did not start the transport.
+
+**The transcript (PENDING 18, English with the base model)**
+- A 38-word English script read by the phone's own voice (Read aloud, 11.5 s mono) was
+  transcribed word for word, punctuation included: 0 errors in 38 words. 9.5 s for the clip
+  (one 30 s window) before DTW, 11.5 s with it; a minute of speech is therefore expected well
+  under a minute (extrapolated, not timed).
+- The word times were wrong at first: one-word segments laid end to end, so a sentence's last
+  word ran through the pause after it ("dog." ended 340 ms after the speech, "phone." 310 ms)
+  and tapping "lazy dog." selected mostly silence. Fixed in two parts: whisper.cpp's DTW times
+  (found on the phone to mark a word's end, not its start) and `WordTiming` (a word's edges
+  pulled to the pauses in the sound). After: "lazy dog." 1760-2490 ms against speech ending
+  at 2420, "phone." ending 70 ms late instead of 310.
+- Tapping "lazy" and "dog." selected 1.76-2.49 s; Delete 2 words cut 771 ms as one undo step
+  ("Undo Delete words"), and every later word moved up by 770 ms. **Play on the two words not
+  heard.** Hindi and Malayalam wait for the small model (not on the phone).

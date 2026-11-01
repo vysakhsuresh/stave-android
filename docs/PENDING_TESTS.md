@@ -14,7 +14,7 @@ back into the roadmap with what broke.
 11. (Length seen right 1 Nov 2026) Play a 44.1 kHz file in a 48 kHz session and listen: the pitch is right.
 
 ## P3 — the Voice tab
-18. Transcribe a minute of English with the base model: the words appear in under a minute on the moto; tap two words and Play plays just those; Delete removes the stretch and the words after move up. The same with Hindi and Malayalam in their own scripts (the small model, imported through Settings - the import screen is not yet built; push the file by `run-as` into `files/models/`).
+18. (English seen 1 Nov 2026) Listen to Play on two tapped words: just those two are heard. Hindi and Malayalam in their own scripts with the small model (imported through Settings, or pushed by `run-as` into `files/models/`).
 19. "Take out every um and uh" on a take with three ums: three cuts, one Undo.
 20. Remove silences with the defaults on a take with two long pauses: the pauses shrink to the kept margin; the transcript's later words still sit under their sounds.
 21. Clean up voice on a noisy phone recording: the hiss drops, the S sounds soften, the level lands at -16 LUFS (read the Export sheet's measurement after an export).
