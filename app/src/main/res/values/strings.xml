@@ -164,6 +164,7 @@
     <string name="editor_add">Add a sound</string>
     <string name="editor_selection">Selection</string>
     <string name="editor_no_selection">Hold, then drag over the waveform to select</string>
+    <string name="editor_too_long">This is too long to work on in one piece on this phone. Select a part and try again.</string>
     <string name="editor_busy_cancel">Cancel</string>
     <string name="sheet_select">Edit</string>
     <string name="sheet_gain">Gain</string>

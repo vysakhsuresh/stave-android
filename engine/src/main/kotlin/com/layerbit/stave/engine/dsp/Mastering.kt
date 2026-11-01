@@ -243,10 +243,18 @@ data class MasteringReport(
             require(channels.isNotEmpty())
             val n = channels[0].size
             val ch = channels.size
-            val inter = FloatArray(n * ch)
-            for (c in 0 until ch) for (i in 0 until n) inter[i * ch + c] = channels[c][i]
+            // Metered a block at a time: interleaving a six-minute song whole ran the phone out of
+            // memory on top of the mixdown (1 Nov 2026). The meter is streaming (DynamicsChecks).
             val meter = LoudnessMeter(sampleRate, ch)
-            meter.process(inter, n)
+            val block = 8192
+            val buf = FloatArray(block * ch)
+            var pos = 0
+            while (pos < n) {
+                val m = minOf(block, n - pos)
+                for (f in 0 until m) for (c in 0 until ch) buf[f * ch + c] = channels[c][pos + f]
+                meter.process(buf, m)
+                pos += m
+            }
             val left = channels[0]; val right = channels.getOrElse(1) { channels[0] }
             // Band energies off the mono sum through the same crossovers.
             val lower = LinkwitzRiley(lowHz, sampleRate); val upper = LinkwitzRiley(highHz, sampleRate)

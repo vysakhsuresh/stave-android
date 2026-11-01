@@ -86,19 +86,31 @@ class PeakStore(private val files: ProjectFiles) {
 object RawAudio {
     fun frames(file: File, channels: Int): Long = if (channels <= 0) 0 else file.length() / (4L * channels)
 
-    /** Reads [frames] frames from [fromFrame], interleaved. Short at the end of the file. */
+    /**
+     * Reads [frames] frames from [fromFrame], interleaved. Short at the end of the file. Mapped,
+     * not read: FileChannel.read into a heap buffer allocates a hidden direct buffer as large as
+     * the read, and measuring a six-minute song ran the app out of memory on that copy.
+     */
     fun read(file: File, channels: Int, fromFrame: Long, frames: Int): FloatArray {
         RandomAccessFile(file, "r").use { raf ->
-            val ch = raf.channel
             val total = frames(file, channels)
             val count = minOf(frames.toLong(), (total - fromFrame).coerceAtLeast(0)).toInt()
             if (count <= 0) return FloatArray(0)
-            val buf = ByteBuffer.allocate(count * channels * 4).order(ByteOrder.LITTLE_ENDIAN)
-            var position = fromFrame * channels * 4
-            while (buf.hasRemaining()) { val n = ch.read(buf, position); if (n <= 0) break; position += n }
-            buf.flip()
+            val map = raf.channel.map(FileChannel.MapMode.READ_ONLY, fromFrame * channels * 4, count.toLong() * channels * 4).order(ByteOrder.LITTLE_ENDIAN)
             val out = FloatArray(count * channels)
-            buf.asFloatBuffer().get(out, 0, buf.remaining() / 4)
+            map.asFloatBuffer().get(out)
+            return out
+        }
+    }
+
+    /** The whole file as planar channels, straight from the mapping: no interleaved copy on the heap. */
+    fun readPlanar(file: File, channels: Int, frames: Int, fromFrame: Long = 0): List<FloatArray> {
+        RandomAccessFile(file, "r").use { raf ->
+            val count = minOf(frames.toLong(), (frames(file, channels) - fromFrame).coerceAtLeast(0)).toInt()
+            val out = List(channels) { FloatArray(count) }
+            if (count == 0) return out
+            val fb = raf.channel.map(FileChannel.MapMode.READ_ONLY, fromFrame * channels * 4, count.toLong() * channels * 4).order(ByteOrder.LITTLE_ENDIAN).asFloatBuffer()
+            for (f in 0 until count) for (c in 0 until channels) out[c][f] = fb.get(f * channels + c)
             return out
         }
     }
@@ -108,6 +120,20 @@ object RawAudio {
         val inter = read(file, channels, fromFrame, frames)
         val n = inter.size / channels
         return FloatArray(n) { inter[it * channels + channel.coerceIn(0, channels - 1)] }
+    }
+
+    /** Planar channels written interleaved, a block at a time (no whole-file copy on the heap). */
+    fun writePlanar(file: File, chs: List<FloatArray>) {
+        val ch = chs.size; val n = chs.first().size; val block = 16384
+        val bb = ByteBuffer.allocate(block * ch * 4).order(ByteOrder.LITTLE_ENDIAN)
+        file.outputStream().buffered(1 shl 16).use { out ->
+            var pos = 0
+            while (pos < n) {
+                val m = minOf(block, n - pos); bb.clear()
+                for (f in 0 until m) for (c in 0 until ch) bb.putFloat(chs[c][pos + f])
+                out.write(bb.array(), 0, m * ch * 4); pos += m
+            }
+        }
     }
 
     fun write(file: File, interleaved: FloatArray, append: Boolean = false) {

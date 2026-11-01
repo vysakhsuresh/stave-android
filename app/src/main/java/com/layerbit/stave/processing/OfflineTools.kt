@@ -73,9 +73,8 @@ object OfflineTools {
         if (!file.isFile) return null
         val srcFrames = clip.sourceLength.coerceAtMost(source.frames - clip.offset).toInt()
         if (srcFrames <= 0) return null
-        val inter = RawAudio.read(file, source.channels, clip.offset, srcFrames)
-        val frames = inter.size / source.channels
-        var channels = List(source.channels) { c -> FloatArray(frames) { f -> inter[f * source.channels + c] } }
+        // Planar straight from the mapped file: no interleaved copy of the whole selection on the heap.
+        var channels = RawAudio.readPlanar(file, source.channels, srcFrames, clip.offset)
         if (clip.reversed) channels = channels.map { it.reversedArray() }
         if (!clip.warp.isIdentity) channels = stretch(channels, source.sampleRate, clip.warp.stretch, clip.warp.semitones, clip.warp.preserveFormant)
         // The clip's own gain is part of what is heard; it stays on the clip, so the samples are left at unity here.
@@ -88,9 +87,7 @@ object OfflineTools {
         val out = files.newSourceFile(id)
         val n = channels.first().size
         val ch = channels.size
-        val inter = FloatArray(n * ch)
-        for (c in 0 until ch) { val a = channels[c]; for (f in 0 until n) inter[f * ch + c] = a[f] }
-        RawAudio.write(out, inter)
+        RawAudio.writePlanar(out, channels)
         return Source(id, "${parent.name} · $label", "media/${out.name}", sampleRate, ch, n.toLong(), Source.Kind.RENDER, parentId = parent.id)
     }
 
@@ -117,14 +114,23 @@ object OfflineTools {
     }
 
     fun normaliseLoudness(targetLufs: Double, ceilingDbtp: Double) = Transform { chs, rate ->
-        val inter = interleave(chs)
-        // As the mix will play it: a mono source sounds on both channels (integratedAsPlayed).
-        val measured = LoudnessMeter.integratedAsPlayed(inter, rate, chs.size)
-        val g = Gain.normaliseLoudness(measured, targetLufs)
-        Gain.apply(inter, g)
-        val lim = Limiter(rate, chs.size, ceilingDbtp, 5.0, 60.0)
-        lim.process(inter)
-        deinterleave(shiftBack(inter, lim.latency, chs.size), chs.size)
+        // As the mix will play it: a mono source sounds on both channels (integratedAsPlayed),
+        // measured block by block so a long song is never copied whole.
+        val meter = LoudnessMeter(rate, if (chs.size == 1) 2 else chs.size)
+        if (chs.size == 1) streamed(listOf(chs[0], chs[0]), write = false) { b, n -> meter.process(b, n) }
+        else streamed(chs, write = false) { b, n -> meter.process(b, n) }
+        val g = Gain.normaliseLoudness(meter.reading().integratedLufs, targetLufs).toFloat()
+        for (a in chs) for (i in a.indices) a[i] *= g
+        // The limiter holds sample peaks; the ceiling is a true peak, which sits up to ~0.5 dB
+        // above them between samples. On the phone a master to -1 dBTP read -0.5 dBTP. So the
+        // limiter aims half a decibel lower, and the true peak is read after and trimmed if over.
+        val lim = Limiter(rate, chs.size, ceilingDbtp - 0.5, 5.0, 60.0)
+        streamed(chs, lim.latency) { b, n -> lim.process(b, n) }
+        val check = LoudnessMeter(rate, chs.size)
+        streamed(chs, write = false) { b, n -> check.process(b, n) }
+        val over = check.reading().truePeakDbtp - ceilingDbtp
+        if (over > 0) { val t = Gain.dbToLinear(-over - 0.05).toFloat(); for (a in chs) for (i in a.indices) a[i] *= t }
+        chs
     }
 
     fun fadeIn(length: Int, shape: FadeShape) = Transform { chs, _ -> chs.map { a -> a.copyOf().also { Fades.fadeIn(it, length, shape) } } }
@@ -155,11 +161,12 @@ object OfflineTools {
 
     fun eq(bands: List<EqBand>) = Transform { chs, rate ->
         val eq = ParametricEq(bands, rate, chs.size)
-        chs.mapIndexed { c, a -> a.copyOf().also { eq.processChannel(c, it) } }
+        chs.forEachIndexed { c, a -> eq.processChannel(c, a) }
+        chs
     }
 
     fun compress(settings: CompressorSettings) = Transform { chs, rate ->
-        val inter = interleave(chs); Compressor(rate, chs.size, settings).process(inter); deinterleave(inter, chs.size)
+        val comp = Compressor(rate, chs.size, settings); streamed(chs) { b, n -> comp.process(b, n) }
     }
 
     /** One per-sample effect built per channel ([build] gets the rate and the channel index, so a chorus can offset its LFO on the right). */
@@ -186,11 +193,11 @@ object OfflineTools {
     }
 
     fun multiband(lowHz: Double, highHz: Double, bands: List<CompressorSettings>) = Transform { chs, rate ->
-        val inter = interleave(chs); com.layerbit.stave.engine.dsp.MultibandCompressor(rate, chs.size, lowHz, highHz, bands).process(inter); deinterleave(inter, chs.size)
+        val mb = com.layerbit.stave.engine.dsp.MultibandCompressor(rate, chs.size, lowHz, highHz, bands); streamed(chs) { b, n -> mb.process(b, n) }
     }
 
     fun transients(attack: Double, sustain: Double) = Transform { chs, rate ->
-        val inter = interleave(chs); com.layerbit.stave.engine.dsp.TransientShaper(rate, chs.size, attack, sustain).process(inter); deinterleave(inter, chs.size)
+        val ts = com.layerbit.stave.engine.dsp.TransientShaper(rate, chs.size, attack, sustain); streamed(chs) { b, n -> ts.process(b, n) }
     }
 
     /** Mid/side width on a stereo pair; a mono source is left alone, there being no side to scale. */
@@ -199,15 +206,15 @@ object OfflineTools {
     }
 
     fun limit(ceilingDb: Double, releaseMs: Double) = Transform { chs, rate ->
-        val inter = interleave(chs); val lim = Limiter(rate, chs.size, ceilingDb, 5.0, releaseMs); lim.process(inter); deinterleave(shiftBack(inter, lim.latency, chs.size), chs.size)
+        val lim = Limiter(rate, chs.size, ceilingDb, 5.0, releaseMs); streamed(chs, lim.latency) { b, n -> lim.process(b, n) }
     }
 
     fun gate(thresholdDb: Double, rangeDb: Double, releaseMs: Double) = Transform { chs, rate ->
-        val inter = interleave(chs); Gate(rate, chs.size, thresholdDb, rangeDb, releaseMs = releaseMs).process(inter); deinterleave(inter, chs.size)
+        val gate = Gate(rate, chs.size, thresholdDb, rangeDb, releaseMs = releaseMs); streamed(chs) { b, n -> gate.process(b, n) }
     }
 
     fun deess(hz: Double, thresholdDb: Double) = Transform { chs, rate ->
-        val inter = interleave(chs); DeEsser(rate, chs.size, hz, thresholdDb).process(inter); deinterleave(inter, chs.size)
+        val de = DeEsser(rate, chs.size, hz, thresholdDb); streamed(chs) { b, n -> de.process(b, n) }
     }
 
     fun timePitch(ratio: Double, semitones: Double, formant: Boolean) = Transform { chs, rate -> stretch(chs, rate, ratio, semitones, formant) }
@@ -243,4 +250,27 @@ object OfflineTools {
         val inter = RawAudio.read(file, source.channels, 0, frames)
         return deinterleave(inter, source.channels)
     }
+}
+
+/**
+ * Runs an interleaved, stateful processor over planar [chs] in blocks of 8192 frames, writing
+ * back in place, so a whole song is never interleaved at once (a six-minute song mastered ran
+ * out of memory holding four copies of itself). A processor with look-ahead [latency] is fed
+ * that many frames of silence at the end and its output is moved back by as much, so the
+ * result lines up with the input. [write] false only reads (a meter).
+ */
+internal fun streamed(chs: List<FloatArray>, latency: Int = 0, write: Boolean = true, process: (FloatArray, Int) -> Unit): List<FloatArray> {
+    val ch = chs.size; val n = chs.first().size
+    val block = 8192
+    val buf = FloatArray(block * ch)
+    val total = n + if (write) latency else 0
+    var pos = 0
+    while (pos < total) {
+        val m = minOf(block, total - pos)
+        for (f in 0 until m) { val src = pos + f; for (c in 0 until ch) buf[f * ch + c] = if (src < n) chs[c][src] else 0f }
+        process(buf, m)
+        if (write) for (f in 0 until m) { val dst = pos + f - latency; if (dst in 0 until n) for (c in 0 until ch) chs[c][dst] = buf[f * ch + c] }
+        pos += m
+    }
+    return chs
 }

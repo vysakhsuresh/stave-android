@@ -642,8 +642,12 @@ class EditorViewModel(private val app: StaveApplication, val projectId: String) 
         try {
             val n = transport.renderOffline(from, to, tmp)
             if (n <= 0) return@withContext null
-            val inter = RawAudio.read(tmp, 2, 0, n.toInt())
-            com.layerbit.stave.processing.OfflineTools.deinterleave(inter, 2)
+            RawAudio.readPlanar(tmp, 2, n.toInt())
+        } catch (e: OutOfMemoryError) {
+            // A long mix can still not fit: say so instead of closing the app (a six-minute song
+            // did, measuring, before the read was mapped and the heap made large).
+            _ui.value = _ui.value.copy(busy = null, message = app.getString(com.layerbit.stave.R.string.editor_too_long))
+            null
         } finally { tmp.delete() }
     }
 
@@ -924,7 +928,7 @@ class EditorViewModel(private val app: StaveApplication, val projectId: String) 
 
     fun setFinishTarget(id: String) { _finish.value = _finish.value.copy(targetId = id) }
 
-    fun measureMix() {
+    fun measureMix(onLoudness: ((Double) -> Unit)? = null) {
         val s = session
         _ui.value = _ui.value.copy(busy = Busy("Measuring", 0f))
         viewModelScope.launch {
@@ -933,6 +937,7 @@ class EditorViewModel(private val app: StaveApplication, val projectId: String) 
             if (chs == null) return@launch
             val report = withContext(Dispatchers.Default) { com.layerbit.stave.engine.dsp.MasteringReport.of(chs, s.sampleRate) }
             _finish.value = _finish.value.copy(reading = report.loudness, report = report)
+            onLoudness?.invoke(report.loudness.integratedLufs)
         }
     }
 
@@ -1026,14 +1031,9 @@ class EditorViewModel(private val app: StaveApplication, val projectId: String) 
         select(null)
         val before = _finish.value.reading?.integratedLufs
         applyOffline("Master to ${target.label}", chain(*steps.toTypedArray())) {
-            // The after-loudness lands with the next measurement; the A/B gain is the difference.
-            measureMix()
-            viewModelScope.launch {
-                val s = session
-                val chs = mixdown(0, s.length) ?: return@launch
-                val after = withContext(Dispatchers.Default) { val m = com.layerbit.stave.engine.dsp.LoudnessMeter(s.sampleRate, 2); m.process(com.layerbit.stave.processing.OfflineTools.interleave(chs)); m.reading().integratedLufs }
-                if (before != null && before > -90 && after > -90) _finish.value = _finish.value.copy(abGainDb = after - before, comparing = false)
-            }
+            // One measurement after: its loudness is the A/B gain's other end. A second mixdown
+            // beside it held two whole songs at once and ran the phone out of memory.
+            measureMix { after -> if (before != null && before > -90 && after > -90) _finish.value = _finish.value.copy(abGainDb = after - before, comparing = false) }
         }
     }
 

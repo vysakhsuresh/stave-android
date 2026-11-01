@@ -95,5 +95,27 @@ object DynamicsChecks : Suite {
         check(!meter.clipped) { "not clipped" }
         meter.process(floatArrayOf(1f))
         check(meter.clipped) { "clipped at full scale" }
+
+        section("block by block equals all at once (the offline tools stream whole songs through these)")
+        val r = 48_000
+        val song = FloatArray(r * 2 * 3) { i -> val t = (i / 2).toDouble() / r; (0.9 * sin(2 * PI * 110 * t) * (if ((i / 2) % 9000 < 3000) 1.0 else 0.2) + (if (i % 2 == 0) 0.05 else -0.05)).toFloat() }
+        fun blocks(p: (FloatArray, Int) -> Unit): FloatArray { val out = song.copyOf(); val b = FloatArray(8192 * 2); var pos = 0; val n = out.size / 2; while (pos < n) { val m = minOf(8192, n - pos); System.arraycopy(out, pos * 2, b, 0, m * 2); p(b, m); System.arraycopy(b, 0, out, pos * 2, m * 2); pos += m }; return out }
+        fun whole(p: (FloatArray, Int) -> Unit): FloatArray { val out = song.copyOf(); p(out, out.size / 2); return out }
+        val lim1 = Limiter(r, 2, -1.0); val lim2 = Limiter(r, 2, -1.0)
+        check(blocks { b, n -> lim1.process(b, n) }.contentEquals(whole { b, n -> lim2.process(b, n) })) { "limiter in blocks differs from whole" }
+        val cs = CompressorSettings(thresholdDb = -20.0, ratio = 4.0)
+        val c1 = Compressor(r, 2, cs); val c2 = Compressor(r, 2, cs)
+        check(blocks { b, n -> c1.process(b, n) }.contentEquals(whole { b, n -> c2.process(b, n) })) { "compressor in blocks differs from whole" }
+        val g1 = Gate(r, 2, -30.0, 40.0); val g2 = Gate(r, 2, -30.0, 40.0)
+        check(blocks { b, n -> g1.process(b, n) }.contentEquals(whole { b, n -> g2.process(b, n) })) { "gate in blocks differs from whole" }
+        val m1 = com.layerbit.stave.engine.dsp.LoudnessMeter(r, 2); blocks { b, n -> m1.process(b, n) }
+        val m2 = com.layerbit.stave.engine.dsp.LoudnessMeter(r, 2); whole { b, n -> m2.process(b, n) }
+        near(m1.integratedLufs, m2.integratedLufs, 1e-9, "loudness in blocks")
+        val d1 = DeEsser(r, 2); val d2 = DeEsser(r, 2)
+        check(blocks { b, n -> d1.process(b, n) }.contentEquals(whole { b, n -> d2.process(b, n) })) { "de-esser in blocks differs from whole" }
+        val t1 = com.layerbit.stave.engine.dsp.TransientShaper(r, 2, 0.5, -0.5); val t2 = com.layerbit.stave.engine.dsp.TransientShaper(r, 2, 0.5, -0.5)
+        check(blocks { b, n -> t1.process(b, n) }.contentEquals(whole { b, n -> t2.process(b, n) })) { "transient shaper in blocks differs from whole" }
+        val mb1 = com.layerbit.stave.engine.dsp.MultibandCompressor(r, 2); val mb2 = com.layerbit.stave.engine.dsp.MultibandCompressor(r, 2)
+        check(blocks { b, n -> mb1.process(b, n) }.contentEquals(whole { b, n -> mb2.process(b, n) })) { "multiband in blocks differs from whole" }
     }
 }

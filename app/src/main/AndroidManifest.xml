@@ -53,6 +53,7 @@
 
     <application
         android:name=".StaveApplication"
+        android:largeHeap="true"
         android:allowBackup="false"
         android:dataExtractionRules="@xml/data_extraction_rules"
         android:fullBackupContent="false"
