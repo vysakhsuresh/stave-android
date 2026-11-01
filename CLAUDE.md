@@ -166,6 +166,16 @@ before writing the fix.
   bottom edge does not scroll it. `adb push` from Git Bash needs a `cygpath -m` local path
   when `MSYS_NO_PATHCONV=1` is set, because the prefix stops the local path's rewrite too.
 
+- **Run lint before every push, not only once.** A cast of LocalContext to Activity passed the
+  build and failed CI's lint an hour later. `./gradlew :engine:test assembleFullDebug
+  lintFullDebug` is the push gate on this laptop.
+- **Screen coordinates are 1080x2400; the screenshots shown here are scaled to 900 wide.**
+  Multiply what you read off a screenshot by 1.2 before `input tap`. And while the mic is
+  armed the level meter keeps the window busy, so `uiautomator dump` fails: tap by coordinates.
+- **Whole-song tools must stream.** A 6-minute stereo song is 133 MB as floats; holding a few
+  copies killed the app. Use `RawAudio.readPlanar`/`writePlanar` and `streamed()`, never
+  `interleave()` on a whole song; DynamicsChecks proves each processor streams exactly.
+
 ## Working agreement
 
 All work lands on `main` and is pushed when the suites pass. Commit messages say why. No model
