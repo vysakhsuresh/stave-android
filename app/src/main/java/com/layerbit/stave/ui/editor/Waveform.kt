@@ -21,6 +21,9 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.clipRect
+import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.graphics.nativeCanvas
+import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
@@ -351,13 +354,21 @@ private fun DrawScope.drawClip(clip: com.layerbit.stave.engine.project.Clip, sou
         val cols = if (clip.reversed) peaks[c].columns(srcStart, srcEnd, columns).reversedArray() else peaks[c].columns(srcStart, srcEnd, columns)
         val mid = top + chHeight * c + chHeight / 2
         val scale = (chHeight / 2 - 2f)
+        // Every column's line in one native drawLines call per colour: a drawLine per pixel column
+        // was ~4000 draw commands a frame, and the RenderThread took 17 ms a frame scrubbing.
+        val peaksLines = FloatArray(cols.size * 4); val rmsLines = FloatArray(cols.size * 4); var nr = 0
         for ((i, col) in cols.withIndex()) {
-            val x = left + i
+            val x = left + i + 0.5f
             val yMax = mid - col.max.coerceIn(-1f, 1f) * scale
             val yMin = mid - col.min.coerceIn(-1f, 1f) * scale
-            drawLine(wave, Offset(x, min(yMax, yMin)), Offset(x, max(yMax, yMin) + 1f), 1f)
+            peaksLines[i * 4] = x; peaksLines[i * 4 + 1] = min(yMax, yMin); peaksLines[i * 4 + 2] = x; peaksLines[i * 4 + 3] = max(yMax, yMin) + 1f
             val r = col.rms.coerceIn(0f, 1f) * scale
-            if (r > 0.5f) drawLine(rms, Offset(x, mid - r), Offset(x, mid + r), 1f)
+            if (r > 0.5f) { rmsLines[nr] = x; rmsLines[nr + 1] = mid - r; rmsLines[nr + 2] = x; rmsLines[nr + 3] = mid + r; nr += 4 }
+        }
+        drawIntoCanvas { canvas ->
+            val paint = android.graphics.Paint().apply { strokeWidth = 1f; isAntiAlias = false }
+            paint.color = wave.toArgb(); canvas.nativeCanvas.drawLines(peaksLines, 0, cols.size * 4, paint)
+            if (nr > 0) { paint.color = rms.toArgb(); canvas.nativeCanvas.drawLines(rmsLines, 0, nr, paint) }
         }
     }
 }

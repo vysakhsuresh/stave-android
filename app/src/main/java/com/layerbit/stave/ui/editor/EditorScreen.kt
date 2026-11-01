@@ -57,6 +57,7 @@ import androidx.compose.ui.input.key.type
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
@@ -98,7 +99,20 @@ fun EditorScreen(vm: EditorViewModel, onBack: () -> Unit, onAddSounds: () -> Uni
     val ui by vm.ui.collectAsState()
     val transport by vm.transport.state.collectAsState()
     val spectral by vm.spectral.collectAsState()
-    LaunchedEffect(transport.position, transport.playing) { if (transport.playing) vm.followPlayhead(transport.position) }
+    // The film follows the engine every frame, not every 33 ms poll: polled, it moved in 30 Hz
+    // steps and the strip drew 32 frames a second while playing (measured on the moto).
+    LaunchedEffect(transport.playing) {
+        if (transport.playing) while (true) androidx.compose.runtime.withFrameNanos { vm.followPlayhead(vm.transport.livePosition()) }
+    }
+    // While the film moves, ask the display for 60 Hz: on the moto (90 Hz, an 11 ms deadline)
+    // the full-screen redraw took ~11 ms of GPU a frame and 99% of playback frames were late;
+    // at 60 Hz they fit, and the battery is spared. Back to the phone's choice when stopped.
+    val activity = LocalContext.current as? android.app.Activity
+    androidx.compose.runtime.DisposableEffect(transport.playing) {
+        val window = activity?.window
+        if (window != null && transport.playing) window.attributes = window.attributes.apply { preferredRefreshRate = 60f }
+        onDispose { if (window != null) window.attributes = window.attributes.apply { preferredRefreshRate = 0f } }
+    }
     BackHandler(enabled = ui.sheet != null) { vm.setSheet(null) }
     var renaming by remember { mutableStateOf(false) }
 
@@ -134,7 +148,7 @@ fun EditorScreen(vm: EditorViewModel, onBack: () -> Unit, onAddSounds: () -> Uni
         }
         TabRow(ui.tab, vm::setTab)
         // The strip takes what is left above the transport and the sheet.
-        Box(Modifier.weight(1f).fillMaxWidth().padding(horizontal = 8.dp).clip(PanelShape)) {
+        Box(Modifier.weight(1f).fillMaxWidth().padding(horizontal = 8.dp).clipToBounds()) {
             WaveformStrip(
                 session = ui.session, window = ui.window, selection = ui.selection, selectedTrackId = ui.selectedTrackId,
                 peaksFor = vm::peaksFor, onWindow = vm::setWindow, onSelect = vm::select, onSelectTrack = vm::selectTrack,
