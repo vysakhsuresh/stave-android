@@ -139,6 +139,26 @@ before writing the fix.
   format id (the table says "m4a") and "broadcast" is not a target (it says "ebu"). Both were
   wrong on the first write and the suite said so before a phone could.
 
+## Things the first phone run taught (1 November), for the next stranger
+
+- **An export is checked against its source sample by sample, not by ear or by its meter.**
+  The first WAV export sounded plausible and measured only 0.1 LU off; it was 192 frames late
+  with three bursts mixed in twice, because `Engine::renderOffline` ran `processBlock` while
+  the Oboe callback ran it too (now `renderLock`). Found by pulling the WAV and the project's
+  `media/<id>.f32` (`adb exec-out run-as com.layerbit.stave cat ...`) and diffing them with
+  `od -tu1 -w3` (24-bit) and `od -tf4` (the float source) through awk: no Python is needed.
+  Any C++ that touches the graph from a non-audio thread must take `renderLock` or be atomic.
+- **`drawText` without a size throws when the text starts past the canvas edge**, and wraps
+  it a letter a line when it starts near it; the editor crashed on the first sound opened.
+  `Waveform.kt`'s `labelAt` measures at the text's own width and clips.
+- **A missing `}` in Compose compiles.** The Export sheet's Artist/Album row swallowed the next
+  row, which took the width and left two fields a few pixels wide. Only a screenshot showed it.
+- **Driving the phone**: `uiautomator dump` text matches are substrings unless anchored ("320"
+  matched a sentence before the chip); a sheet's own buttons share names with the chip row
+  ("Export"), so tap by position after checking the dump; a swipe starting below a sheet's
+  bottom edge does not scroll it. `adb push` from Git Bash needs a `cygpath -m` local path
+  when `MSYS_NO_PATHCONV=1` is set, because the prefix stops the local path's rewrite too.
+
 ## Working agreement
 
 All work lands on `main` and is pushed when the suites pass. Commit messages say why. No model
