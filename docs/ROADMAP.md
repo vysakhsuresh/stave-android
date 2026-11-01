@@ -28,7 +28,7 @@ Built-not-seen is never called done.
 - [~] Peak pyramid, fixed-play-head time window, ruler (`PeaksChecks`)
 - [~] Timecode for screen and file (`TimecodeChecks`)
 - [~] Project model: sources, clips, tracks, markers, regions; JSON codec with `putFinite`; round trip suite (`ProjectChecks`)
-- [~] Edit history: undo/redo, gesture folding, `recordLate`, `amendAll`; suite (`ProjectChecks`)
+- [~] Edit history: undo/redo, gesture folding, `recordLate`, `amendAll`; suite (`ProjectChecks`); the history listed on the Edit sheet to jump back several steps; keyboard shortcuts on the editor (space, delete, undo, redo, select all, home, end)
 - [~] Region edits: split/trim/move/ripple delete/insert/copy/paste/crop/snap over the clip list; suite (`SessionEditsChecks`)
 - [~] Spectral editing: a box in time and frequency turned down with feathered edges, or filled in from the frames either side; the spectrogram the screen paints from the same STFT; suite (`SpectralEditChecks`)
 - [~] Linkwitz-Riley crossover, three-band compressor, transient shaper, EQ match, width and correlation, the report (`MasteringChecks`); the leveller is Even out volume on the Voice tab
@@ -69,7 +69,7 @@ Built-not-seen is never called done.
 - [~] Arrangement strip: tracks as lanes under one play-head, clips carried by a long press, snapped to the beat grid
 - [~] Mixer: a strip per track and the master (fader, pan, mute, solo, arm, meter), inserts with live parameters, sends and buses
 - [~] Automation: volume and pan lanes drawn on the strip with a finger (the stroke thinned to its corners and replacing only its span, `AutomationChecks`), written by fader moves while playing, set by points, written by Duck under speech; played by the graph; a tempo map with changes at the play-head
-- [~] Takes land on their own lanes, drawn stacked in the track's row; loop the selection; punch in and out over the selection; Takes chips choose the lane heard; comping by swipe (a stretch of one lane heard there, the others split at its edges and muted inside only, `CompingChecks`)
+- [~] Takes land on their own lanes, drawn stacked in the track's row; loop the selection; punch in and out over the selection with a bar of pre-roll that is trimmed off the take; Takes chips choose the lane heard; comping by swipe (a stretch of one lane heard there, the others split at its edges and muted inside only, `CompingChecks`)
 - [~] Bounce to a new track; every track exported as a stem; Freeze (the track alone through its inserts to one clip, inserts off, Undo unfreezes); latency compensation not yet
 - [~] MIDI controllers over USB and Bluetooth through MidiManager play the Beats tab's instrument and record into the loop (running status and real-time bytes handled); the input device chosen in Settings (a USB interface or a Bluetooth mic by its AudioDeviceInfo id, the system's choice as the fallback when it will not open); MIDI out and MIDI clock not yet
 

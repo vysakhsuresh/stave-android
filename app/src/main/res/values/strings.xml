@@ -690,6 +690,13 @@
     <string name="export_year">Year</string>
     <string name="export_genre">Genre</string>
 
+    <string name="voice_pre_roll">Pre-roll a bar</string>
+    <string name="voice_pre_roll_detail">The bar before the punch point plays first so you hear the way in; it is not kept.</string>
+    <string name="select_history">Undo history</string>
+    <string name="select_history_hint">Tap a step to go back to just before it. Redo brings the steps back one at a time.</string>
+    <string name="select_history_none">Nothing to undo yet.</string>
+    <string name="select_shortcuts">With a keyboard: Space plays, Delete cuts the selection, Ctrl+Z and Ctrl+Y undo and redo, Ctrl+A selects all, Home and End jump.</string>
+
     <!-- Notifications -->
     <string name="notification_channel">Recording and playback</string>
     <string name="notification_export_channel">Exports</string>

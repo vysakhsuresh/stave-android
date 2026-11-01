@@ -86,6 +86,7 @@ fun VoicePanel(vm: EditorViewModel, ui: EditorViewModel.Ui, modifier: Modifier =
             ToggleRow(stringResource(R.string.voice_monitor), voice.monitor, { vm.setMonitor(it) }, detail = stringResource(R.string.voice_monitor_detail), enabled = voice.armed, modifier = Modifier.padding(top = 4.dp))
             ToggleRow(stringResource(R.string.voice_punch), voice.punch, { vm.setPunch(it) }, detail = stringResource(if (ui.selection != null) R.string.voice_punch_detail else R.string.voice_punch_needs_selection), enabled = !transport.recording)
             ToggleRow(stringResource(R.string.voice_count_in), voice.countIn, { vm.setCountIn(it) }, detail = stringResource(R.string.voice_count_in_detail), enabled = !transport.recording)
+            if (voice.punch) ToggleRow(stringResource(R.string.voice_pre_roll), voice.preRoll, { vm.setPreRoll(it) }, detail = stringResource(R.string.voice_pre_roll_detail), enabled = !transport.recording)
             if (voice.countingIn) Text(stringResource(R.string.voice_counting_in), style = MaterialTheme.typography.titleMedium, color = StaveColors.Record, modifier = Modifier.padding(top = 8.dp))
             voice.dropped.takeIf { it > 0 }?.let { Text(stringResource(R.string.voice_dropped, it), style = MaterialTheme.typography.bodySmall, color = StaveColors.Hot) }
         }

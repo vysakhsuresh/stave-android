@@ -51,3 +51,5 @@ Grows with each phase. Dated.
 - 1 November, the fifth pass: a bar of count-in, show notes, chord stamps with strum and groove chips, a pitch trace, publish presets and album tags on the Export sheet.
 
 - 1 November: TPDF dither before a 16- or 24-bit encode.
+- 1 November, the sixth pass: pre-roll before a punched take, the undo history as a list, keyboard shortcuts for a hardware keyboard.
+

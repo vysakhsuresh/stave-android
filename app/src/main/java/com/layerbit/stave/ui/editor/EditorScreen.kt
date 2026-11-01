@@ -44,6 +44,16 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.compose.foundation.focusable
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.isCtrlPressed
+import androidx.compose.ui.input.key.isShiftPressed
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onKeyEvent
+import androidx.compose.ui.input.key.type
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
@@ -92,7 +102,25 @@ fun EditorScreen(vm: EditorViewModel, onBack: () -> Unit, onAddSounds: () -> Uni
     BackHandler(enabled = ui.sheet != null) { vm.setSheet(null) }
     var renaming by remember { mutableStateOf(false) }
 
-    Column(Modifier.fillMaxSize().background(StaveColors.Background)) {
+    // A hardware keyboard (a tablet, a Chromebook, a phone on a desk): the keys every editor
+    // answers to. onKeyEvent, not the preview, so a text field keeps what is typed into it and
+    // only the keys it leaves alone reach here; the root holds focus until a field takes it.
+    val keyFocus = remember { FocusRequester() }
+    LaunchedEffect(Unit) { runCatching { keyFocus.requestFocus() } }
+    Column(Modifier.fillMaxSize().background(StaveColors.Background).focusRequester(keyFocus).focusable().onKeyEvent { e ->
+        if (e.type != KeyEventType.KeyDown) return@onKeyEvent false
+        when {
+            e.key == Key.Spacebar -> { vm.togglePlay(); true }
+            e.key == Key.Delete || e.key == Key.Backspace -> { if (ui.selection != null) { vm.deleteSelection(true); true } else false }
+            e.isCtrlPressed && e.key == Key.Z && e.isShiftPressed -> { vm.redo(); true }
+            e.isCtrlPressed && e.key == Key.Z -> { vm.undo(); true }
+            e.isCtrlPressed && e.key == Key.Y -> { vm.redo(); true }
+            e.isCtrlPressed && e.key == Key.A -> { vm.selectAll(); true }
+            e.key == Key.MoveHome -> { vm.seek(0); true }
+            e.key == Key.MoveEnd -> { vm.seek(ui.session.length); true }
+            else -> false
+        }
+    }) {
         // Bar: back, the name, undo and redo.
         Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             RoundIconButton(icon = Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.app_back), onClick = onBack)

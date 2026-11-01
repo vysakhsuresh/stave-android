@@ -112,4 +112,7 @@ back into the roadmap with what broke.
 81. Beats → on a synth, Chord stamp Major with a Strum: a tap lays three notes a few ticks apart (zoom the grid); on Drums the stamp is ignored; the groove chips move the swing slider.
 82. Musician → select a sung phrase, Trace the selection: the line follows the voice, sits on the semitone lines when in tune, and breaks between phrases rather than gliding.
 83. Export → Podcast MP3 preset: the chips jump to MP3 128 and the podcast target; track 4, year and genre typed are in the file's tags (read them back in a tag editor).
+84. Voice → Punch with Pre-roll a bar: Record plays the bar before the selection, the take lands at the selection's start (the bar is not in the clip), and stops at its end.
+85. Edit → the Undo history lists the steps newest first; tapping the third goes back three steps and Redo returns them one at a time.
+86. With a Bluetooth keyboard: Space plays and pauses, Delete cuts the selection, Ctrl+Z and Ctrl+Y undo and redo, Ctrl+A selects all, Home and End jump; typing in a name field does not trigger any of them.
 

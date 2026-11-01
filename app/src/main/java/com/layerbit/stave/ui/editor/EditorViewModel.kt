@@ -379,6 +379,8 @@ class EditorViewModel(private val app: StaveApplication, val projectId: String) 
         val recordPaused: Boolean = false,
         /** One bar of click before a take starts. */
         val countIn: Boolean = false,
+        /** A punched take plays the bar before the punch point first, and that bar is trimmed off the take. */
+        val preRoll: Boolean = true,
         val countingIn: Boolean = false
     )
 
@@ -389,6 +391,8 @@ class EditorViewModel(private val app: StaveApplication, val projectId: String) 
     private var recordStart = 0L
     /** Where a punched take stops itself, in samples on the timeline; null when not punching. */
     private var punchEnd: Long? = null
+    /** The bar played before a punched take, recorded and then trimmed off the clip's head. */
+    private var preRollFrames = 0L
     private var recordFile: File? = null
     private var recordJob: Job? = null
 
@@ -445,8 +449,13 @@ class EditorViewModel(private val app: StaveApplication, val projectId: String) 
         val loop = _looper.value.takeIf { it.active }
         if (loop != null) { recordStart = loop.start; _looper.value = loop.copy(recordingLayer = true) }
         // Punch: the take starts at the selection's start and the recorder stops itself at its end.
+        // With pre-roll the transport starts a bar early so the singer hears the way in; the
+        // recorder runs from there too (one file, no late start to misalign), and the bar is
+        // trimmed off when the take lands.
         val punch = _ui.value.selection?.takeIf { _voice.value.punch && loop == null && it.last > it.first }
         punchEnd = punch?.let { recordStart = it.first; it.last + 1 }
+        preRollFrames = if (punch != null && _voice.value.preRoll) { val t = session.tempoAt(recordStart); (t.beatsPerBar * 60.0 / t.bpm * session.sampleRate).toLong().coerceAtMost(recordStart) } else 0L
+        recordStart -= preRollFrames
         transport.seek(recordStart)
         transport.setLoop(loop?.let { it.start until it.start + it.length })
         if (session.length > recordStart || loop != null) transport.play()
@@ -489,8 +498,11 @@ class EditorViewModel(private val app: StaveApplication, val projectId: String) 
             var s = session.copy(sources = session.sources + source)
             val trackId = _ui.value.selectedTrackId?.takeIf { id -> s.track(id)?.kind == Track.Kind.AUDIO } ?: run { val t = Track(Ids.next("t"), "Voice"); s = SessionEdits.addTrack(s, t); t.id }
             // A take over existing sound goes on its own lane, so nothing underneath is covered.
-            val lane = if (s.clipsIn(recordStart, recordStart + source.frames, trackId).isEmpty()) 0 else (s.clipsOn(trackId).maxOfOrNull { it.lane } ?: 0) + 1
-            s = SessionEdits.add(s, SessionEdits.clipFor(source, trackId, recordStart, s.sampleRate).copy(lane = lane))
+            val skip = preRollFrames.coerceAtMost(source.frames - 1).coerceAtLeast(0)
+            val landAt = recordStart + skip
+            val lane = if (s.clipsIn(landAt, recordStart + source.frames, trackId).isEmpty()) 0 else (s.clipsOn(trackId).maxOfOrNull { it.lane } ?: 0) + 1
+            s = SessionEdits.add(s, SessionEdits.clipFor(source, trackId, landAt, s.sampleRate).let { c -> if (skip > 0) c.copy(offset = c.offset + skip, length = c.length - skip) else c }.copy(lane = lane))
+            preRollFrames = 0
             if (lane > 0) s = SessionEdits.updateTrack(s, trackId) { it.copy(lanes = maxOf(it.lanes, lane + 1)) }
             _ui.value = _ui.value.copy(selectedTrackId = trackId)
             if (s.name.isBlank()) s = s.copy(name = "Take $count")
@@ -531,6 +543,12 @@ class EditorViewModel(private val app: StaveApplication, val projectId: String) 
      * switch; startRecording waits the bar out before it opens the recorder.
      */
     fun setCountIn(on: Boolean) { _voice.value = _voice.value.copy(countIn = on) }
+    fun setPreRoll(on: Boolean) { _voice.value = _voice.value.copy(preRoll = on) }
+
+    /** The undo history's labels, newest first, for the list that jumps back several steps at once. */
+    fun undoLabels(): List<String> = history.labels().asReversed()
+    /** Back [steps] steps as that many undos; the strip and the graph follow once. */
+    fun undoSteps(steps: Int) { var n = 0; while (n < steps && history.undo()) n++; if (n > 0) { _ui.value = _ui.value.copy(selection = null); after() } }
 
     /**
      * Show notes from what is here: the chapters with their times and the first words said in

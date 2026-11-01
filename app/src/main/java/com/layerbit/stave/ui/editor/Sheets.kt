@@ -105,6 +105,16 @@ private fun SelectSheet(vm: EditorViewModel, ui: EditorViewModel.Ui) {
         SecondaryButton(stringResource(R.string.edit_reverse), onClick = vm::reverseClips, enabled = has, tall = false)
         SecondaryButton(stringResource(R.string.edit_add_track), onClick = { vm.addTrack() }, tall = false)
     }
+    // The undo history: every step by its label, newest first; a tap goes back to just before it.
+    Spacer(Modifier.height(12.dp))
+    Text(stringResource(R.string.select_history), style = MaterialTheme.typography.bodyMedium, color = StaveColors.Text)
+    Text(stringResource(R.string.select_history_hint), style = MaterialTheme.typography.bodySmall, color = StaveColors.Dim, modifier = Modifier.padding(vertical = 4.dp))
+    val labels = vm.undoLabels()
+    if (labels.isEmpty()) Text(stringResource(R.string.select_history_none), style = MaterialTheme.typography.bodySmall, color = StaveColors.Dim)
+    for ((k, label) in labels.take(12).withIndex()) {
+        SecondaryButton("${k + 1}. $label", onClick = { vm.undoSteps(k + 1) }, tall = false, modifier = Modifier.fillMaxWidth().padding(top = 4.dp))
+    }
+    Text(stringResource(R.string.select_shortcuts), style = MaterialTheme.typography.bodySmall, color = StaveColors.Dim, modifier = Modifier.padding(top = 10.dp))
 }
 
 @Composable
