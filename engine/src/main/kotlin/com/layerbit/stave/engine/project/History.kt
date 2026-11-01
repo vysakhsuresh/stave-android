@@ -50,6 +50,23 @@ class History(initial: Session, private val limit: Int = 200) {
         current = session
     }
 
+    /** The steps as they stand, oldest first, for saving beside the project. */
+    fun steps(): Pair<List<Step>, List<Step>> = past.toList() to future.toList()
+
+    /**
+     * Puts saved steps back, when they belong to [current]: a project saved without its history,
+     * or edited elsewhere, keeps an empty one rather than a history that leads somewhere else.
+     * The Guide promises Undo after the app is closed; History lived only in memory until
+     * 1 Nov 2026, when the phone showed an empty Undo after a restart.
+     */
+    fun restore(savedCurrent: Session, past: List<Step>, future: List<Step>): Boolean {
+        if (savedCurrent != current) return false
+        this.past.clear(); this.past.addAll(past.takeLast(limit))
+        this.future.clear(); this.future.addAll(future)
+        openGesture = null
+        return true
+    }
+
     fun endGesture() { openGesture = null }
 
     /**
@@ -102,4 +119,35 @@ class History(initial: Session, private val limit: Int = 200) {
 
     /** Labels of the past steps, oldest first, for a history list. */
     fun labels(): List<String> = past.map { it.label }
+}
+
+/**
+ * The undo history as a file beside project.json: the session it belongs to, then each step's
+ * label and session. Saved with the project and read back on open, so Undo survives the app
+ * being closed (History.restore keeps it only when the saved session is the one on disk).
+ */
+object HistoryJson {
+    /** At most this many steps are written: each is a whole session, a few kilobytes. */
+    const val KEEP = 60
+
+    fun write(history: History): String {
+        val (past, future) = history.steps()
+        fun steps(l: List<History.Step>) = com.layerbit.stave.engine.json.JsonArray().also { a -> l.forEach { s -> a.add(com.layerbit.stave.engine.json.JsonObject().put("label", s.label).put("session", ProjectJson.encode(s.session))) } }
+        return com.layerbit.stave.engine.json.Json.write(com.layerbit.stave.engine.json.JsonObject()
+            .put("version", 1)
+            .put("current", ProjectJson.encode(history.current))
+            .put("past", steps(past.takeLast(KEEP)))
+            .put("future", steps(future.takeLast(KEEP))))
+    }
+
+    class Saved(val current: Session, val past: List<History.Step>, val future: List<History.Step>)
+
+    fun read(text: String): Saved? = runCatching {
+        val o = com.layerbit.stave.engine.json.Json.parseObject(text)
+        fun steps(name: String): List<History.Step> {
+            val a = o.arr(name) ?: return emptyList()
+            return (0 until a.size).mapNotNull { i -> (a.raw(i) as? com.layerbit.stave.engine.json.JsonObject)?.let { s -> s.obj("session")?.let { History.Step(ProjectJson.decode(it), s.string("label") ?: "") } } }
+        }
+        Saved(ProjectJson.decode(o.obj("current")!!), steps("past"), steps("future"))
+    }.getOrNull()
 }

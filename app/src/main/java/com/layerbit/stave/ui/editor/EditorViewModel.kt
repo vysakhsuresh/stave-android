@@ -93,11 +93,15 @@ class EditorViewModel(private val app: StaveApplication, val projectId: String) 
         viewModelScope.launch {
             val loaded = withContext(Dispatchers.IO) { files.load() } ?: Session(kind = app.projects.list().firstOrNull { it.id == projectId }?.kind ?: "edit", sampleRate = app.settings.current.sampleRate.takeIf { it > 0 } ?: 48_000)
             history = History(loaded)
+            // The undo history saved beside the project, when it belongs to this very session.
+            runCatching { File(files.dir, "history.json").takeIf { it.isFile }?.readText() }.getOrNull()
+                ?.let { com.layerbit.stave.engine.project.HistoryJson.read(it) }
+                ?.let { h -> history.restore(h.current, h.past, h.future) }
             transport.open(loaded.sampleRate)
             val rate = if (transport.available) transport.sampleRate else loaded.sampleRate
             val s = if (loaded.sources.isEmpty() && rate != loaded.sampleRate) loaded.copy(sampleRate = rate) else loaded
             if (s !== loaded) history = History(s)
-            _ui.value = _ui.value.copy(session = s, window = TimeWindow.initial(s.length, widthPx), loaded = true, exportSettings = _ui.value.exportSettings.copy(loudnessTargetId = app.settings.current.loudnessTargetId), selectedTrackId = s.tracks.firstOrNull()?.id)
+            _ui.value = _ui.value.copy(session = s, window = TimeWindow.initial(s.length, widthPx), loaded = true, canUndo = history.canUndo, canRedo = history.canRedo, undoLabel = history.undoLabel, exportSettings = _ui.value.exportSettings.copy(loudnessTargetId = app.settings.current.loudnessTargetId), selectedTrackId = s.tracks.firstOrNull()?.id)
             pushToGraph()
             val pending = app.handoff.take(projectId)
             if (pending.isNotEmpty()) importAll(pending)
@@ -192,14 +196,21 @@ class EditorViewModel(private val app: StaveApplication, val projectId: String) 
         saveJob = viewModelScope.launch { delay(1500); saveNow() }
     }
 
+    private fun writeHistory(text: String) {
+        val f = File(files.dir, "history.json"); val tmp = File(files.dir, "history.json.tmp")
+        tmp.writeText(text); if (!tmp.renameTo(f)) { f.delete(); tmp.renameTo(f) }
+    }
+
     fun saveNow() {
         val s = session
-        viewModelScope.launch(Dispatchers.IO) { runCatching { files.save(s); files.snapshotIfDue(s) } }
+        val h = runCatching { com.layerbit.stave.engine.project.HistoryJson.write(history) }.getOrNull()
+        viewModelScope.launch(Dispatchers.IO) { runCatching { files.save(s); files.snapshotIfDue(s); h?.let { writeHistory(it) } } }
     }
 
     override fun onCleared() {
         saveJob?.cancel()
         runCatching { files.save(session) }
+        runCatching { writeHistory(com.layerbit.stave.engine.project.HistoryJson.write(history)) }
         player?.close()
         midiInput?.stop()
         transport.pause()

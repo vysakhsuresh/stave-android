@@ -100,5 +100,21 @@ object ProjectChecks : Suite {
         val capped = History(Session(), limit = 5)
         for (i in 1..10) capped.record(capped.current.copy(playhead = i.toLong()), "p$i")
         check(capped.depth == 5) { "capped at 5: ${capped.depth}" }
+
+        section("the undo history survives a save and a reopen, and only onto its own session")
+        val live = History(Session(name = "a"))
+        live.record(Session(name = "b"), "Rename")
+        live.record(Session(name = "c"), "Rename again")
+        live.undo()
+        val historyText = com.layerbit.stave.engine.project.HistoryJson.write(live)
+        val saved = com.layerbit.stave.engine.project.HistoryJson.read(historyText)!!
+        val reopened = History(Session(name = "b"))
+        check(reopened.restore(saved.current, saved.past, saved.future)) { "restores onto the session it was saved with" }
+        check(reopened.undoLabel == "Rename" && reopened.redoLabel == "Rename again") { "labels: ${reopened.undoLabel} / ${reopened.redoLabel}" }
+        check(reopened.undo() && reopened.current.name == "a") { "undo after reopening goes back: ${reopened.current.name}" }
+        check(reopened.redo() && reopened.redo() && reopened.current.name == "c") { "redo runs forward again: ${reopened.current.name}" }
+        val other = History(Session(name = "z"))
+        check(!other.restore(saved.current, saved.past, saved.future) && !other.canUndo) { "a history saved for another session is refused" }
+        check(com.layerbit.stave.engine.project.HistoryJson.read("not json") == null) { "a broken file reads as nothing" }
     }
 }
