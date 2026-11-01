@@ -192,14 +192,16 @@ class EditorViewModel(private val app: StaveApplication, val projectId: String) 
                 }
             }
             _ui.value = _ui.value.copy(busy = null)
-            if (session.name.isBlank() && session.sources.isNotEmpty()) rename(session.sources.first().name)
             fit()
         }
     }
 
     /** A new source laid at the end of the selected track (a new track when there is none), as one step. */
     private fun addSource(source: Source) {
-        var s = session.copy(sources = session.sources + source)
+        // A blank session takes the first sound's name inside the same step as the open: named
+        // afterwards, it was a second undo step ("Undo Rename" on a file just opened).
+        val naming = session.name.isBlank()
+        var s = session.copy(sources = session.sources + source, name = if (naming) source.name else session.name)
         val trackId = _ui.value.selectedTrackId?.takeIf { id -> s.track(id)?.kind == Track.Kind.AUDIO } ?: run {
             val t = Track(Ids.next("t"), "Track ${s.audioTracks.size + 1}")
             s = SessionEdits.addTrack(s, t); t.id
@@ -208,6 +210,7 @@ class EditorViewModel(private val app: StaveApplication, val projectId: String) 
         s = SessionEdits.add(s, SessionEdits.clipFor(source, trackId, at, s.sampleRate))
         _ui.value = _ui.value.copy(selectedTrackId = trackId)
         commit(s, "Open ${source.name}")
+        if (naming) viewModelScope.launch(Dispatchers.IO) { app.projects.rename(projectId, source.name) }
     }
 
     fun rename(name: String) { commit(session.copy(name = name), "Rename"); viewModelScope.launch(Dispatchers.IO) { app.projects.rename(projectId, name) } }
