@@ -1,0 +1,157 @@
+STAVE - THE LAPTOP BUILD, FIRST PHONE RUN AND RELEASE
+=====================================================
+
+How to use this file: open Claude Code CLI on the laptop (Windows, Git Bash) in the
+folder where stave-android is cloned (or an empty folder), and paste everything between
+the two lines of equals signs below as ONE message. Claude Code on the laptop will do the
+rest and ask you only when a phone or a password is needed.
+
+Before you paste:
+  - Plug the moto g84 in with USB debugging on, and let the laptop's adb see it.
+  - Make sure GitHub Actions ran "Native libraries" and "Whisper" on the repo (Actions tab
+    on github.com/vysakhsuresh/stave-android). If either shows no run, press "Run workflow"
+    on it once and wait for the green tick (about ten minutes). The laptop needs their
+    artifacts; it cannot build FFmpeg or whisper.cpp itself.
+
+======================================================================================
+
+You are working on vysakhsuresh/stave-android, an Android audio studio. Everything in it
+was written in a cloud sandbox with no Android SDK, no NDK and no phone: the pure Kotlin
+engine is executed by 42 suites and passes, the Compose app compiles structurally, and the
+C++ (the Oboe render graph, the live tuner, the FFmpeg and whisper doors) has NEVER been
+compiled. Your job is to be the first real compile, the first run on a phone, and the first
+release. Do it end to end, fix what you find, commit each fix with the reason, and push to
+main. Do not ask me questions you can answer by reading the repository or the compiler's
+output; ask me only when the phone or a password is needed.
+
+READ FIRST, in this order, before writing anything:
+  1. CLAUDE.md - where you are decides what "verified" means, the conventions, the checks.
+  2. BUILD_NOTES.md - what each native library leans on and what the first build must settle.
+  3. docs/PENDING_TESTS.md - the 86 things to see on the phone, in order.
+  4. docs/ROADMAP.md - what is built ([~]) and what is not ([ ]).
+  5. ../squish-android/CLAUDE.md if it is beside this repo - the phone, adb, Git Bash lessons.
+
+ENVIRONMENT (this laptop):
+  - JDK 21 at $HOME/.jdks/jbr-21.0.11. Never Android Studio's bundled JBR 25: Gradle 8.13
+    will not run on it and the only symptom is a bare version number.
+      export JAVA_HOME=$HOME/.jdks/jbr-21.0.11
+  - ANDROID_HOME=C:\Users\vysak\AppData\Local\Android\Sdk (set it in the environment if you
+    work in a worktree; a clone with local.properties does not need it).
+  - adb is at C:/Users/vysak/AppData/Local/Android/Sdk/platform-tools/adb. Prefix every adb
+    push/shell/exec-out that carries a /sdcard or /data path with MSYS_NO_PATHCONV=1, or Git
+    Bash rewrites the path.
+  - Python is not installed here. The tools/check_*.py checkers are for the sandbox; on this
+    machine the Gradle build is the check, and it is the better one.
+  - The NDK 27.2.12479018 and CMake 3.22.1 must be present in the SDK (SDK Manager, or
+    sdkmanager "ndk;27.2.12479018" "cmake;3.22.1"). app/build.gradle.kts pins the NDK version.
+  - NEVER edit a source file while a Gradle build is running; Gradle keys tasks on content and
+    an edit mid-build produces an APK that does not match the source.
+
+STEP 1 - GET THE CODE AND THE NATIVE ARTIFACTS
+  git clone https://github.com/vysakhsuresh/stave-android.git  (or git pull in the clone)
+  cd stave-android
+  Check the GitHub Actions runs for native.yml ("Native libraries") and whisper.yml. If they
+  have succeeded, fetch their artifacts into jniLibs:
+    sh tools/native/fetch.sh
+    sh tools/native/fetch_whisper.sh
+  (both scripts say what they need - the gh CLI logged in, or a run id; read their headers).
+  Confirm app/src/main/jniLibs/arm64-v8a/ holds libstaveav.so and libstavewhisper.so, then
+  commit them: git add app/src/main/jniLibs && git commit -m "Native libraries from CI"
+  If a workflow failed, read its log: tools/native/build.sh configures FFmpeg 7.1+ with long
+  demuxer and decoder lists, and a name FFmpeg spells differently is the usual cause - fix
+  the list, push, and the workflow runs again on its own (it triggers on tools/native/**).
+
+STEP 2 - THE MODELS
+  sh tools/models/fetch_models.sh           # the Whisper model into app/src/full/assets/models
+  sh tools/models/fetch_models.sh play      # the same into the Play asset pack (models_pack)
+  The stem separator (UMX) is MADE, not downloaded: tools/models/umx_to_tflite.py needs a
+  desktop with Python. This laptop has none, so Stems and "Keep only the voice" will say the
+  model is missing until that is done elsewhere. That is expected; note it, do not fake it.
+
+STEP 3 - THE FIRST REAL COMPILE
+  JAVA_HOME=$HOME/.jdks/jbr-21.0.11 ./gradlew :engine:test assembleFullDebug lintFullDebug --console plain
+  This is the first time the Compose code and the C++ meet a compiler. Expect errors in three
+  places and fix each the honest way:
+    a. Kotlin/Compose: an API that moved between Compose versions, a missing import the
+       sandbox could not see (the structural compile had no Android classes). Fix the call,
+       not the dependency version, unless BUILD_NOTES says the version is wrong.
+    b. C++: app/src/main/cpp/graph/LiveTune.cpp, Engine.cpp (the live tuner in the input
+       callback, the device id on openInput), Recorder.cpp (pause) were written blind. Read
+       the compiler's line, fix it, keep the behaviour the comments describe. CMake fetches
+       Rubber Band with FetchContent: the first configure needs the network.
+    c. Lint: zero errors is the state to keep it in. A lint error about an API level, a
+       missing contentDescription or a locale format is real; fix it, do not suppress it,
+       unless the suppression is the kind CLAUDE.md already documents with its reason.
+  Run the engine suites through Gradle too (:engine:test runs the same 42 suites as
+  tools/jvm/run.sh); they must stay green.
+  Commit after each file compiles clean, with a message that says what was wrong.
+
+STEP 4 - INSTALL AND THE FIRST LOOK
+  MSYS_NO_PATHCONV=1 adb install -r app/build/outputs/apk/full/debug/app-full-debug.apk
+  adb logcat -G 16M   (logcat is small and the media server floods it)
+  Open the app. If it crashes on launch, adb logcat -s AndroidRuntime and the app's own tags
+  (Stave, StaveGraph, StaveAv, StaveWhisper) say where. The most likely first faults:
+    - a native library that fails to load (wrong ABI, a missing symbol in exports.map),
+    - the Oboe output stream refusing a sample rate (Transport.open falls back; read the log),
+    - a Compose preview-only call left in a composable.
+  Fix, rebuild, reinstall. Never test an APK built before the last edit.
+
+STEP 5 - THE PHONE TESTS, IN ORDER
+  Work docs/PENDING_TESTS.md from item 1 to item 86, in order; the order is by risk times
+  reach. For each item:
+    - do exactly what it says on the phone (uiautomator dump for the NAF counts, screencap
+      between steps that follow a dialog, logcat -s StrictMode on the debug build);
+    - if it holds, move the line into docs/DEVICE_FINDINGS.md under today's date, in the
+      past tense, with the numbers you read (a latency in ms, a WER, a frame time);
+    - if it fails, fix the cause in the code, write the check that would have caught it if
+      one can be pure (a suite in tools/jvm, seen failing first, as CLAUDE.md says), commit
+      with the item number in the message, rebuild, and run the item again before moving on.
+  The ones that most need an ear or a meter: 46 (the Beats loop's AudioTrack against the
+  graph), 64 and 65 (the live tuner, and its latency), 71 (comping), 77 (a USB interface if
+  you have one; skip honestly if not).
+  Nothing is marked done in docs/ROADMAP.md until it has been seen: [~] becomes [x] only
+  from docs/DEVICE_FINDINGS.md.
+
+STEP 6 - SPEED, ON A RELEASE BUILD
+  Measure on a release build, never a debug one (a debuggable Compose build runs several
+  times slower). Build with: ./gradlew assembleFullRelease (unsigned is fine for measuring),
+  install, then:
+    adb shell dumpsys gfxinfo com.layerbit.stave reset
+    scrub the strip for ten seconds, play, open the Beats tab, drag a fader
+    adb shell dumpsys gfxinfo com.layerbit.stave
+  The gates from docs/STAVE_BRIEF.md: scrub under 8 ms of app time a frame, 0 frames
+  rendered at rest, the graph under 30% of one core at 24 tracks (adb shell top -n 1 while
+  playing). Write the numbers into docs/DEVICE_FINDINGS.md whatever they are.
+
+STEP 7 - SCREENSHOTS AND THE LISTING
+  With the app looking right, take the store screenshots on the phone in both themes
+  (adb exec-out screencap -p > file.png; Settings has the theme switch): Home, the Edit tab
+  with a waveform, Voice with a transcript, Studio, Beats with a pattern, Finish. Put them in
+  fastlane/metadata/android/en-US/images/phoneScreenshots/ as 1.png, 2.png ... and the icon
+  as icon.png (render the adaptive icon at 512x512). Nothing in that folder may be a mock-up.
+
+STEP 8 - THE SIGNED RELEASE
+  Ask me for the keystore: copy keystore.properties.example to keystore.properties (it is
+  git-ignored) and fill in the path and passwords I give you. Then:
+    JAVA_HOME=$HOME/.jdks/jbr-21.0.11 ./gradlew assembleFullRelease bundlePlayRelease --console plain
+  The .apk is the GitHub Release and F-Droid build (models inside); the -play.aab carries the
+  models in the "models" asset pack (STEP 2's second command must have run). Check the
+  release manifest has no INTERNET permission: python is not here, so read
+  app/build/intermediates/merged_manifests/fullRelease/AndroidManifest.xml yourself and
+  grep for INTERNET - it must be absent. Then tag it:
+    git tag v1.0.0 && git push --tags
+  and attach the APK, the AAB and their sha256 sums to a GitHub Release with
+  release/CHANGELOG.md's text. Do not publish to Play from here; tell me where the AAB is.
+
+THROUGHOUT
+  - Commit small and often, push to main, no model names in commits, code or docs.
+  - When something takes an hour to find out, write it into CLAUDE.md in one paragraph for
+    the next session, which will have no memory of this one.
+  - Say which kind of confidence you have, every time: "compiled", "installed", "seen on the
+    phone", "measured" are four different things.
+
+======================================================================================
+
+If the laptop session stops part way (a rate limit, a restart), paste the same block again:
+it reads docs/DEVICE_FINDINGS.md and docs/PENDING_TESTS.md and carries on from the first
+item not yet seen.
