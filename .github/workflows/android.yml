@@ -44,8 +44,10 @@ jobs:
       - name: Install Android SDK packages
         run: '"$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-36" "build-tools;36.0.0" "platform-tools" "ndk;27.2.12479018" "cmake;3.22.1"'
       - uses: gradle/actions/setup-gradle@v4
+      # The bundle is the play flavour's (its models ride in the asset pack). A full-flavour bundle
+      # carries assets/models twice, in the base and in the pack, and bundletool refuses it.
       - name: Engine tests, lint, debug APK and release bundle
-        run: ./gradlew :engine:test testFullDebugUnitTest lintFullDebug assembleFullDebug bundleFullRelease --console plain
+        run: ./gradlew :engine:test testFullDebugUnitTest lintFullDebug assembleFullDebug bundlePlayRelease --console plain
       - name: Failed unit tests, with their messages
         if: failure()
         run: find . -path '*/build/test-results/*' -name '*.xml' -exec grep -h -B1 -A6 '<failure' {} \; 2>/dev/null | head -160
