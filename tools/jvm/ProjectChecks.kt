@@ -37,7 +37,8 @@ object ProjectChecks : Suite {
             listOf(Insert("mi", "limiter", true, mapOf("ceiling" to -1.0))),
             patterns = listOf(pattern, pattern.copy(id = "p2", name = "Beat B", notes = emptyList())),
             arrangement = com.layerbit.stave.engine.sequencer.Arrangement(listOf(com.layerbit.stave.engine.sequencer.Placement("p1", 0, 2), com.layerbit.stave.engine.sequencer.Placement("p2", 7680))),
-            instruments = mapOf("p1" to "drums:starter", "p2" to "synth:pluck"))
+            instruments = mapOf("p1" to "drums:starter", "p2" to "kit:k1"),
+            kits = listOf(com.layerbit.stave.engine.synth.PadKit.fromSlices("k1", "Sliced loop", listOf("s1", "s2")).with(2, com.layerbit.stave.engine.synth.PadSpec("s2", "Clap", -3.0, 0.25, -2.0, 1, false))))
     }
 
     override fun run() {

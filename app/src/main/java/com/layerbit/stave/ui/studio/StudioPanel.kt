@@ -162,6 +162,14 @@ private fun TrackDetail(vm: EditorViewModel, ui: EditorViewModel.Ui, t: Track) {
             val frozen = ui.session.clipsOn(t.id).let { clips -> clips.isNotEmpty() && clips.all { c -> ui.session.source(c.sourceId)?.kind == com.layerbit.stave.engine.project.Source.Kind.FREEZE } }
             Text(stringResource(R.string.studio_freeze_hint), style = MaterialTheme.typography.bodySmall, color = StaveColors.Dim, modifier = Modifier.padding(top = 8.dp))
             SecondaryButton(stringResource(R.string.studio_freeze), onClick = { vm.freezeTrack(t.id) }, tall = false, modifier = Modifier.padding(top = 4.dp), enabled = !frozen && ui.session.clipsOn(t.id).isNotEmpty() && ui.busy == null)
+            // Takes: with more than one lane, choose which is heard; the others' clips are muted as one edit.
+            val lanes = ui.session.clipsOn(t.id).map { it.lane }.distinct().sorted()
+            if (lanes.size > 1) {
+                SectionHeading(stringResource(R.string.studio_takes), modifier = Modifier.padding(top = 8.dp))
+                val heard = lanes.filter { l -> ui.session.clipsOn(t.id).any { it.lane == l && !it.muted } }
+                val chosen: Int? = if (heard.size == 1) heard.single() else null
+                ChipRow(listOf<Pair<Int?, String>>(null to stringResource(R.string.studio_takes_all)) + lanes.map { l -> l to stringResource(R.string.studio_take_n, l + 1) }, chosen, { vm.chooseLane(t.id, it) }, modifier = Modifier.padding(top = 4.dp))
+            }
         }
         if (t.kind == Track.Kind.AUDIO) {
             Text(stringResource(R.string.studio_output), style = MaterialTheme.typography.bodyMedium, color = StaveColors.Text, modifier = Modifier.padding(top = 10.dp))

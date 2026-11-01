@@ -34,7 +34,6 @@ import com.layerbit.stave.engine.sequencer.Arpeggiator
 import com.layerbit.stave.engine.sequencer.DrumInstrument
 import com.layerbit.stave.engine.sequencer.Pattern
 import com.layerbit.stave.engine.sequencer.Ticks
-import com.layerbit.stave.engine.synth.KitSynth
 import com.layerbit.stave.ui.components.ChipRow
 import com.layerbit.stave.ui.components.Formats
 import com.layerbit.stave.ui.components.LabelledValue
@@ -65,7 +64,8 @@ fun BeatsPanel(vm: EditorViewModel, ui: EditorViewModel.Ui, modifier: Modifier =
     val patterns = ui.session.patterns
     val pattern = beats.patternId?.let { id -> patterns.firstOrNull { it.id == id } } ?: patterns.firstOrNull()
     val instrument = pattern?.let { vm.instrumentOf(it) } ?: Instruments.DRUMS
-    val drums = Instruments.isDrums(instrument)
+    val drums = Instruments.hasPads(instrument)
+    val padLabels = vm.padLabels(instrument)
     val bpm = ui.session.tempo.first().bpm
 
     var exportSong by remember { mutableStateOf(false) }
@@ -102,7 +102,8 @@ fun BeatsPanel(vm: EditorViewModel, ui: EditorViewModel.Ui, modifier: Modifier =
                 if (name != pattern.name && name.isNotBlank()) SecondaryButton(stringResource(R.string.studio_rename), onClick = { vm.renamePattern(name) }, tall = false, modifier = Modifier.padding(top = 4.dp))
                 SectionHeading(stringResource(R.string.beats_instrument), modifier = Modifier.padding(top = 10.dp))
                 val soundFontChips = beats.soundFonts.map { f -> Instruments.soundFontId(f, if (Instruments.soundFontFile(instrument) == f) Instruments.soundFontPreset(instrument) else 0) to f.substringBeforeLast('.') }
-                ChipRow(Instruments.builtIn.map { it.id to it.label } + soundFontChips, instrument, { vm.setInstrument(it) }, modifier = Modifier.padding(top = 6.dp))
+                val kitChips = ui.session.kits.map { k -> "kit:${k.id}" to k.name }
+                ChipRow(Instruments.builtIn.map { it.id to it.label } + kitChips + soundFontChips, instrument, { vm.setInstrument(it) }, modifier = Modifier.padding(top = 6.dp))
                 if (Instruments.isSoundFont(instrument)) {
                     val file = Instruments.soundFontFile(instrument) ?: ""
                     val presets = vm.soundFontPresets(file)
@@ -130,7 +131,7 @@ fun BeatsPanel(vm: EditorViewModel, ui: EditorViewModel.Ui, modifier: Modifier =
                 ToggleRow(stringResource(R.string.beats_record_pads), beats.recording, { vm.setRecording(it) }, detail = stringResource(R.string.beats_record_hint))
                 // Two octaves of pitches, or only the locked scale's: a scale lock turns a sixteen-row
                 // chromatic roll into the eight or so notes that can be wrong-free.
-                val rows = if (drums) KitSynth.Sound.entries.mapIndexed { i, s -> GridRow(DrumInstrument.BASE + i, s.label) }
+                val rows = if (drums) padLabels.mapIndexed { i, label -> GridRow(DrumInstrument.BASE + i, label) }
                            else ((beats.octave + 1) * 12 + 24 downTo (beats.octave + 1) * 12).filter { p -> vm.inScale(p) }.map { p -> GridRow(p, noteName(p), isBlackKey(p)) }
                 StepGrid(
                     pattern = pattern, rows = rows, division = beats.division, playTick = if (beats.looping) beats.tick else -1,
@@ -162,8 +163,26 @@ fun BeatsPanel(vm: EditorViewModel, ui: EditorViewModel.Ui, modifier: Modifier =
             Panel(modifier = Modifier.fillMaxWidth(), inset = 10.dp) {
                 SectionHeading(stringResource(if (drums) R.string.beats_pads else R.string.beats_keys))
                 Spacer(Modifier.height(8.dp))
-                if (drums) DrumPads(KitSynth.Sound.entries.map { it.label }, DrumInstrument.BASE, onDown = { vm.padDown(it) }, onUp = vm::padUp)
+                if (drums) DrumPads(padLabels, DrumInstrument.BASE, onDown = { vm.padDown(it) }, onUp = vm::padUp)
                 else Keyboard(beats.octave, onDown = { vm.padDown(it) }, onUp = vm::padUp)
+                // Your own sounds on the pads: the selection sliced at its hits, or a file onto one pad.
+                var padToLoad by remember { mutableStateOf(0) }
+                val pickSample = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri -> if (uri != null) vm.loadSampleOnPad(padToLoad, uri) }
+                SectionHeading(stringResource(R.string.beats_your_sounds), modifier = Modifier.padding(top = 10.dp))
+                Text(stringResource(R.string.beats_your_sounds_hint), style = MaterialTheme.typography.bodySmall, color = StaveColors.Dim, modifier = Modifier.padding(vertical = 4.dp))
+                SecondaryButton(stringResource(R.string.beats_slice_selection), onClick = vm::sliceSelectionToPads, tall = false, modifier = Modifier.fillMaxWidth(), enabled = ui.selection != null && ui.busy == null)
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 6.dp)) {
+                    ChipRow((0 until 16).map { it to "${it + 1}" }, padToLoad, { padToLoad = it }, modifier = Modifier.weight(1f))
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 6.dp)) {
+                    SecondaryButton(stringResource(R.string.beats_load_sample, padToLoad + 1), onClick = { pickSample.launch(arrayOf("audio/*")) }, tall = false, modifier = Modifier.weight(1f), enabled = ui.busy == null)
+                    SecondaryButton(stringResource(R.string.beats_clear_pad, padToLoad + 1), onClick = { vm.clearPad(padToLoad) }, tall = false, enabled = vm.currentKit?.pads?.getOrNull(padToLoad)?.isEmpty == false, danger = true)
+                }
+                ToggleRow(stringResource(R.string.beats_midi_in), beats.midiIn, { vm.setMidiIn(it) }, detail = when {
+                    !beats.midiIn -> stringResource(R.string.beats_midi_in_hint)
+                    beats.midiDevices.isEmpty() -> stringResource(R.string.beats_midi_in_none)
+                    else -> stringResource(R.string.beats_midi_in_connected, beats.midiDevices.joinToString(", "))
+                }, modifier = Modifier.padding(top = 6.dp))
             }
 
             // -- tools

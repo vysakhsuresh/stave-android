@@ -1,12 +1,17 @@
 #!/usr/bin/env bash
 # Puts the bundled models under app/src/full/assets/models for the `full` flavour (the APK on
-# GitHub Releases and F-Droid). The `play` flavour carries them in a Play asset pack instead.
-# Run before `./gradlew assembleFullRelease`; the files are git-ignored (57 MB and more).
+# GitHub Releases and F-Droid), or under models_pack/src/main/assets/models for the `play`
+# flavour's install-time asset pack. Run before the release build; the files are git-ignored.
 #
-#   sh tools/models/fetch_models.sh
+#   sh tools/models/fetch_models.sh        # full
+#   sh tools/models/fetch_models.sh play   # the asset pack
 set -euo pipefail
 cd "$(dirname "$0")/../.."
-DEST=app/src/full/assets/models
+# `fetch_models.sh` fills the full flavour's assets; `fetch_models.sh play` fills the asset pack.
+case "${1:-full}" in
+  play) DEST=models_pack/src/main/assets/models ;;
+  *) DEST=app/src/full/assets/models ;;
+esac
 mkdir -p "$DEST"
 get() { # file url sha256
   if [ -s "$DEST/$1" ]; then echo "have $1"; else curl -fL --retry 3 -o "$DEST/$1.part" "$2" && mv "$DEST/$1.part" "$DEST/$1"; fi

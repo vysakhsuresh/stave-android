@@ -51,7 +51,7 @@ Built-not-seen is never called done.
 - [~] Projects: ProjectStore, atomic save, ten-minute snapshots, bin with a 30-day sweep
 - [~] Waveform canvas: peaks at every zoom, selection with edge handles, fixed play-head, two-finger scroll and zoom, double tap to fit — samples-when-fine not yet (zoom stops at the peak buckets)
 - [~] Spectrogram in the selected lane (log frequency, a thousand columns at any zoom), a box dragged over it, Turn down / Remove / Fill from around on the Spectral sheet
-- [~] Edit, Gain, Fades, Repair (clicks, clipping, hum, noise, S), EQ (curve from the same coefficients), Dynamics, Time & pitch sheets — each an offline render to a new source, undoable
+- [~] Edit, Gain, Fades, Repair (clicks, clipping, hum, noise, S), EQ (parametric, and 10- or 31-band graphic on the same curve), Dynamics, Time & pitch sheets — each an offline render to a new source, undoable
 - [~] Markers and chapters (regions are in the model, not yet on a sheet)
 - [~] Export sheet: format, bitrate, depth, rate, mono, loudness target, tags, chapters, estimate; published to Music/Stave; Share and Open — no batch yet
 - [~] Library of exports across projects (open, share, delete the private copy)
@@ -69,20 +69,20 @@ Built-not-seen is never called done.
 - [~] Arrangement strip: tracks as lanes under one play-head, clips carried by a long press, snapped to the beat grid
 - [~] Mixer: a strip per track and the master (fader, pan, mute, solo, arm, meter), inserts with live parameters, sends and buses
 - [~] Automation: volume and pan points per track, played by the graph; Duck under speech writes them; no drawn lane yet
-- [~] Takes land on their own lanes; loop the selection; comping (choosing between lanes) not yet
+- [~] Takes land on their own lanes; loop the selection; punch in and out over the selection; Takes chips on a track choose the lane heard (the others' clips muted as one edit); swipe comping across lanes not yet
 - [~] Bounce to a new track; every track exported as a stem; Freeze (the track alone through its inserts to one clip, inserts off, Undo unfreezes); latency compensation not yet
-- [ ] USB audio and MIDI interfaces
+- [~] MIDI controllers over USB and Bluetooth through MidiManager play the Beats tab's instrument and record into the loop (running status and real-time bytes handled); USB audio interfaces, MIDI out and MIDI clock not yet
 
 ## P5 — Musician's tools (v0.4)
 - [~] Stems: a LiteRT runner over the UMX contract, chunked with progress, the four stems landing on their own tracks with the originals muted; the model itself is fetched by `tools/models/fetch_models.sh` (nothing is bundled yet), and a phone has not run it
 - [~] Read the song: tempo, beats and the bar, key and chords off the mix; ½ and 2× tempo and a bar shift; Mark every bar; the click following the beats; a practice copy slowed and transposed
 - [~] Tuner from the graph's input tap (YIN); a pitch trace is not drawn
-- [~] Sing along: the transcript's words in lines following the play-head, the Vocals stem muted by a switch; alignment of typed lyrics to the sound not yet
+- [~] Sing along: the transcript's words in lines following the play-head, the Vocals stem muted by a switch; typed lyrics laid against the heard words by edit-distance alignment (`LyricsChecks`), shown as the written lines with the sound's times
 - [~] Notes to MIDI: the selection's melody as notes (YIN per hop, segmented), handed to the Beats tab as a pattern
 
 ## P6 — Beats and MIDI (v0.5)
 - [~] Step sequencer and piano roll in one grid (steps toggled, velocity by a drag, probability and ratchets drawn), pads and keys that record into the loop, patterns in the project file, the song as placements, rendered to tracks
-- [~] Drum machine on the synthesised starter kit, a SoundFont player for banks the person adds, seven subtractive and five FM presets; a wavetable synth not yet
+- [~] Drum machine on the synthesised starter kit; kits of the person's own sounds (the selection sliced at its onsets onto the pads, any file onto a pad), saved in the project; a SoundFont player for banks the person adds; seven subtractive and five FM presets; a wavetable synth not yet
 - [~] Arpeggiator, swing, quantise, humanise, legato, transpose, double; MIDI files in and out; MIDI in/out/clock over USB not yet
 
 ## P7 — Vocal and live (v0.6)
@@ -94,4 +94,4 @@ Built-not-seen is never called done.
 ## P9 — Polish and release (v1.0)
 - [ ] Accessibility sweep (zero NAF), locale sweep, RTL, font scale
 - [ ] Perf build frame times; graph CPU at 24 tracks
-- [~] fastlane listing text and changelog (`fastlane/metadata/android/en-US`), `release/CHANGELOG.md`; screenshots, the icon in the listing and a signed release wait for a phone and the owner's keystore
+- [~] fastlane listing text and changelog (`fastlane/metadata/android/en-US`), `release/CHANGELOG.md`; the Play flavour's models as an install-time asset pack (`models_pack`); screenshots, the icon in the listing and a signed release wait for a phone and the owner's keystore

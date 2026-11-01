@@ -46,6 +46,25 @@ object SequencerJson {
     fun readPlacement(o: JsonObject): Placement =
         Placement(o.string("pattern") ?: "", o.long("start").coerceAtLeast(0), o.int("repeats", 1).coerceAtLeast(1))
 
+    fun write(pad: com.layerbit.stave.engine.synth.PadSpec): JsonObject = JsonObject()
+        .put("source", pad.sourceId).put("name", pad.name).putFinite("gainDb", pad.gainDb).putFinite("pan", pad.pan)
+        .putFinite("pitch", pad.pitchSemitones).put("choke", pad.chokeGroup).put("oneShot", pad.oneShot)
+
+    fun readPad(o: JsonObject): com.layerbit.stave.engine.synth.PadSpec = com.layerbit.stave.engine.synth.PadSpec(
+        sourceId = o.string("source"), name = o.string("name") ?: "", gainDb = o.double("gainDb", 0.0), pan = o.double("pan", 0.0).coerceIn(-1.0, 1.0),
+        pitchSemitones = o.double("pitch", 0.0), chokeGroup = o.int("choke", 0), oneShot = o.bool("oneShot", true)
+    )
+
+    fun write(kit: com.layerbit.stave.engine.synth.PadKit): JsonObject = JsonObject()
+        .put("id", kit.id).put("name", kit.name).put("pads", JsonArray.ofObjects(kit.pads.map { write(it) }))
+
+    /** A kit with the wrong number of pads (a hand-edited file) is padded or cut to sixteen rather than refused. */
+    fun readKit(o: JsonObject): com.layerbit.stave.engine.synth.PadKit {
+        val pads = o.arr("pads")?.objects()?.map { readPad(it) } ?: emptyList()
+        val sized = List(com.layerbit.stave.engine.synth.DrumKit.PADS) { i -> pads.getOrNull(i) ?: com.layerbit.stave.engine.synth.PadSpec(name = "Pad ${i + 1}") }
+        return com.layerbit.stave.engine.synth.PadKit(o.string("id") ?: "", o.string("name") ?: "Kit", sized)
+    }
+
     fun write(arrangement: Arrangement): JsonObject =
         JsonObject().put("placements", JsonArray.ofObjects(arrangement.placements.map { write(it) }))
 

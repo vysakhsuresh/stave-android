@@ -21,6 +21,12 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
@@ -208,8 +214,39 @@ private fun SpectralSheet(vm: EditorViewModel, ui: EditorViewModel.Ui) {
 private fun EqSheet(vm: EditorViewModel, ui: EditorViewModel.Ui) {
     var bands by remember { mutableStateOf(listOf(EqBand(FilterKind.HIGH_PASS, 80.0), EqBand(FilterKind.PEAKING, 1000.0, 0.0, 1.0), EqBand(FilterKind.HIGH_SHELF, 8000.0, 0.0, 0.7))) }
     var selected by remember { mutableStateOf(1) }
+    // Parametric, or a graphic equaliser of 10 or 31 ISO bands: the graphic ones are the same
+    // peaking filters with their Q fixed by the band width, drawn on the same curve.
+    var mode by remember { mutableStateOf("parametric") }
+    var gains10 by remember { mutableStateOf(DoubleArray(10)) }
+    var gains31 by remember { mutableStateOf(DoubleArray(31)) }
+    val graphicBands = when (mode) { "g10" -> ParametricEq.graphic(ParametricEq.ISO_10, gains10); "g31" -> ParametricEq.graphic(ParametricEq.ISO_31, gains31); else -> null }
     SelectionLine(ui)
-    EqCurve(bands, ui.session.sampleRate, selected, onSelect = { selected = it }, modifier = Modifier.fillMaxWidth().height(120.dp))
+    EqCurve(graphicBands ?: bands, ui.session.sampleRate, if (graphicBands == null) selected else -1, onSelect = { if (graphicBands == null) selected = it }, modifier = Modifier.fillMaxWidth().height(120.dp))
+    ChipRow(options = listOf("parametric" to stringResource(R.string.eq_mode_parametric), "g10" to stringResource(R.string.eq_mode_10), "g31" to stringResource(R.string.eq_mode_31)), selected = mode, onSelect = { mode = it }, modifier = Modifier.padding(top = 6.dp))
+    if (graphicBands != null) {
+        val centres = if (mode == "g10") ParametricEq.ISO_10 else ParametricEq.ISO_31
+        val gains = if (mode == "g10") gains10 else gains31
+        Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+            for (i in centres.indices) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.width(if (mode == "g10") 44.dp else 30.dp)) {
+                    // A vertical fader: Compose's slider is horizontal, so it is laid out turned a quarter.
+                    androidx.compose.foundation.layout.Box(Modifier.height(120.dp).width(if (mode == "g10") 44.dp else 30.dp), contentAlignment = Alignment.Center) {
+                        androidx.compose.material3.Slider(
+                            value = gains[i].toFloat(), onValueChange = { v -> val g = gains.copyOf(); g[i] = v.toDouble(); if (mode == "g10") gains10 = g else gains31 = g }, valueRange = -12f..12f,
+                            modifier = Modifier.width(120.dp).rotate(-90f).semantics { contentDescription = Formats.hz(centres[i].toFloat()); stateDescription = Formats.db(gains[i].toFloat()) },
+                            colors = androidx.compose.material3.SliderDefaults.colors(thumbColor = StaveColors.Band, activeTrackColor = StaveColors.Band, inactiveTrackColor = StaveColors.Border)
+                        )
+                    }
+                    Text(if (centres[i] >= 1000) String.format(java.util.Locale.getDefault(), "%.0fk", centres[i] / 1000) else String.format(java.util.Locale.getDefault(), "%.0f", centres[i]), style = MaterialTheme.typography.labelSmall, color = StaveColors.Dim, maxLines = 1)
+                }
+            }
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 6.dp)) {
+            SecondaryButton(stringResource(R.string.eq_preset_flat), onClick = { if (mode == "g10") gains10 = DoubleArray(10) else gains31 = DoubleArray(31) }, tall = false, modifier = Modifier.weight(1f))
+        }
+        PrimaryButton(stringResource(R.string.eq_apply), onClick = { vm.applyOffline("Graphic EQ", OfflineTools.eq(graphicBands.filter { kotlin.math.abs(it.gainDb) > 0.05 })) }, tall = false, modifier = Modifier.fillMaxWidth().padding(top = 8.dp), enabled = graphicBands.any { kotlin.math.abs(it.gainDb) > 0.05 })
+        return
+    }
     ChipRow(options = listOf("flat" to stringResource(R.string.eq_preset_flat), "voice" to stringResource(R.string.eq_preset_voice), "bright" to stringResource(R.string.eq_preset_tilt_bright), "warm" to stringResource(R.string.eq_preset_tilt_warm)), selected = "", onSelect = { id ->
         bands = when (id) { "voice" -> ParametricEq.VOICE_PRESET; "bright" -> ParametricEq.tilt(3.0); "warm" -> ParametricEq.tilt(-3.0); else -> listOf(EqBand(FilterKind.PEAKING, 1000.0, 0.0, 1.0)) }
         selected = 0

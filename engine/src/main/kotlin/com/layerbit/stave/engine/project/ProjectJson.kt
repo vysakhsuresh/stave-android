@@ -38,6 +38,7 @@ object ProjectJson {
         .put("patterns", JsonArray.ofObjects(s.patterns.map { SequencerJson.write(it) }))
         .put("arrangement", SequencerJson.write(s.arrangement))
         .put("instruments", JsonObject().also { o -> for ((id, instrument) in s.instruments.toSortedMap()) o.put(id, instrument) })
+        .put("kits", JsonArray.ofObjects(s.kits.map { SequencerJson.write(it) }))
 
     fun decode(o: JsonObject): Session = Session(
         name = o.string("name") ?: "",
@@ -58,6 +59,7 @@ object ProjectJson {
         patterns = o.arr("patterns")?.objects()?.map { SequencerJson.readPattern(it) }?.filter { it.id.isNotEmpty() } ?: emptyList(),
         arrangement = o.obj("arrangement")?.let { SequencerJson.readArrangement(it) } ?: Arrangement(),
         instruments = o.obj("instruments")?.let { io -> io.names().mapNotNull { k -> io.string(k)?.let { k to it } }.toMap() } ?: emptyMap(),
+        kits = o.arr("kits")?.objects()?.map { SequencerJson.readKit(it) }?.filter { it.id.isNotEmpty() } ?: emptyList(),
         version = o.int("version", 1)
     )
 

@@ -45,4 +45,5 @@ Grows with each phase. Dated.
   Standard MIDI files in and out, a drum machine on a synthesised sixteen-sound starter kit,
   seven subtractive and five FM synth presets, and any SoundFont the person adds.
 - Also on 31 October: Read aloud through the phone's speech engine (Voice); a looper that folds each take over a loop of bars into layers (Voice); Sing along with the words following the play-head and the vocals muted (Musician); Freeze a track (Studio); and on Finish the report, Match a reference, Width, Three bands, Transients and a level-matched Compare with before.
+- 1 November (second pass against the five, built, not seen): punch in and out over the selection; Takes chips choose the lane heard; MIDI controllers over USB and Bluetooth play and record into the Beats loop; kits of the person's own sounds (slice the selection to pads, a file onto a pad), saved with the project; typed lyrics laid against the heard words for Sing along; 10- and 31-band graphic EQ modes on the EQ sheet; the Play flavour's models in an install-time asset pack.
 

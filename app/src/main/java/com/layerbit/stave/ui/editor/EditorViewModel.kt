@@ -162,6 +162,7 @@ class EditorViewModel(private val app: StaveApplication, val projectId: String) 
         saveJob?.cancel()
         runCatching { files.save(session) }
         player?.close()
+        midiInput?.stop()
         transport.pause()
         if (transport.state.value.recording) transport.stopRecording()
         transport.closeInput()
@@ -319,7 +320,11 @@ class EditorViewModel(private val app: StaveApplication, val projectId: String) 
     data class VoiceState(
         val armed: Boolean = false, val monitor: Boolean = false, val roundTripMs: Double = 0.0, val recordedMs: Long = 0, val dropped: Long = 0, val inputHold: Float = 0f,
         val language: String = "auto", val transcribing: Float? = null, val transcript: Transcript? = null, val selectedWords: Set<Int> = emptySet(), val stale: Boolean = false,
-        val silenceMinMs: Long = 800, val silenceKeepMs: Long = 200, val targetId: String = "podcast"
+        val silenceMinMs: Long = 800, val silenceKeepMs: Long = 200, val targetId: String = "podcast",
+        /** Record only inside the selection: the take starts at its start and stops at its end. */
+        val punch: Boolean = false,
+        /** Typed lyrics aligned to the transcript's words, a line each with its time, for Sing along. */
+        val lyrics: List<com.layerbit.stave.engine.transcript.Lyrics.Line> = emptyList()
     )
 
     private val _voice = MutableStateFlow(VoiceState(targetId = app.settings.current.loudnessTargetId).let { v -> loadTranscript()?.let { v.copy(transcript = it) } ?: v })
@@ -327,6 +332,8 @@ class EditorViewModel(private val app: StaveApplication, val projectId: String) 
     val whisper = WhisperRunner(app.models)
     private var followingTranscript = false
     private var recordStart = 0L
+    /** Where a punched take stops itself, in samples on the timeline; null when not punching. */
+    private var punchEnd: Long? = null
     private var recordFile: File? = null
     private var recordJob: Job? = null
 
@@ -366,6 +373,9 @@ class EditorViewModel(private val app: StaveApplication, val projectId: String) 
         AudioService.start(app, recording = true, title = session.name.ifBlank { "Stave" })
         val loop = _looper.value.takeIf { it.active }
         if (loop != null) { recordStart = loop.start; _looper.value = loop.copy(recordingLayer = true) }
+        // Punch: the take starts at the selection's start and the recorder stops itself at its end.
+        val punch = _ui.value.selection?.takeIf { _voice.value.punch && loop == null && it.last > it.first }
+        punchEnd = punch?.let { recordStart = it.first; it.last + 1 }
         transport.seek(recordStart)
         transport.setLoop(loop?.let { it.start until it.start + it.length })
         if (session.length > recordStart || loop != null) transport.play()
@@ -377,6 +387,8 @@ class EditorViewModel(private val app: StaveApplication, val projectId: String) 
                 val lp = _looper.value
                 val shown = if (lp.active && lp.recordingLayer && lp.length > 0) lp.start + frames % lp.length else recordStart + frames
                 _ui.value = _ui.value.copy(window = _ui.value.window.copy(playhead = shown, totalSamples = maxOf(session.length, shown)))
+                val end = punchEnd
+                if (end != null && recordStart + frames >= end) { stopRecording(); break }
                 delay(50)
             }
         }
@@ -389,6 +401,7 @@ class EditorViewModel(private val app: StaveApplication, val projectId: String) 
         AudioService.start(app, recording = false, title = session.name.ifBlank { "Stave" })
         val wav = recordFile ?: return
         recordFile = null
+        punchEnd = null
         viewModelScope.launch {
             val rate = transport.sampleRate
             val count = session.sources.count { it.kind == Source.Kind.TAKE } + 1
@@ -412,6 +425,20 @@ class EditorViewModel(private val app: StaveApplication, val projectId: String) 
     }
 
     fun setLanguage(code: String) { _voice.value = _voice.value.copy(language = code) }
+    fun setPunch(on: Boolean) { _voice.value = _voice.value.copy(punch = on) }
+
+    /** Typed lyrics laid against the transcript: each line gets the time of the words it matches (engine Lyrics, executed in LyricsChecks). */
+    fun alignLyrics(text: String) {
+        val t = _voice.value.transcript ?: return
+        _voice.value = _voice.value.copy(lyrics = com.layerbit.stave.engine.transcript.Lyrics.align(text, t.words))
+    }
+
+    /** Hear one take lane of a track and mute the others' clips; null hears every lane together. One edit, one undo. */
+    fun chooseLane(trackId: String, lane: Int?) {
+        val s = session
+        val next = s.copy(clips = s.clips.map { c -> if (c.trackId == trackId) c.copy(muted = lane != null && c.lane != lane) else c })
+        commit(next, if (lane == null) "Hear every take" else "Take ${lane + 1}")
+    }
 
     /** The whole mix as planar channels at the session rate, through the graph's offline render. */
     private suspend fun mixdown(from: Long, to: Long): List<FloatArray>? = withContext(Dispatchers.IO) {
@@ -1186,7 +1213,10 @@ class EditorViewModel(private val app: StaveApplication, val projectId: String) 
         val soundFonts: List<String> = emptyList(),
         /** The piano roll's scale lock: rows outside the scale are hidden. "chromatic" shows every pitch. */
         val scaleKind: String = "chromatic",
-        val scaleRoot: Int = 0
+        val scaleRoot: Int = 0,
+        /** A MIDI controller listened to, and the devices open. */
+        val midiIn: Boolean = false,
+        val midiDevices: List<String> = emptyList()
     )
     private val _beats = MutableStateFlow(BeatsState(soundFonts = app.soundFonts.list()))
     val beats: StateFlow<BeatsState> = _beats.asStateFlow()
@@ -1197,7 +1227,103 @@ class EditorViewModel(private val app: StaveApplication, val projectId: String) 
     val currentPattern: com.layerbit.stave.engine.sequencer.Pattern? get() = _beats.value.patternId?.let { session.pattern(it) } ?: session.patterns.firstOrNull()
     val bpm: Double get() = session.tempo.first().bpm
     fun instrumentOf(pattern: com.layerbit.stave.engine.sequencer.Pattern): String = session.instruments[pattern.id] ?: com.layerbit.stave.beats.Instruments.DRUMS
-    fun instrumentLabel(id: String): String = com.layerbit.stave.beats.Instruments.label(id, app.soundFonts)
+    fun instrumentLabel(id: String): String = com.layerbit.stave.beats.Instruments.label(id, app.soundFonts) { kid -> session.kit(kid)?.name }
+
+    /**
+     * A made kit as a DrumKit: each pad's source read whole (summed to mono, resampled to the
+     * session's rate, capped at [MAX_PAD_SECONDS]) into a Pad with the pad's settings. Reads disk,
+     * so it runs where the instrument is made - off the main thread in a render, and on the
+     * player's first use.
+     */
+    private fun loadKit(kitId: String): com.layerbit.stave.engine.synth.DrumKit? {
+        val s = session
+        val kit = s.kit(kitId) ?: return null
+        val rate = s.sampleRate
+        val pads = kit.pads.map { spec ->
+            val source = spec.sourceId?.let { s.source(it) }
+            val file = source?.let { files.sourceFile(it.file) }
+            val sample = if (source == null || file == null || !file.isFile) null else runCatching {
+                val frames = minOf(source.frames, (MAX_PAD_SECONDS * source.sampleRate).toLong()).toInt()
+                val inter = RawAudio.read(file, source.channels, 0, frames)
+                val mono = FloatArray(frames) { i -> var m = 0f; for (c in 0 until source.channels) m += inter[i * source.channels + c]; m / source.channels }
+                if (source.sampleRate == rate) mono else com.layerbit.stave.engine.dsp.Resampler(source.sampleRate, rate).convert(mono)
+            }.getOrNull()
+            com.layerbit.stave.engine.synth.Pad(spec.name, sample, rate, chokeGroup = spec.chokeGroup, gainDb = spec.gainDb, pan = spec.pan, pitchSemitones = spec.pitchSemitones,
+                mode = if (spec.oneShot) com.layerbit.stave.engine.synth.PadMode.ONE_SHOT else com.layerbit.stave.engine.synth.PadMode.GATE)
+        }
+        return com.layerbit.stave.engine.synth.DrumKit(kit.name, pads)
+    }
+
+    /** The pad names the grid and the pads card show for the current instrument. */
+    fun padLabels(instrumentId: String): List<String> =
+        com.layerbit.stave.beats.Instruments.kitId(instrumentId)?.let { kid -> session.kit(kid)?.pads?.map { it.name } }
+            ?: com.layerbit.stave.engine.synth.KitSynth.Sound.entries.map { it.label }
+
+    /** The current pattern's kit, when it plays one. */
+    val currentKit: com.layerbit.stave.engine.synth.PadKit? get() = currentPattern?.let { com.layerbit.stave.beats.Instruments.kitId(instrumentOf(it)) }?.let { session.kit(it) }
+
+    private fun kitEdited(next: Session, label: String) { commit(next, label); playerInstrumentId = null; refreshInstrument(); refreshLoop() }
+
+    /** The selection cut at its onsets into slices, each a source, laid on the pads of a new kit the current pattern then plays. */
+    fun sliceSelectionToPads() {
+        val s = session
+        val range = _ui.value.selection ?: return
+        if (range.last - range.first < s.sampleRate / 20) return
+        _ui.value = _ui.value.copy(busy = Busy(app.getString(com.layerbit.stave.R.string.beats_slicing), 0f))
+        viewModelScope.launch {
+            val chs = mixdown(range.first, range.last + 1)
+            if (chs == null) { _ui.value = _ui.value.copy(busy = null); return@launch }
+            val result = runCatching {
+                withContext(Dispatchers.Default) {
+                    val n = chs[0].size
+                    val mono = FloatArray(n) { i -> var m = 0f; for (a in chs) m += a[i]; m / chs.size }
+                    val onsets = com.layerbit.stave.engine.music.Onsets.detect(mono, s.sampleRate).filter { it > 0 && it < n }
+                    // No onsets heard (a pad, a drone): sixteen even slices are still a kit worth having.
+                    val slices = if (onsets.size >= 2) com.layerbit.stave.engine.synth.Slicer.slice(mono, s.sampleRate, onsets).take(com.layerbit.stave.engine.synth.DrumKit.PADS)
+                                 else com.layerbit.stave.engine.synth.Slicer.evenSlices(mono, s.sampleRate, com.layerbit.stave.engine.synth.DrumKit.PADS)
+                    val parent = s.sources.firstOrNull() ?: Source("mix", "Mix", "", s.sampleRate, 1, 0)
+                    slices.mapIndexed { i, slice -> OfflineTools.writeSource(files, listOf(slice), s.sampleRate, parent, "Slice ${i + 1}").copy(name = "Slice ${i + 1}") }
+                }
+            }
+            _ui.value = _ui.value.copy(busy = null)
+            result.onSuccess { sources ->
+                withContext(Dispatchers.IO) { sources.forEach { peaksFor(it) } }
+                val kit = com.layerbit.stave.engine.synth.PadKit.fromSlices(Ids.next("k"), "Sliced ${session.kits.size + 1}", sources.map { it.id })
+                var next = session.copy(sources = session.sources + sources, kits = session.kits + kit)
+                val p = currentPattern ?: com.layerbit.stave.engine.sequencer.Pattern(Ids.next("p"), "Pattern ${session.patterns.size + 1}", stepDivision = _beats.value.division).also { next = next.copy(patterns = next.patterns + it); _beats.value = _beats.value.copy(patternId = it.id) }
+                next = next.copy(instruments = next.instruments + (p.id to "kit:${kit.id}"))
+                kitEdited(next, "Slice to pads")
+                _ui.value = _ui.value.copy(message = app.getString(com.layerbit.stave.R.string.beats_sliced, sources.size))
+            }.onFailure { e -> _ui.value = _ui.value.copy(message = e.message ?: "Could not slice") }
+        }
+    }
+
+    /** A file from the phone onto one pad of the current kit (a new kit when the pattern plays none). */
+    fun loadSampleOnPad(pad: Int, uri: Uri) {
+        val s = session
+        val name = app.media.displayName(uri)
+        _ui.value = _ui.value.copy(busy = Busy("Opening $name", 0f))
+        viewModelScope.launch {
+            val result = runCatching { app.media.import(uri, files, s.sampleRate) { p -> _ui.value = _ui.value.copy(busy = Busy("Opening $name", p)) } }
+            _ui.value = _ui.value.copy(busy = null)
+            result.onSuccess { source ->
+                withContext(Dispatchers.IO) { peaksFor(source) }
+                var next = session.copy(sources = session.sources + source)
+                var p = currentPattern
+                if (p == null) { p = com.layerbit.stave.engine.sequencer.Pattern(Ids.next("p"), "Pattern ${next.patterns.size + 1}", stepDivision = _beats.value.division); next = next.copy(patterns = next.patterns + p); _beats.value = _beats.value.copy(patternId = p.id) }
+                val existing = com.layerbit.stave.beats.Instruments.kitId(next.instruments[p.id] ?: "")?.let { next.kit(it) }
+                val kit = existing ?: com.layerbit.stave.engine.synth.PadKit.empty(Ids.next("k"), "Kit ${next.kits.size + 1}")
+                val edited = kit.with(pad.coerceIn(0, com.layerbit.stave.engine.synth.DrumKit.PADS - 1), com.layerbit.stave.engine.synth.PadSpec(source.id, source.name.take(14)))
+                next = next.copy(kits = if (existing == null) next.kits + edited else next.kits.map { if (it.id == edited.id) edited else it }, instruments = next.instruments + (p.id to "kit:${edited.id}"))
+                kitEdited(next, "Sample on pad ${pad + 1}")
+            }.onFailure { e -> _ui.value = _ui.value.copy(message = e.message ?: "Could not open $name") }
+        }
+    }
+
+    fun clearPad(pad: Int) {
+        val kit = currentKit ?: return
+        kitEdited(session.copy(kits = session.kits.map { if (it.id == kit.id) it.with(pad, com.layerbit.stave.engine.synth.PadSpec(name = "Pad ${pad + 1}")) else it }), "Clear pad ${pad + 1}")
+    }
     fun soundFontPresets(file: String): List<String> = app.soundFonts.presetNames(file)
 
     private fun patterns(next: List<com.layerbit.stave.engine.sequencer.Pattern>, label: String, gesture: String? = null, instruments: Map<String, String> = session.instruments) {
@@ -1240,6 +1366,21 @@ class EditorViewModel(private val app: StaveApplication, val projectId: String) 
 
     fun setBeatsTempo(bpm: Double) { setTempo(bpm); refreshLoop() }
     fun displayName(uri: Uri): String = app.media.displayName(uri)
+
+    private var midiInput: com.layerbit.stave.beats.MidiInput? = null
+
+    /** A MIDI keyboard plays the pattern's instrument and records into the loop as the pads do; events arrive on the main thread. */
+    fun setMidiIn(on: Boolean) {
+        if (on) {
+            val m = midiInput ?: com.layerbit.stave.beats.MidiInput(app, { p, v -> padDown(p, v) }, { p -> padUp(p) }).also { midiInput = it; it.onDevicesChanged = { d -> _beats.value = _beats.value.copy(midiDevices = d) } }
+            if (!m.available) { _ui.value = _ui.value.copy(message = app.getString(com.layerbit.stave.R.string.beats_midi_in_none)); return }
+            m.start()
+            _beats.value = _beats.value.copy(midiIn = true, midiDevices = m.connected)
+        } else {
+            midiInput?.stop()
+            _beats.value = _beats.value.copy(midiIn = false, midiDevices = emptyList())
+        }
+    }
 
     fun setScale(kind: String, root: Int) { _beats.value = _beats.value.copy(scaleKind = kind, scaleRoot = root.mod(12)) }
 
@@ -1355,7 +1496,7 @@ class EditorViewModel(private val app: StaveApplication, val projectId: String) 
         val pl = player ?: return
         val id = currentPattern?.let { instrumentOf(it) } ?: com.layerbit.stave.beats.Instruments.DRUMS
         if (id == playerInstrumentId && pl.instrument != null) return
-        val made = com.layerbit.stave.beats.Instruments.create(id, session.sampleRate, app.soundFonts)
+        val made = com.layerbit.stave.beats.Instruments.create(id, session.sampleRate, app.soundFonts) { kid -> loadKit(kid) }
         if (made == null && com.layerbit.stave.beats.Instruments.isSoundFont(id)) _ui.value = _ui.value.copy(message = app.getString(com.layerbit.stave.R.string.beats_soundfont_missing))
         pl.instrument = made ?: com.layerbit.stave.beats.Instruments.create(com.layerbit.stave.beats.Instruments.DRUMS, session.sampleRate, null)
         playerInstrumentId = id
@@ -1438,7 +1579,7 @@ class EditorViewModel(private val app: StaveApplication, val projectId: String) 
         viewModelScope.launch {
             val result = runCatching {
                 withContext(Dispatchers.Default) {
-                    val instrument = com.layerbit.stave.beats.Instruments.create(instrumentId, rate, app.soundFonts) ?: com.layerbit.stave.beats.Instruments.create(com.layerbit.stave.beats.Instruments.DRUMS, rate, null)!!
+                    val instrument = com.layerbit.stave.beats.Instruments.create(instrumentId, rate, app.soundFonts) { kid -> loadKit(kid) } ?: com.layerbit.stave.beats.Instruments.create(com.layerbit.stave.beats.Instruments.DRUMS, rate, null)!!
                     try {
                         val stereo = com.layerbit.stave.engine.sequencer.PatternRenderer.render(notes, lengthTicks, tempo, rate, instrument)
                         val chs = OfflineTools.deinterleave(stereo, 2)
@@ -1524,5 +1665,5 @@ class EditorViewModel(private val app: StaveApplication, val projectId: String) 
 
     fun removeSoundFont(name: String) { app.soundFonts.remove(name); _beats.value = _beats.value.copy(soundFonts = app.soundFonts.list()) }
 
-    private companion object { const val CHORD_HOP_MS = 100 }
+    private companion object { const val CHORD_HOP_MS = 100; const val MAX_PAD_SECONDS = 20.0 }
 }

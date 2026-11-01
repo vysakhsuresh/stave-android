@@ -18,6 +18,9 @@ val keystoreProperties = Properties().apply {
 android {
     namespace = "com.layerbit.stave"
     compileSdk = 36
+    // The Play flavour's models ride in an install-time asset pack (models_pack/); the full flavour
+    // has them in its own assets. Both are read as assets/models/<file> (ModelStore).
+    assetPacks += listOf(":models_pack")
     // Pinned here and in .github/workflows/native.yml together: the two builds must agree on the
     // toolchain or a library built by one is loaded beside code built by the other.
     ndkVersion = "27.2.12479018"

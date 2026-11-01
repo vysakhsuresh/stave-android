@@ -79,3 +79,13 @@ back into the roadmap with what broke.
 54. Three bands at Lows 60%: a boomy bass note is held while the vocal above it keeps its level; Transients Attack +60% on a drum loop sharpens the hits; Sustain -60% shortens the room.
 55. Master, then Compare with before: the switch plays the previous mix at the same loudness (the meter in another app or the master meter agrees within 1 dB) and the toggle's state is spoken by TalkBack.
 
+## The second pass - punch, takes, MIDI, kits, lyrics, graphic EQ, the asset pack
+56. Voice → select two seconds in the middle of a take, Punch in and out on, Record: the take starts at the selection's start, the recorder stops itself at its end, the new clip sits exactly over the selection on a new lane; with the toggle off the take runs until Stop.
+57. Studio → a track with two lanes: Takes chips appear; Take 2 mutes lane 1's clips (the strip draws them dim) and the mix plays lane 2 alone; Hear all brings both back; Undo steps the choice back.
+58. Beats → MIDI keyboard on, plug a USB MIDI keyboard (or pair a Bluetooth one): its name shows under the switch; keys play the instrument with the pads' latency; with Record on, notes land on the grid; unplugging it clears the name without a crash.
+59. Beats → select a drum loop on the strip, Slice the selection to pads: the slices land on the pads in order, named Slice 1…, a new kit chip appears and the pattern plays it; tap pad 1 and hear the first hit; the project reopens with the kit.
+60. Beats → Load a file onto pad 5 from Downloads: the pad plays it; Clear pad 5 silences it; Undo brings it back.
+61. Voice → with a transcript, paste the song's lyrics a line each, Lay them against the sound: "N of M lines found"; Musician → Sing along shows the written lines moving with the play-head, the current one large.
+62. Edit → EQ → 10 bands: the faders are vertical, each named by its frequency and reading its gain to TalkBack; +6 at 1 kHz draws a bump on the curve and Apply renders it (Measure before and after on Finish shows the mids up); 31 bands the same, narrower.
+63. `./gradlew bundlePlayRelease` builds with the `models` asset pack present (`sh tools/models/fetch_models.sh play` first), and `bundletool` lists the pack as install-time; the play flavour's ModelStore finds the model through assets/models/.
+

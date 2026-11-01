@@ -232,6 +232,9 @@
     <string name="eq_preset_flat">Flat</string>
     <string name="eq_preset_tilt_bright">Brighter</string>
     <string name="eq_preset_tilt_warm">Warmer</string>
+    <string name="eq_mode_parametric">Parametric</string>
+    <string name="eq_mode_10">10 bands</string>
+    <string name="eq_mode_31">31 bands</string>
     <string name="eq_apply">Apply to the sound</string>
     <string name="eq_live">On the track, live</string>
     <string name="dyn_compressor">Compressor</string>
@@ -565,6 +568,30 @@
     <string name="studio_freezing">Freezing the track</string>
     <string name="studio_frozen">%1$s is frozen. Undo brings its clips and inserts back.</string>
     <string name="studio_freeze_failed">The track could not be rendered.</string>
+
+    <string name="voice_punch">Punch in and out</string>
+    <string name="voice_punch_detail">The take starts at the selection\'s start and stops by itself at its end.</string>
+    <string name="voice_punch_needs_selection">Select the stretch to replace first; without one the take runs until Stop.</string>
+    <string name="studio_takes">Takes</string>
+    <string name="studio_takes_all">Hear all</string>
+    <string name="studio_take_n">Take %1$d</string>
+    <string name="voice_lyrics_title">Lyrics</string>
+    <string name="voice_lyrics_hint">Paste the words as written, a line each; they are laid against what was heard so Sing along shows the real lines with their times.</string>
+    <string name="voice_lyrics_text">The lyrics</string>
+    <string name="voice_lyrics_align">Lay them against the sound</string>
+    <string name="voice_lyrics_aligned">%1$d of %2$d lines found in the sound.</string>
+    <string name="beats_midi_in">MIDI keyboard</string>
+    <string name="beats_midi_in_hint">A USB or Bluetooth MIDI keyboard plays the instrument and records into the loop like the pads do.</string>
+    <string name="beats_midi_in_none">No MIDI device is connected.</string>
+    <string name="beats_midi_in_connected">Listening to %1$s</string>
+
+    <string name="beats_your_sounds">Your sounds</string>
+    <string name="beats_your_sounds_hint">Select a loop on the strip and slice it at its hits onto the pads, or put any file from the phone on a pad. Kits are saved with the project.</string>
+    <string name="beats_slice_selection">Slice the selection to pads</string>
+    <string name="beats_load_sample">Load a file onto pad %1$d</string>
+    <string name="beats_clear_pad">Clear pad %1$d</string>
+    <string name="beats_slicing">Slicing at the hits</string>
+    <string name="beats_sliced">%1$d slices on the pads; the pattern plays the new kit.</string>
 
     <!-- Notifications -->
     <string name="notification_channel">Recording and playback</string>

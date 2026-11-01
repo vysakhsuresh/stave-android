@@ -28,3 +28,4 @@ dependencyResolutionManagement {
 rootProject.name = "Stave"
 include(":engine")
 include(":app")
+include(":models_pack")

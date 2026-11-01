@@ -5,6 +5,7 @@ import com.layerbit.stave.engine.sequencer.DrumInstrument
 import com.layerbit.stave.engine.sequencer.Instrument
 import com.layerbit.stave.engine.sequencer.SynthInstrument
 import com.layerbit.stave.engine.synth.AdsrSettings
+import com.layerbit.stave.engine.synth.DrumKit
 import com.layerbit.stave.engine.synth.DrumMachine
 import com.layerbit.stave.engine.dsp.FilterKind
 import com.layerbit.stave.engine.synth.FmOperator
@@ -75,13 +76,18 @@ object Instruments {
         synthPresets.map { (k, v) -> Choice("synth:$k", v.first) } + fmPresets.map { (k, v) -> Choice("fm:$k", v.first) }
 
     fun isDrums(id: String): Boolean = id.startsWith("drums:")
+    fun isKit(id: String): Boolean = id.startsWith("kit:")
+    fun kitId(id: String): String? = if (isKit(id)) id.removePrefix("kit:") else null
+    /** Pads, whether the starter kit or a kit the person made: the grid shows pad rows and the pads card shows pads. */
+    fun hasPads(id: String): Boolean = isDrums(id) || isKit(id)
     fun isSoundFont(id: String): Boolean = id.startsWith("sf:")
     fun soundFontId(fileName: String, preset: Int): String = "sf:$fileName#$preset"
     fun soundFontFile(id: String): String? = if (isSoundFont(id)) id.removePrefix("sf:").substringBeforeLast('#') else null
     fun soundFontPreset(id: String): Int = id.substringAfterLast('#', "0").toIntOrNull() ?: 0
 
-    fun label(id: String, store: SoundFontStore? = null): String = when {
+    fun label(id: String, store: SoundFontStore? = null, kitName: (String) -> String? = { null }): String = when {
         isDrums(id) -> "Drums"
+        isKit(id) -> kitName(kitId(id)!!) ?: "Kit"
         id.startsWith("synth:") -> synthPresets[id.removePrefix("synth:")]?.first ?: "Synth"
         id.startsWith("fm:") -> fmPresets[id.removePrefix("fm:")]?.first ?: "FM"
         isSoundFont(id) -> {
@@ -92,9 +98,14 @@ object Instruments {
         else -> id
     }
 
-    /** The instrument for [id] at [sampleRate], or null when a SoundFont it names is gone (the caller falls back to the kit). */
-    fun create(id: String, sampleRate: Int, store: SoundFontStore?): Instrument? = when {
+    /**
+     * The instrument for [id] at [sampleRate], or null when a SoundFont or a kit it names is gone
+     * (the caller falls back to the starter kit). [kits] turns a made kit's id into a loaded
+     * DrumKit; the app supplies it, since the samples are project files.
+     */
+    fun create(id: String, sampleRate: Int, store: SoundFontStore?, kits: (String) -> DrumKit? = { null }): Instrument? = when {
         isDrums(id) -> DrumInstrument(DrumMachine(KitSynth.kit(sampleRate), sampleRate))
+        isKit(id) -> kits(kitId(id)!!)?.let { DrumInstrument(DrumMachine(it, sampleRate)) }
         id.startsWith("synth:") -> SynthInstrument(PolySynth(synthPresets[id.removePrefix("synth:")]?.second ?: SubtractivePatch(), sampleRate, voices = 10))
         id.startsWith("fm:") -> SynthInstrument(FmSynth(fmPresets[id.removePrefix("fm:")]?.second ?: FmPatch(), sampleRate, voices = 10))
         isSoundFont(id) -> {

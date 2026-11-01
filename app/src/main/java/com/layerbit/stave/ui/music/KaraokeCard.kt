@@ -34,10 +34,20 @@ fun KaraokeCard(vm: EditorViewModel, ui: EditorViewModel.Ui) {
     Panel(modifier = Modifier.fillMaxWidth()) {
         SectionHeading(stringResource(R.string.music_karaoke))
         Text(stringResource(R.string.music_karaoke_hint), style = MaterialTheme.typography.bodySmall, color = StaveColors.Dim, modifier = Modifier.padding(vertical = 4.dp))
-        if (t == null || t.isEmpty) Text(stringResource(R.string.music_karaoke_none), style = MaterialTheme.typography.bodySmall, color = StaveColors.Muted)
+        val lyrics = voice.lyrics
+        val ms = if (ui.session.sampleRate > 0) ui.window.playhead * 1000 / ui.session.sampleRate else 0L
+        if (lyrics.isNotEmpty()) {
+            // The typed lines, placed by the alignment: the line under the play-head large, the one before dimmed, the next waiting.
+            val placed = lyrics.withIndex().filter { it.value.isPlaced }
+            val currentIndex = placed.lastOrNull { it.value.startMs!! <= ms }?.index ?: 0
+            for (i in (currentIndex - 1).coerceAtLeast(0)..(currentIndex + 2).coerceAtMost(lyrics.size - 1)) {
+                val line = lyrics[i]
+                Text(line.text, style = if (i == currentIndex) MaterialTheme.typography.headlineSmall else MaterialTheme.typography.bodyLarge,
+                    color = when { i < currentIndex -> StaveColors.Dim; i == currentIndex -> StaveColors.Music; else -> StaveColors.Text }, modifier = Modifier.padding(top = 4.dp))
+            }
+        } else if (t == null || t.isEmpty) Text(stringResource(R.string.music_karaoke_none), style = MaterialTheme.typography.bodySmall, color = StaveColors.Muted)
         else {
             val words = t.words
-            val ms = if (ui.session.sampleRate > 0) ui.window.playhead * 1000 / ui.session.sampleRate else 0L
             val current = words.indexOfLast { it.startMs <= ms }.coerceAtLeast(0)
             val perLine = 7
             val lineStart = (current / perLine) * perLine

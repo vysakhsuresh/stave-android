@@ -178,10 +178,13 @@ data class Session(
     val patterns: List<Pattern> = emptyList(),
     val arrangement: Arrangement = Arrangement(),
     val instruments: Map<String, String> = emptyMap(),
+    /** Kits the person made from slices and samples; a pattern plays one through the instrument id `kit:<id>`. */
+    val kits: List<com.layerbit.stave.engine.synth.PadKit> = emptyList(),
     val version: Int = VERSION
 ) {
     val length: Long get() = clips.maxOfOrNull { it.end } ?: 0L
     fun pattern(id: String): Pattern? = patterns.firstOrNull { it.id == id }
+    fun kit(id: String): com.layerbit.stave.engine.synth.PadKit? = kits.firstOrNull { it.id == id }
     val durationMs: Long get() = if (sampleRate <= 0) 0 else length * 1000 / sampleRate
     fun source(id: String): Source? = sources.firstOrNull { it.id == id }
     fun track(id: String): Track? = tracks.firstOrNull { it.id == id }
