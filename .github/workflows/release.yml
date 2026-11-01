@@ -39,10 +39,14 @@ jobs:
       - name: Install Android SDK packages
         run: '"$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-36" "build-tools;36.0.0" "platform-tools" "ndk;27.2.12479018" "cmake;3.22.1"'
       - uses: gradle/actions/setup-gradle@v4
+      # GitHub refuses `secrets` in a step's `if:` (every push failed in 0 s with it there),
+      # so the key comes in as an env var and the shell decides.
       - name: Signing key from the secrets, when there is one
-        if: ${{ secrets.STAVE_KEYSTORE_BASE64 != '' }}
+        env:
+          KEYSTORE_B64: ${{ secrets.STAVE_KEYSTORE_BASE64 }}
         run: |
-          echo "${{ secrets.STAVE_KEYSTORE_BASE64 }}" | base64 -d > release.jks
+          if [ -z "$KEYSTORE_B64" ]; then echo "No signing key in the secrets: unsigned builds."; exit 0; fi
+          echo "$KEYSTORE_B64" | base64 -d > release.jks
           cat > keystore.properties <<PROPS
           storeFile=$PWD/release.jks
           storePassword=${{ secrets.STAVE_KEYSTORE_PASSWORD }}
