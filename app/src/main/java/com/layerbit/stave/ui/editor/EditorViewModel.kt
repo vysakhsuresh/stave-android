@@ -135,7 +135,21 @@ class EditorViewModel(private val app: StaveApplication, val projectId: String) 
 
     // ---- history -----------------------------------------------------------------------------
 
+    // The transcript belongs to a state of the session, so undo and redo bring back the one that
+    // matched it. Without this, Undo after "Take out fillers" put the sound back and left the
+    // words cut and shifted, no longer under their sounds (seen on the phone, 1 Nov 2026).
+    // Keyed by identity: History holds these very Session objects.
+    private val transcriptAt = java.util.IdentityHashMap<Session, Pair<Transcript?, Boolean>>()
+    private fun rememberTranscript() { transcriptAt[history.current] = _voice.value.transcript to _voice.value.stale }
+    private fun restoreTranscript() {
+        val known = transcriptAt[history.current]
+        val v = _voice.value
+        if (known != null) { if (known.first !== v.transcript || known.second != v.stale) setTranscript(known.first, known.second) }
+        else if (v.transcript != null) _voice.value = v.copy(stale = true, selectedWords = emptySet())
+    }
+
     private fun commit(next: Session, label: String, gesture: String? = null) {
+        rememberTranscript()
         history.record(next, label, gesture)
         if (!followingTranscript && _voice.value.transcript != null && next.length != session.length) _voice.value = _voice.value.copy(stale = true)
         after()
@@ -150,8 +164,8 @@ class EditorViewModel(private val app: StaveApplication, val projectId: String) 
     }
 
     fun endGesture() { history.endGesture() }
-    fun undo() { if (history.undo()) { _ui.value = _ui.value.copy(selection = null); after() } }
-    fun redo() { if (history.redo()) { _ui.value = _ui.value.copy(selection = null); after() } }
+    fun undo() { if (history.undo()) { _ui.value = _ui.value.copy(selection = null); restoreTranscript(); after() } }
+    fun redo() { if (history.redo()) { _ui.value = _ui.value.copy(selection = null); restoreTranscript(); after() } }
 
     private fun pushToGraph() { if (transport.available) transport.setSession(session, files.dir) }
 
@@ -409,6 +423,7 @@ class EditorViewModel(private val app: StaveApplication, val projectId: String) 
 
     private fun setTranscript(t: Transcript?, stale: Boolean = false) {
         _voice.value = _voice.value.copy(transcript = t, selectedWords = emptySet(), stale = stale)
+        rememberTranscript()
         viewModelScope.launch(Dispatchers.IO) {
             if (t == null) transcriptFile.delete()
             else transcriptFile.writeText(Json.write(JsonObject().put("language", t.language).put("words", JsonArray().also { a -> t.words.forEach { w -> a.add(JsonArray().add(w.startMs).add(w.endMs).add(w.text)) } })))
@@ -552,7 +567,7 @@ class EditorViewModel(private val app: StaveApplication, val projectId: String) 
     /** The undo history's labels, newest first, for the list that jumps back several steps at once. */
     fun undoLabels(): List<String> = history.labels().asReversed()
     /** Back [steps] steps as that many undos; the strip and the graph follow once. */
-    fun undoSteps(steps: Int) { var n = 0; while (n < steps && history.undo()) n++; if (n > 0) { _ui.value = _ui.value.copy(selection = null); after() } }
+    fun undoSteps(steps: Int) { var n = 0; while (n < steps && history.undo()) n++; if (n > 0) { _ui.value = _ui.value.copy(selection = null); restoreTranscript(); after() } }
 
     /**
      * Show notes from what is here: the chapters with their times and the first words said in
