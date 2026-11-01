@@ -63,8 +63,12 @@ class Exporter(private val context: Context) {
                 val measured = LoudnessMeter.integrated(samples, rate, channels)
                 val g = Gain.normaliseLoudness(measured, target.lufs)
                 Gain.apply(samples, g)
-                val lim = Limiter(rate, channels, target.truePeakDbtp, 5.0, 60.0)
+                // Half a decibel under the true-peak ceiling, then read and trimmed (OfflineTools
+                // .normaliseLoudness says why): the limiter holds samples, the target is a true peak.
+                val lim = Limiter(rate, channels, target.truePeakDbtp - 0.5, 5.0, 60.0)
                 lim.process(samples)
+                val tp = LoudnessMeter(rate, channels).also { it.process(samples) }.reading().truePeakDbtp
+                if (tp > target.truePeakDbtp) Gain.apply(samples, Gain.dbToLinear(target.truePeakDbtp - tp - 0.05).toFloat())
             }
             val outRate = settings.outputRate(rate)
             if (outRate != rate) {
