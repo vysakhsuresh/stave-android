@@ -285,6 +285,8 @@ fun IconTile(iconRes: Int, accent: Color, modifier: Modifier = Modifier, size: D
 fun Pill(text: String, colour: Color, modifier: Modifier = Modifier, filled: Boolean = false, numeric: Boolean = false) {
     Text(
         text = text,
+        // One line, always: at a large font size "No limits" broke a letter at a time.
+        maxLines = 1, softWrap = false,
         style = if (numeric) Numerals else MaterialTheme.typography.labelSmall,
         color = if (filled) Color.White else colour,
         modifier = modifier.background(if (filled) colour else colour.copy(alpha = 0.16f), ChipShape).padding(horizontal = 9.dp, vertical = 3.dp)

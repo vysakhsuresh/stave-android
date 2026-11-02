@@ -81,14 +81,14 @@ class EditorRender {
         shadowOf(Looper.getMainLooper()).idle()
     }
 
-    private fun run(theme: ThemeChoice) {
+    private fun run(theme: ThemeChoice, suffix: String = "") {
         val app = ApplicationProvider.getApplicationContext<StaveApplication>()
         val vm = EditorViewModel(app, project(app))
         waitUntil { vm.ui.value.loaded }
         compose.setContent {
             StaveTheme(theme) { Box(Modifier.fillMaxSize().background(StaveColors.Background)) { EditorScreen(vm, onBack = {}, onAddSounds = {}) } }
         }
-        val t = theme.name.lowercase()
+        val t = theme.name.lowercase() + suffix
         fun shot(name: String) { compose.waitForIdle(); Thread.sleep(300); compose.waitForIdle(); compose.onRoot().captureRoboImage("build/outputs/roborazzi/editor-$name-$t.png") }
         shot("open")
         for (sheet in EditSheet.entries) { compose.runOnIdle { vm.setSheet(sheet) }; shot("sheet-${sheet.id}") }
@@ -98,4 +98,5 @@ class EditorRender {
 
     @Test fun dark() = run(ThemeChoice.DARK)
     @Test fun light() = run(ThemeChoice.LIGHT)
+    @Test @Config(fontScale = 1.3f) fun largeText() = run(ThemeChoice.DARK, "-large-text")
 }

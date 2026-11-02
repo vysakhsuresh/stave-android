@@ -130,10 +130,11 @@ private fun Strip(t: Track, selected: Boolean, heard: Boolean, peakL: Float, pea
         }
         ValueSlider(stringResource(R.string.studio_volume), t.volumeDb.toFloat(), -60f..12f, { onVolume(it.toDouble()) }, format = Formats::db, onCommit = onVolumeDone)
         ValueSlider(stringResource(R.string.studio_pan), t.pan.toFloat(), -1f..1f, { onPan(it.toDouble()) }, format = { p -> if (kotlin.math.abs(p) < 0.02f) "C" else if (p < 0) "L${(-p * 100).toInt()}" else "R${(p * 100).toInt()}" }, onCommit = onVolumeDone)
-        Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-            Toggle(stringResource(R.string.studio_mute), t.muted, StaveColors.Hot, onMute)
-            Toggle(stringResource(R.string.studio_solo), t.solo, StaveColors.Band, onSolo)
-            if (t.kind == Track.Kind.AUDIO) Toggle(stringResource(R.string.studio_arm), t.armed, StaveColors.Record, onArm)
+        // Equal thirds on one line each: sized to their words, "Arm" broke a letter a line at a large font.
+        Row(horizontalArrangement = Arrangement.spacedBy(4.dp), modifier = Modifier.fillMaxWidth()) {
+            Toggle(stringResource(R.string.studio_mute), t.muted, StaveColors.Hot, onMute, Modifier.weight(1f))
+            Toggle(stringResource(R.string.studio_solo), t.solo, StaveColors.Band, onSolo, Modifier.weight(1f))
+            if (t.kind == Track.Kind.AUDIO) Toggle(stringResource(R.string.studio_arm), t.armed, StaveColors.Record, onArm, Modifier.weight(1f))
         }
     }
 }
@@ -152,13 +153,15 @@ private fun MasterStrip(volumeDb: Double, peakL: Float, peakR: Float, onVolume: 
 
 /** A small on/off chip with a state a screen reader hears. */
 @Composable
-private fun Toggle(label: String, on: Boolean, colour: androidx.compose.ui.graphics.Color, onClick: () -> Unit) {
+private fun Toggle(label: String, on: Boolean, colour: androidx.compose.ui.graphics.Color, onClick: () -> Unit, modifier: Modifier = Modifier) {
     Text(
         label, style = MaterialTheme.typography.labelSmall, color = if (on) StaveColors.OnBand else StaveColors.Muted,
-        modifier = Modifier
+        maxLines = 1, softWrap = false, overflow = androidx.compose.ui.text.style.TextOverflow.Clip,
+        textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+        modifier = modifier
             .background(if (on) colour else StaveColors.SurfaceDim, ChipShape)
             .toggleable(value = on, role = Role.Switch, onValueChange = { onClick() })
-            .padding(horizontal = 8.dp, vertical = 4.dp)
+            .padding(horizontal = 4.dp, vertical = 8.dp)
     )
 }
 
@@ -245,7 +248,7 @@ private fun InsertRow(vm: EditorViewModel, t: Track, ins: Insert) {
     Column(Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Text(ins.kind.replaceFirstChar { it.uppercase() }, style = MaterialTheme.typography.titleMedium, color = StaveColors.Text, modifier = Modifier.weight(1f))
-            Toggle(stringResource(R.string.studio_insert_on), ins.enabled, StaveColors.Good) { vm.updateTrack(t.id, "Insert on/off") { tr -> tr.copy(inserts = tr.inserts.map { if (it.id == ins.id) it.copy(enabled = !it.enabled) else it }) } }
+            Toggle(stringResource(R.string.studio_insert_on), ins.enabled, StaveColors.Good, onClick = { vm.updateTrack(t.id, "Insert on/off") { tr -> tr.copy(inserts = tr.inserts.map { if (it.id == ins.id) it.copy(enabled = !it.enabled) else it }) } })
             SecondaryButton(stringResource(R.string.studio_insert_remove), onClick = { vm.updateTrack(t.id, "Remove insert") { tr -> tr.copy(inserts = tr.inserts.filter { it.id != ins.id }) } }, tall = false)
         }
         val params = com.layerbit.stave.audio.SnapshotEncoder.paramOrder[ins.kind] ?: emptyList()

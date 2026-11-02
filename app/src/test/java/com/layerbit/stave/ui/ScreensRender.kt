@@ -47,6 +47,9 @@ class ScreensRender {
 
     @Test fun homeDark() = shot("home", ThemeChoice.DARK) { home() }
     @Test fun homeLight() = shot("home", ThemeChoice.LIGHT) { home() }
+    // At the font size a person with weaker sight sets: nothing may clip or overlap.
+    @Test @Config(fontScale = 1.3f) fun homeLargeText() = shot("home-large-text", ThemeChoice.DARK) { home() }
+    @Test @Config(fontScale = 1.3f) fun contactLargeText() = shot("contact-large-text", ThemeChoice.DARK) { com.layerbit.stave.ui.pages.ContactScreen() }
 
     // The long pages on a tall canvas, so the whole page is seen at once.
     @Test @Config(qualifiers = "w411dp-h2400dp-xxhdpi") fun settingsDark() = shot("settings", ThemeChoice.DARK) { settings() }

@@ -116,7 +116,9 @@ fun HomeScreen(
                 }
             }
             item {
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = rise(0)) {
+                // Wraps whole pills to a second line when a large font will not fit four on one.
+                @OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
+                androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp), modifier = rise(0)) {
                     // Four equal promises, one style.
                     Pill(stringResource(R.string.app_pill_free), StaveColors.Band)
                     Pill(stringResource(R.string.app_pill_no_internet), StaveColors.Band)

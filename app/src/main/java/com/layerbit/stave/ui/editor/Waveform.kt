@@ -305,7 +305,10 @@ fun WaveformStrip(
         // Ruler.
         drawRect(StaveColors.Background, Offset.Zero, Size(w, rulerPx))
         drawLine(StaveColors.Border, Offset(0f, rulerPx - 0.5f), Offset(w, rulerPx - 0.5f), 1f)
-        val majorMs = Ruler.majorMs(window.samplesPerPixel, session.sampleRate)
+        // Labels spaced by their own measured width: 90 px was narrower than "0:05.0" on a 400 dpi
+        // screen, and at a large font size the times ran into one another.
+        val labelGap = measurer.measure("0:00.000", labelStyle).size.width + 12.dp.toPx()
+        val majorMs = Ruler.majorMs(window.samplesPerPixel, session.sampleRate, labelGap.toInt())
         val minor = Ruler.minorPerMajor(majorMs)
         val firstMs = Timecode.ofSamples(window.firstSample, session.sampleRate)
         val lastMs = Timecode.ofSamples(window.lastSample, session.sampleRate)

@@ -23,8 +23,10 @@ data class LoudnessTarget(val id: String, val label: String, val lufs: Double, v
         val PODCAST_MONO = LoudnessTarget("podcast_mono", "Podcast (mono)", -19.0, -1.0, "Mono speech reads 3 LU louder on a stereo meter, so mono targets -19.")
         val STREAMING = LoudnessTarget("streaming", "Streaming music", -14.0, -1.0, "Spotify, YouTube, Tidal and Amazon normalise to about -14 LUFS.")
         val APPLE_MUSIC = LoudnessTarget("apple", "Apple Music", -16.0, -1.0, "Apple's Sound Check sits at -16 LUFS.")
-        val BROADCAST = LoudnessTarget("ebu", "Broadcast (EBU R128)", -23.0, -1.0, "European television and radio: -23 LUFS, -1 dBTP.")
-        val ATSC = LoudnessTarget("atsc", "Broadcast (ATSC A/85)", -24.0, -2.0, "North American television: -24 LKFS, -2 dBTP.")
+        // Named by their standards, which is how broadcast people ask for them; the note says
+        // "television and radio". "Broadcast (EBU R128)" shrank below its grid's text at a large font.
+        val BROADCAST = LoudnessTarget("ebu", "EBU R128", -23.0, -1.0, "European television and radio: -23 LUFS, -1 dBTP.")
+        val ATSC = LoudnessTarget("atsc", "ATSC A/85", -24.0, -2.0, "North American television: -24 LKFS, -2 dBTP.")
         val CD = LoudnessTarget("cd", "Loud (club / CD)", -9.0, -0.3, "As loud as a limiter allows; streaming services will turn it down again.")
         val all = listOf(PODCAST_STEREO, PODCAST_MONO, STREAMING, APPLE_MUSIC, BROADCAST, ATSC, CD)
         fun byId(id: String?): LoudnessTarget = all.firstOrNull { it.id == id } ?: STREAMING
