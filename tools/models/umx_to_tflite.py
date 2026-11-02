@@ -29,8 +29,8 @@ try:
 except ImportError:
     try:
         import ai_edge_torch
-    except ImportError:
-        sys.exit("pip install ai-edge-torch==0.4.0 (the converter) first")
+    except ImportError as e:
+        sys.exit(f"ai-edge-torch will not import ({e!r}); pip install -r tools/models/requirements-umx.txt")
 if not hasattr(ai_edge_torch, "convert"):
     sys.exit("this ai-edge-torch has no convert(); pin ai-edge-torch==0.4.0")
 
