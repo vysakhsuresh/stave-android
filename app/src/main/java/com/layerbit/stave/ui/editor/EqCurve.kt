@@ -3,6 +3,9 @@ package com.layerbit.stave.ui.editor
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
+import androidx.compose.ui.text.drawText
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Path
@@ -24,6 +27,10 @@ fun EqCurve(bands: List<EqBand>, sampleRate: Int, selected: Int, onSelect: (Int)
     val eq = ParametricEq(bands, sampleRate, 1)
     val points = 96
     val curve = eq.curve(points)
+    val measurer = androidx.compose.ui.text.rememberTextMeasurer()
+    val labelStyle = androidx.compose.material3.MaterialTheme.typography.labelSmall.copy(color = StaveColors.Dim)
+    val freqLabels = remember(labelStyle) { listOf(100.0 to "100", 1000.0 to "1k", 10_000.0 to "10k").map { (hz, t) -> hz to measurer.measure(t, labelStyle) } }
+    val dbLabels = remember(labelStyle) { listOf(12f to "+12", 0f to "0", -12f to "-12").map { (db, t) -> db to measurer.measure(t, labelStyle) } }
     Canvas(modifier.semantics { contentDescription = "Equaliser curve, ${bands.size} bands" }.pointerInput(bands) {
         detectTapGestures { p ->
             val x = p.x / size.width
@@ -51,11 +58,16 @@ fun EqCurve(bands: List<EqBand>, sampleRate: Int, selected: Int, onSelect: (Int)
             val y = h / 2 - (curve[i].coerceIn(-18.0, 18.0) / 18.0).toFloat() * h / 2
             if (i == 0) path.moveTo(x, y) else path.lineTo(x, y)
         }
-        drawPath(path, StaveColors.Band, style = Stroke(2.5f))
+        // The axes read in numbers: an equaliser whose lines carry no values cannot be read.
+        for ((hz, layout) in freqLabels) { val x = (ln(hz / 20.0) / ln(1000.0)).toFloat() * w; drawText(layout, topLeft = Offset(x + 3.dp.toPx(), h - layout.size.height - 2.dp.toPx())) }
+        for ((db, layout) in dbLabels) { val y = h / 2 - db / 18f * h / 2; drawText(layout, topLeft = Offset(3.dp.toPx(), y - layout.size.height - 1.dp.toPx())) }
+        drawPath(path, StaveColors.Band, style = Stroke(2.dp.toPx()))
         bands.forEachIndexed { i, b ->
             val x = (ln(b.hz.coerceIn(20.0, 20_000.0) / 20.0) / ln(1000.0)).toFloat() * w
             val y = h / 2 - (eq.responseDb(b.hz).coerceIn(-18.0, 18.0) / 18.0).toFloat() * h / 2
-            drawCircle(if (i == selected) StaveColors.BandBright else StaveColors.Muted, if (i == selected) 8f else 6f, Offset(x, y))
+            // Sized in dp: in pixels the dots were two dp across, too small to see or to aim at.
+            if (i == selected) drawCircle(StaveColors.BandBright.copy(alpha = 0.25f), 9.dp.toPx(), Offset(x, y))
+            drawCircle(if (i == selected) StaveColors.BandBright else StaveColors.Muted, if (i == selected) 5.dp.toPx() else 3.5.dp.toPx(), Offset(x, y))
         }
     }
 }

@@ -181,12 +181,12 @@
     <string name="edit_copy">Copy</string>
     <string name="edit_paste">Paste</string>
     <string name="edit_delete">Delete</string>
-    <string name="edit_delete_keep_gap">Delete, keep the gap</string>
+    <string name="edit_delete_keep_gap">Leave a gap</string>
     <string name="edit_silence">Silence</string>
     <string name="edit_split">Split</string>
     <string name="edit_crop">Keep only this</string>
     <string name="edit_select_all">Select all</string>
-    <string name="edit_insert_silence">Insert a second of silence</string>
+    <string name="edit_insert_silence">Insert silence</string>
     <string name="edit_mute">Mute</string>
     <string name="edit_reverse">Reverse</string>
     <string name="edit_add_track">Add a track</string>
@@ -202,7 +202,7 @@
     <string name="fades_shape">Shape</string>
     <string name="fades_render">Apply to the sound</string>
     <string name="repair_declick">Clicks and crackle</string>
-    <string name="repair_declick_hint">Finds sample-scale kinks no sound makes and mends them from the neighbours.</string>
+    <string name="repair_declick_hint">Finds the short spikes of clicks and crackle and mends them from the sound either side. Notes, drum hits and consonants are left as they are.</string>
     <string name="repair_sensitivity">Sensitivity</string>
     <string name="repair_declick_button">Remove clicks</string>
     <string name="repair_declip">Clipped peaks</string>

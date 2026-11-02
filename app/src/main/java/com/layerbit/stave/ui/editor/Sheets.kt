@@ -219,8 +219,10 @@ private fun SpectralSheet(vm: EditorViewModel, ui: EditorViewModel.Ui) {
         style = MaterialTheme.typography.bodySmall, color = if (box == null) StaveColors.Dim else StaveColors.Band, modifier = Modifier.padding(bottom = 6.dp)
     )
     ValueSlider(stringResource(R.string.spectral_gain), gain, -60f..-3f, { gain = it }, format = Formats::dbPlain)
-    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        PrimaryButton(stringResource(R.string.spectral_attenuate), onClick = { vm.spectralAttenuate(gain.toDouble()) }, enabled = box != null && spectral.shown, tall = false, modifier = Modifier.weight(1f))
+    // The slider's own action under it at full width, the two fixed ones beside each other: three
+    // in a row cut "Turn down" and "Fill from around" to their first words.
+    PrimaryButton(stringResource(R.string.spectral_attenuate), onClick = { vm.spectralAttenuate(gain.toDouble()) }, enabled = box != null && spectral.shown, tall = false, modifier = Modifier.fillMaxWidth())
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 8.dp)) {
         SecondaryButton(stringResource(R.string.spectral_remove), onClick = { vm.spectralAttenuate(-60.0) }, enabled = box != null && spectral.shown, tall = false, modifier = Modifier.weight(1f))
         SecondaryButton(stringResource(R.string.spectral_fill), onClick = vm::spectralFill, enabled = box != null && spectral.shown, tall = false, modifier = Modifier.weight(1f))
     }

@@ -38,6 +38,8 @@ import androidx.compose.material3.Snackbar
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.layout.onPlaced
+import androidx.compose.ui.layout.positionInParent
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -195,12 +197,13 @@ fun EditorScreen(vm: EditorViewModel, onBack: () -> Unit, onAddSounds: () -> Uni
 
 @Composable
 private fun TabRow(current: EditorTab, onTab: (EditorTab) -> Unit) {
-    Row(rememberScrollState().let { s -> Modifier.fillMaxWidth().edgeFade(s).horizontalScroll(s) }.padding(horizontal = 12.dp, vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+    val s = rememberScrollState()
+    Row(Modifier.fillMaxWidth().edgeFade(s).horizontalScroll(s).padding(horizontal = 12.dp, vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
         for (tab in EditorTab.entries) {
             val active = tab == current
             val interaction = remember { MutableInteractionSource() }
             Row(
-                Modifier.pressScale(interaction, 0.96f).background(if (active) StaveColors.Band else StaveColors.Surface, ChipShape).border(1.dp, if (active) StaveColors.Band else StaveColors.Border, ChipShape)
+                Modifier.revealWhen(active, s).pressScale(interaction, 0.96f).background(if (active) StaveColors.Band else StaveColors.Surface, ChipShape).border(1.dp, if (active) StaveColors.Band else StaveColors.Border, ChipShape)
                     .selectable(selected = active, interactionSource = interaction, indication = null, role = Role.Tab) { onTab(tab) }.padding(horizontal = 12.dp, vertical = 7.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -232,12 +235,13 @@ private fun TransportBar(vm: EditorViewModel, ui: EditorViewModel.Ui, playing: B
 
 @Composable
 private fun ToolRail(open: EditSheet?, onSheet: (EditSheet?) -> Unit) {
-    Row(rememberScrollState().let { s -> Modifier.fillMaxWidth().edgeFade(s).horizontalScroll(s) }.padding(horizontal = 12.dp, vertical = 2.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+    val s = rememberScrollState()
+    Row(Modifier.fillMaxWidth().edgeFade(s).horizontalScroll(s).padding(horizontal = 12.dp, vertical = 2.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
         for (sheet in EditSheet.entries) {
             val active = sheet == open
             val interaction = remember { MutableInteractionSource() }
             Box(
-                Modifier.pressScale(interaction, 0.96f).background(if (active) StaveColors.BandDim else StaveColors.Surface, ChipShape).border(1.dp, if (active) StaveColors.Band else StaveColors.Border, ChipShape)
+                Modifier.revealWhen(active, s).pressScale(interaction, 0.96f).background(if (active) StaveColors.BandDim else StaveColors.Surface, ChipShape).border(1.dp, if (active) StaveColors.Band else StaveColors.Border, ChipShape)
                     .selectable(selected = active, interactionSource = interaction, indication = null, role = Role.Tab) { onSheet(sheet) }.padding(horizontal = 12.dp, vertical = 8.dp)
             ) { Text(stringResource(sheet.titleRes), style = MaterialTheme.typography.labelMedium, color = if (active) StaveColors.BandBright else StaveColors.Muted) }
         }
@@ -246,3 +250,25 @@ private fun ToolRail(open: EditSheet?, onSheet: (EditSheet?) -> Unit) {
 }
 
 /** A pillar whose engine exists and whose screen does not yet: says so, honestly, with the version. */
+
+/**
+ * Scrolls a chip row so the chosen chip is on screen. Opening the Time sheet or the Finish tab
+ * left its highlighted chip off the edge, and nothing on screen said where you were.
+ */
+@Composable
+private fun Modifier.revealWhen(active: Boolean, scroll: androidx.compose.foundation.ScrollState): Modifier {
+    var at by remember { mutableStateOf(-1f to 0f) }
+    val margin = with(androidx.compose.ui.platform.LocalDensity.current) { 24.dp.toPx() }
+    LaunchedEffect(active, at, scroll.viewportSize) {
+        val (x, w) = at
+        if (!active || x < 0 || scroll.viewportSize == 0) return@LaunchedEffect
+        val view = scroll.viewportSize
+        val target = when {
+            x - margin < scroll.value -> (x - margin).toInt()
+            x + w + margin > scroll.value + view -> (x + w + margin - view).toInt()
+            else -> return@LaunchedEffect
+        }
+        scroll.animateScrollTo(target.coerceIn(0, scroll.maxValue))
+    }
+    return this.then(Modifier.onPlaced { c -> at = c.positionInParent().x to c.size.width.toFloat() })
+}
