@@ -41,11 +41,24 @@ object StemSeparatorChecks : Suite {
         }
     }
 
+    private val spool = java.nio.file.Files.createTempDirectory("stave-stems").toFile()
+    private var open = 0
+    private var mostOpen = 0
+
     private fun separate(l: FloatArray, r: FloatArray, stems: Int, model: (Int, Int, FloatArray, FloatArray) -> Unit): List<Pair<FloatArray, FloatArray>> {
         val out = List(stems) { FloatArray(l.size) to FloatArray(l.size) }
         val at = IntArray(stems)
-        StemSeparator(stems, model).run(l, r, { s, a, b, count -> a.copyInto(out[s].first, at[s], 0, count); b.copyInto(out[s].second, at[s], 0, count); at[s] += count })
+        val opener = { stem: Int ->
+            open++; mostOpen = maxOf(mostOpen, open)
+            object : StemSeparator.StemModel {
+                override fun infer(firstFrame: Int, input: FloatArray, output: FloatArray) = model(stem, firstFrame, input, output)
+                override fun close() { open-- }
+            }
+        }
+        StemSeparator(stems, spool).run(l, r, opener, { s, a, b, count -> a.copyInto(out[s].first, at[s], 0, count); b.copyInto(out[s].second, at[s], 0, count); at[s] += count })
         for (s in 0 until stems) check(at[s] == l.size) { "stem $s came out ${at[s]} samples long, not ${l.size}" }
+        check(open == 0) { "a model was left open" }
+        check(spool.listFiles().isNullOrEmpty()) { "spool files were left behind: ${spool.listFiles()?.map { it.name }}" }
         return out
     }
 
@@ -73,6 +86,19 @@ object StemSeparatorChecks : Suite {
             println("      four stems against the mix: ${"%.1f".format(java.util.Locale.ROOT, e)} dB")
         }
 
+        section("where every model says nothing, the sound still goes to the stems, not nowhere")
+        run {
+            // The models' last layer is a ReLU: on the phone whole bins came back zero from all
+            // four, the shares were 0/0, and the stems summed to the mix only to -25 dB.
+            val l = bursts(n, 90, false, 11); val r = bursts(n, 90, true, 12)
+            val stems = separate(l, r, 4) { stem, _, _, out ->
+                for (k in out.indices) { val bin = k % StemSeparator.BINS; out[k] = if (bin > 300) 0f else (stem + 1).toFloat() }
+            }
+            val sumL = FloatArray(n); for ((a, _) in stems) for (i in 0 until n) sumL[i] += a[i]
+            val e = errorDb(sumL, l)
+            check(e < -80) { "with silent bins the stems sum to the mix only to $e dB" }
+        }
+
         section("with the true magnitudes, the stems come back as the sources: the masks sit on their own frames")
         run {
             // Two sources taking turns every 90 ms, so a mask applied a few frames off would put
@@ -86,6 +112,23 @@ object StemSeparatorChecks : Suite {
             // straddle the 90 ms turns); three hops off, as the first runner was, about -3 dB.
             check(ea < -10 && eb < -10) { "stem A off its source by $ea dB, B by $eb dB" }
             println("      oracle stems against their sources: A ${"%.1f".format(java.util.Locale.ROOT, ea)} dB, B ${"%.1f".format(java.util.Locale.ROOT, eb)} dB")
+        }
+
+        section("one model is open at a time (four together held 3.2 GB on the phone)")
+        check(mostOpen == 1) { "$mostOpen models were open at once" }
+
+        section("the spool's half floats keep a magnitude to a part in two thousand")
+        run {
+            var worst = 0.0
+            var v = 1e-4f
+            while (v < 60_000f) {
+                val back = com.layerbit.stave.engine.dsp.Half.toFloat(com.layerbit.stave.engine.dsp.Half.of(v))
+                worst = maxOf(worst, Math.abs(back - v) / v.toDouble()); v *= 1.013f
+            }
+            check(worst < 1.0 / 2000) { "half precision off by ${worst * 100} %" }
+            check(com.layerbit.stave.engine.dsp.Half.toFloat(com.layerbit.stave.engine.dsp.Half.of(0f)) == 0f) { "zero" }
+            check(com.layerbit.stave.engine.dsp.Half.toFloat(com.layerbit.stave.engine.dsp.Half.of(1e-9f)) < 1e-7f) { "a vanishing magnitude stays vanishing" }
+            check(com.layerbit.stave.engine.dsp.Half.toFloat(com.layerbit.stave.engine.dsp.Half.of(1e9f)).isInfinite()) { "too large is infinite, not wrapped" }
         }
 
         section("a song shorter than one call, and an empty one")

@@ -36,7 +36,8 @@ if not hasattr(ai_edge_torch, "convert"):
 
 from openunmix import umxhq_spec  # the hq weights: 4096 FFT, 1024 hop, 44.1 kHz
 
-T = 256  # frames per call (about 6 s); StemsRunner windows at this length
+T = 128  # frames per call (about 3 s); StemSeparator.WINDOW. XNNPACK packs the weights once per
+         # unrolled LSTM step: at 256 the float vocals model held 1.7 GB on the phone.
 
 
 class BatchFirst(torch.nn.Module):

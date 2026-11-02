@@ -64,7 +64,7 @@ class StemsRunner(private val context: Context, private val models: ModelStore) 
         val right = if (channels.size > 1) (if (sampleRate == modelRate) channels[1] else com.layerbit.stave.engine.dsp.Resampler(sampleRate, modelRate).convert(channels[1])) else left
         val interpreterClass = Class.forName("org.tensorflow.lite.Interpreter")
         val run = interpreterClass.getMethod("run", Any::class.java, Any::class.java)
-        val interpreters = stemNames.map { interpreterClass.getConstructor(File::class.java).newInstance(files[it]!!) }
+        val close = interpreterClass.getMethod("close")
         val floats = StemSeparator.WINDOW * 2 * StemSeparator.BINS
         val input = ByteBuffer.allocateDirect(4 * floats).order(ByteOrder.nativeOrder())
         val output = ByteBuffer.allocateDirect(4 * floats).order(ByteOrder.nativeOrder())
@@ -80,24 +80,35 @@ class StemsRunner(private val context: Context, private val models: ModelStore) 
             written[name] = (written[name] ?: 0L) + inter.size / 2
         }
         val job = coroutineContext
+        // One interpreter at a time: four open together held 3.2 GB of native memory (StemSeparator).
+        val open = { stem: Int ->
+            // XNNPACK stays on: without it LiteRT's own kernels gave NaN for three stems on the
+            // phone. It packs the weights once per unrolled LSTM step, so its memory grows with
+            // the model's window (StemSeparator.WINDOW); the models are converted at 128 frames.
+            val interpreter = interpreterClass.getConstructor(File::class.java).newInstance(files[stemNames[stem]]!!)
+            object : StemSeparator.StemModel {
+                override fun infer(firstFrame: Int, input2: FloatArray, output2: FloatArray) {
+                    job.ensureActive()
+                    input.clear(); input.asFloatBuffer().put(input2); input.rewind()
+                    output.clear()
+                    run.invoke(interpreter, input, output)
+                    output.rewind(); output.asFloatBuffer().get(output2)
+                }
+                override fun close() { runCatching { close.invoke(interpreter) } }
+            }
+        }
         try {
-            StemSeparator(stemNames.size) { stem, _, inArr, outArr ->
-                job.ensureActive()
-                input.clear(); input.asFloatBuffer().put(inArr); input.rewind()
-                output.clear()
-                run.invoke(interpreters[stem], input, output)
-                output.rewind(); output.asFloatBuffer().get(outArr)
-            }.run(left, right, { stem, l, r, count ->
+            StemSeparator(stemNames.size, File(dir, "spool")).run(left, right, open, { stem, l, r, count ->
                 val name = stemNames[stem]
                 val inter = FloatArray(count * 2) { i -> if (i % 2 == 0) l[i / 2] else r[i / 2] }
                 write(name, back[name]?.push(inter) ?: inter)
             }, onProgress)
             for (name in stemNames) back[name]?.let { write(name, it.finish()) }
         } catch (e: Throwable) {
+            streams.values.forEach { runCatching { it.close() } }
             outFiles.values.forEach { it.delete() }; throw e
         } finally {
             streams.values.forEach { runCatching { it.close() } }
-            interpreters.forEach { runCatching { interpreterClass.getMethod("close").invoke(it) } }
         }
         Result(outFiles, sampleRate, written.values.minOrNull() ?: 0L)
     }
