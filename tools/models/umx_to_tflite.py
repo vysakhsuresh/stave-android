@@ -59,19 +59,44 @@ def main(dest: str) -> None:
         umx.eval()
         wrapped = BatchFirst(umx).eval()
         sample = (torch.rand(1, T, 2, 2049) * 2.0,)
-        edge = ai_edge_torch.convert(wrapped, sample, quant_config=None)
-        # Dynamic-range int8 keeps the float interface the runner expects and shrinks the weights.
-        edge = ai_edge_torch.convert(wrapped, sample, quant_config=ai_edge_torch.quantize.quant_config.QuantConfig(dynamic_range_int8=True)) if hasattr(ai_edge_torch, "quantize") else edge
+        edge = ai_edge_torch.convert(wrapped, sample)
+        float_path = out / f"umx_{name}.float.tflite"
+        edge.export(str(float_path))
         path = out / f"umx_{name}.tflite"
-        edge.export(str(path))
-        # Check: the converted model against PyTorch on the same input.
+        # Dynamic-range int8 weights (float in, float out, as the runner expects): about a
+        # quarter of the size. Kept float if the quantiser is missing or the result strays.
+        quantised = False
+        try:
+            from ai_edge_quantizer import quantizer, recipe
+            qt = quantizer.Quantizer(str(float_path))
+            qt.load_quantization_recipe(recipe.dynamic_wi8_afp32())
+            qt.quantize().export_model(str(path))
+            quantised = True
+        except Exception as e:  # noqa: BLE001 - any failure leaves the float model
+            print(f"{name}: not quantised ({e!r}); the float model ships")
+        if not quantised:
+            float_path.replace(path)
+        # Check: the shipped model against PyTorch on the same input, through LiteRT itself.
+        from ai_edge_litert.interpreter import Interpreter
+        it = Interpreter(model_path=str(path))
+        it.allocate_tensors()
+        it.set_tensor(it.get_input_details()[0]["index"], sample[0].numpy())
+        it.invoke()
+        got = it.get_tensor(it.get_output_details()[0]["index"])
         with torch.no_grad():
             ref = wrapped(*sample).numpy()
-        got = edge(*sample)
         err = float(np.abs(got - ref).max() / (np.abs(ref).max() + 1e-9))
-        print(f"{path.name}: {path.stat().st_size / 1e6:.1f} MB, max relative error {err:.4f}")
+        print(f"{path.name}: {path.stat().st_size / 1e6:.1f} MB, {'int8 weights' if quantised else 'float'}, max relative error {err:.4f}")
+        if quantised and err > 0.05:
+            print(f"{name}: int8 strays by {err:.3f}; the float model ships instead")
+            edge.export(str(path))
+            it = Interpreter(model_path=str(path)); it.allocate_tensors()
+            it.set_tensor(it.get_input_details()[0]["index"], sample[0].numpy()); it.invoke()
+            got = it.get_tensor(it.get_output_details()[0]["index"])
+            err = float(np.abs(got - ref).max() / (np.abs(ref).max() + 1e-9))
         if err > 0.05:
             sys.exit(f"{name}: the converted model disagrees with PyTorch by {err:.3f}; do not ship it")
+        float_path.unlink(missing_ok=True)
 
 
 if __name__ == "__main__":
