@@ -51,9 +51,11 @@ public:
     // every pause does not sound like the file. With no stream running they act at once.
     void play() { if (!playing.load()) fadeInRequested.store(true); stopRequested.store(false); playing = true; }
     void pause() { if (playing.load() && running.load()) stopRequested.store(true); else playing = false; }
-    bool isPlaying() const { return playing.load(); }
+    // An offline render drives the graph as if playing; the screen, polling, followed it to the
+    // song's end and stayed there after "Read the song". It is shown the state from before.
+    bool isPlaying() const { return offlineActive.load() ? shownPlaying.load() : playing.load(); }
     void seek(int64_t frame) { int64_t f = frame < 0 ? 0 : frame; if (playing.load() && running.load()) seekTo.store(f); else position.store(f); }
-    int64_t getPosition() const { return position.load(); }
+    int64_t getPosition() const { return offlineActive.load() ? shownPosition.load() : position.load(); }
     void setLoop(int64_t start, int64_t end, bool enabled) { loopStart = start; loopEnd = end; loopOn = enabled; }
     // Play stops by itself here (a selection heard once); -1 for no stop short of the end.
     void setPlayEnd(int64_t end) { playEnd = end; }
@@ -135,6 +137,7 @@ private:
     bool blockWasPlaying = false;     // processBlock's own: false makes the mute ramps start where they stand
     static constexpr int FADE_FRAMES = 256;
     std::atomic<int64_t> position{0};
+    std::atomic<bool> offlineActive{false}, shownPlaying{false}; std::atomic<int64_t> shownPosition{0};
     std::atomic<int64_t> loopStart{0}, loopEnd{0};
     std::atomic<bool> loopOn{false}, stopAtEnd{true};
     std::atomic<int64_t> playEnd{-1};

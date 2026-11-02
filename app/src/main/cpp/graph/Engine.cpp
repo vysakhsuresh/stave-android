@@ -492,6 +492,7 @@ int64_t Engine::renderOffline(int64_t from, int64_t to, std::vector<float>& outv
     if (!s || to <= from) return 0;
     bool wasPlaying = playing.load(); int64_t wasAt = position.load(); bool wasStop = stopAtEnd.load(); bool wasLoop = loopOn.load();
     int64_t wasEnd = playEnd.load();
+    shownPlaying.store(wasPlaying); shownPosition.store(wasAt); offlineActive.store(true);
     playing = true; stopAtEnd = false; loopOn = false; playEnd = -1; position.store(from);
     blockWasPlaying = false;   // every mute ramp starts settled: the file is the mix, sample for sample
     for (auto& st : trackStates) st.configuredFor = 0xFFFFFFFFu;
@@ -506,6 +507,7 @@ int64_t Engine::renderOffline(int64_t from, int64_t to, std::vector<float>& outv
         at += n;
     }
     playing = wasPlaying; stopAtEnd = wasStop; loopOn = wasLoop; playEnd = wasEnd; position.store(wasAt);
+    offlineActive.store(false);
     for (auto& st : trackStates) st.configuredFor = 0xFFFFFFFFu;
     master.configuredFor = 0xFFFFFFFFu;
     return to - from;
