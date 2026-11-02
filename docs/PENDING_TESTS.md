@@ -101,14 +101,21 @@ back into the roadmap with what broke.
 87. Export the 6-minute "24 tracks" project to WAV 24-bit with no target, then to MP3 at
     Streaming: no out-of-memory, the WAV matches the mix (od/awk diff against a captured mix),
     the MP3 reads -14 LUFS and at most -1 dBTP in Finish → Measure. (ExportChain, streamed.)
+    Seen 3 Nov: WAV 24-bit at Streaming, 24 tracks x 5:48, 73 s, no out-of-memory; measured on the
+    laptop with an independent BS.1770 meter: -14.14 LUFS, -1.04 dBTP. The MP3 leg is still open.
 88. Export a project at 44.1 kHz (Export → rate 44.1k): plays at the right pitch and length.
+    Seen 2 Nov: 44,100 Hz, 16-bit, 8.0000 s, pitch 912.393 Hz against the source's 912.399. Done.
 89. Open the Ramayana project: the title reads "Ramayana Ravana Tandavam (Song) - Ranbir Yash -
     …" without "(MP3_320K)"; Undo still works after reopening (the history was rewritten with it).
+    Seen 2 Nov: the home list shows the tidied name (tidied at startup now, not only on opening).
 90. Remove clicks on a song with no clicks: the clip label gains "· Remove clicks" and the
     sound is unchanged by ear; on a vinyl rip the ticks go.
+    Seen 2 Nov: "Kalimba · Repair clipping" labelled; Undo put it back. The by-ear half is open.
 91. Record, then leave without recording anything; restart the app: no empty "Untitled" row.
+    Seen 2 Nov: Record made a folder (13 to 14), the restart swept it (13). Done.
 92. Home at rest with Lively on, release build: `dumpsys gfxinfo com.layerbit.stave` over
     10 s reads about 100 frames (the backdrop steps at 10 a second), not 600.
+    Measured 2 Nov (release build): 87 frames in 10 s at rest; scrolling Home 14 ms median, 5% slow.
 93. Master a loud song to Streaming and listen to the loudest chorus against the original:
     no added crackle on drum hits (the limiter now ramps its gain). A Limiter insert on the
     master, live, the same (the C++ twin has never been heard).
@@ -118,14 +125,20 @@ back into the roadmap with what broke.
     Mute and unmute the drums in "Night drive" while it plays: no click. Tap far along the
     ruler while playing: the jump is a quick dip, not a crack. The debug capture after a play
     from the start matches the decoded source from frame 256 on (the ramp before it).
+    Measured 2 Nov: pause fades over one buffer, a jump dips 192 out and 192 in (steepest step 0.13
+    against the song's 0.33), a selection ends with a 255-frame fade, a loop joins with a 64-frame dip.
+    The by-ear half (headphones) and mute/solo are open.
 96. Cold start on the release build, before and after this build (`am start -W` three times
     after `am force-stop`, read TotalTime): the app's own baseline profile should take
     noticeable time off the first launch and the first scroll of Home.
+    Measured 2 Nov (release build): 389, 490, 422 ms, against about 2 s on a debug build.
 97. Convert (Home → the arrows): a 30-minute WAV to MP3 completes without running out of
     memory, and the MP3 is the same length.
 98. The laptop renders have been seen; the phone has not: Home (cards, pills), the editor's
     sheets (Edit grid, Spectral, EQ labels, Markers rows), Studio's strip toggles, Settings at
     the phone's own font size and at the largest. Re-take the store screenshots 1-12 after.
+    Seen 2 Nov: Home, Settings at 1.3x font (fixed: Match phone, project rows), the editor tabs and
+    sheets, NAF zero on every screen. The store screenshots are still to take.
 99. The song on the phone's speaker against Poweramp, same volume: no grain. Playback now takes
     the normal output path with Motorola's speaker tuning and Dolby on it (DEVICE_FINDINGS, 2
     November evening). Then Ready the mic on the Voice tab, Hear myself on headphones: the voice
