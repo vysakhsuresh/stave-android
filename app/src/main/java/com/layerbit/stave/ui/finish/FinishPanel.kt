@@ -62,7 +62,16 @@ fun FinishPanel(vm: com.layerbit.stave.ui.editor.EditorViewModel, ui: com.layerb
                     LabelledValue(stringResource(R.string.finish_true_peak), Formats.dbtp(r.truePeakDbtp), Modifier.weight(1f), numeric = true)
                     LabelledValue(stringResource(R.string.finish_sample_peak), Formats.dbPlain(r.samplePeakDbfs.toFloat()), Modifier.weight(1f), numeric = true)
                 }
-                if (r.integratedLufs > -90) Text(stringResource(R.string.finish_distance, Formats.db((target.lufs - r.integratedLufs).toFloat())), style = MaterialTheme.typography.bodySmall, color = StaveColors.Muted, modifier = Modifier.padding(top = 6.dp))
+                if (r.integratedLufs > -90) {
+                    // "-29.2 dB from the target" left the reader to work out which way; the mix was louder.
+                    val over = (r.integratedLufs - target.lufs).toFloat()
+                    val words = when {
+                        kotlin.math.abs(over) < 0.5f -> stringResource(R.string.finish_on_target)
+                        over > 0 -> stringResource(R.string.finish_above, Formats.dbPlain(over))
+                        else -> stringResource(R.string.finish_below, Formats.dbPlain(-over))
+                    }
+                    Text(words, style = MaterialTheme.typography.bodySmall, color = StaveColors.Muted, modifier = Modifier.padding(top = 6.dp))
+                }
             }
             SecondaryButton(stringResource(R.string.finish_measure), onClick = vm::measureMix, tall = false, modifier = Modifier.fillMaxWidth().padding(top = 8.dp), enabled = ui.session.length > 0 && ui.busy == null)
         }

@@ -238,35 +238,69 @@ data class MasteringReport(
     val highDb: Double,
     val dcOffset: Double
 ) {
+    /**
+     * The report built a block at a time, so a mix is measured straight off its file: holding a
+     * 24-track six-minute mix whole (133 MB) on top of the render's own copy left the phone too
+     * short of memory to draw for a quarter of a minute, and sometimes failed the measure.
+     */
+    class Builder(val sampleRate: Int, val channels: Int, lowHz: Double = 150.0, highHz: Double = 3000.0) {
+        private val meter = LoudnessMeter(sampleRate, channels)
+        private val lower = LinkwitzRiley(lowHz, sampleRate)
+        private val upper = LinkwitzRiley(highHz, sampleRate)
+        private var n = 0L
+        private var lo = 0.0; private var mi = 0.0; private var hi = 0.0; private var dc = 0.0
+        private var sl = 0.0; private var sr = 0.0; private var sll = 0.0; private var srr = 0.0; private var slr = 0.0
+
+        /** [frames] interleaved frames of [interleaved]. */
+        fun add(interleaved: FloatArray, frames: Int) {
+            meter.process(interleaved, frames)
+            val ch = channels
+            for (f in 0 until frames) {
+                val left = interleaved[f * ch]
+                val right = if (ch > 1) interleaved[f * ch + 1] else left
+                val l = left.toDouble(); val r = right.toDouble()
+                sl += l; sr += r; sll += l * l; srr += r * r; slr += l * r
+                // Band energies off the mono sum through the same crossovers.
+                val x = (left + right) * 0.5f
+                dc += x
+                lower.split(x); upper.split(lower.high)
+                lo += lower.low.toDouble().pow(2); mi += upper.low.toDouble().pow(2); hi += upper.high.toDouble().pow(2)
+            }
+            n += frames
+        }
+
+        fun build(): MasteringReport {
+            fun db(e: Double) = if (n == 0L) Gain.SILENCE_DB else 10 * log10(e / n + 1e-20)
+            val correlation = run {
+                if (n == 0L) return@run 1.0
+                val cov = slr / n - (sl / n) * (sr / n)
+                val vl = sll / n - (sl / n).pow(2); val vr = srr / n - (sr / n).pow(2)
+                if (vl <= 1e-18 || vr <= 1e-18) 1.0 else (cov / sqrt(vl * vr)).coerceIn(-1.0, 1.0)
+            }
+            val balance = run {
+                val l = if (n == 0L) 0.0 else sqrt(sll / n); val r = if (n == 0L) 0.0 else sqrt(srr / n)
+                if (l <= 1e-9 && r <= 1e-9) 0.0 else Gain.linearToDb(max(r, 1e-9)) - Gain.linearToDb(max(l, 1e-9))
+            }
+            return MasteringReport(meter.reading(), correlation, balance, db(lo), db(mi), db(hi), if (n == 0L) 0.0 else dc / n)
+        }
+    }
+
     companion object {
         fun of(channels: List<FloatArray>, sampleRate: Int, lowHz: Double = 150.0, highHz: Double = 3000.0): MasteringReport {
             require(channels.isNotEmpty())
             val n = channels[0].size
             val ch = channels.size
-            // Metered a block at a time: interleaving a six-minute song whole ran the phone out of
-            // memory on top of the mixdown (1 Nov 2026). The meter is streaming (DynamicsChecks).
-            val meter = LoudnessMeter(sampleRate, ch)
+            val builder = Builder(sampleRate, ch, lowHz, highHz)
             val block = 8192
             val buf = FloatArray(block * ch)
             var pos = 0
             while (pos < n) {
                 val m = minOf(block, n - pos)
                 for (f in 0 until m) for (c in 0 until ch) buf[f * ch + c] = channels[c][pos + f]
-                meter.process(buf, m)
+                builder.add(buf, m)
                 pos += m
             }
-            val left = channels[0]; val right = channels.getOrElse(1) { channels[0] }
-            // Band energies off the mono sum through the same crossovers.
-            val lower = LinkwitzRiley(lowHz, sampleRate); val upper = LinkwitzRiley(highHz, sampleRate)
-            var lo = 0.0; var mi = 0.0; var hi = 0.0; var dc = 0.0
-            for (i in 0 until n) {
-                val x = (left[i] + right[i]) * 0.5f
-                dc += x
-                lower.split(x); upper.split(lower.high)
-                lo += lower.low.toDouble().pow(2); mi += upper.low.toDouble().pow(2); hi += upper.high.toDouble().pow(2)
-            }
-            fun db(e: Double) = if (n == 0) Gain.SILENCE_DB else 10 * log10(e / n + 1e-20)
-            return MasteringReport(meter.reading(), Stereo.correlation(left, right), Stereo.balanceDb(left, right), db(lo), db(mi), db(hi), if (n == 0) 0.0 else dc / n)
+            return builder.build()
         }
     }
 }

@@ -439,3 +439,13 @@ fun Modifier.edgeFade(state: androidx.compose.foundation.ScrollState, width: and
                 blendMode = androidx.compose.ui.graphics.BlendMode.DstIn
             )
         }
+
+/**
+ * A job's progress. A job that cannot say how far along it is (an offline mix, a measure) once
+ * showed a bar stuck at nothing for forty seconds, which reads as hung; it moves instead.
+ */
+@androidx.compose.runtime.Composable
+fun JobProgress(progress: Float, modifier: androidx.compose.ui.Modifier = androidx.compose.ui.Modifier) {
+    if (progress <= 0f) androidx.compose.material3.LinearProgressIndicator(modifier = modifier, color = com.layerbit.stave.ui.theme.StaveColors.Band, trackColor = com.layerbit.stave.ui.theme.StaveColors.Border)
+    else androidx.compose.material3.LinearProgressIndicator(progress = { progress }, modifier = modifier, color = com.layerbit.stave.ui.theme.StaveColors.Band, trackColor = com.layerbit.stave.ui.theme.StaveColors.Border)
+}

@@ -143,5 +143,25 @@ object MasteringChecks : Suite {
         check(abs(wideReport.correlation) < 0.05 && abs(wideReport.dcOffset) < 0.01) { "independent noise: correlation ${wideReport.correlation}, dc ${wideReport.dcOffset}" }
         check(wideReport.loudness.integratedLufs > -30 && wideReport.loudness.integratedLufs < -5) { "and a loudness that is a number: ${wideReport.loudness.integratedLufs}" }
         @Suppress("UNUSED_VARIABLE") val unused = BiquadCoefficients.SQRT_HALF
+
+        section("the report built block by block, as Measure reads a mix off its file, is the whole-array report")
+        run {
+            val l = noise(RATE * 2, 7); val other = noise(RATE * 2, 8); val r = FloatArray(l.size) { i -> l[i] * 0.4f + other[i] * 0.3f + 0.01f }
+            val whole = MasteringReport.of(listOf(l, r), RATE)
+            val builder = MasteringReport.Builder(RATE, 2)
+            var pos = 0; var step = 1
+            while (pos < l.size) {
+                val m = minOf(step, l.size - pos)
+                val inter = FloatArray(m * 2) { k -> if (k % 2 == 0) l[pos + k / 2] else r[pos + k / 2] }
+                builder.add(inter, m); pos += m; step = step * 3 + 7   // blocks of every size, none aligned
+            }
+            val streamed = builder.build()
+            near(streamed.loudness.integratedLufs.toFloat(), whole.loudness.integratedLufs.toFloat(), 1e-4f, "loudness")
+            near(streamed.correlation.toFloat(), Stereo.correlation(l, r).toFloat(), 1e-5f, "correlation, against Stereo's own")
+            near(streamed.balanceDb.toFloat(), Stereo.balanceDb(l, r).toFloat(), 1e-4f, "balance, against Stereo's own")
+            near(streamed.lowDb.toFloat(), whole.lowDb.toFloat(), 1e-4f, "low band"); near(streamed.highDb.toFloat(), whole.highDb.toFloat(), 1e-4f, "high band")
+            near(streamed.dcOffset.toFloat(), 0.005f, 1e-3f, "the DC put in the right channel, halved in the mono sum")
+        }
+
     }
 }

@@ -963,10 +963,35 @@ class EditorViewModel(private val app: StaveApplication, val projectId: String) 
         val s = session
         _ui.value = _ui.value.copy(busy = Busy("Measuring", 0f))
         viewModelScope.launch {
-            val chs = mixdown(0, s.length)
+            // Read off the rendered file a block at a time (MasteringReport.Builder says why).
+            val report = withContext(Dispatchers.IO) {
+                val tmp = File(app.cacheDir, "work").apply { mkdirs() }.let { File(it, "measure-${System.nanoTime()}.f32") }
+                try {
+                    val n = transport.renderOffline(0, s.length, tmp)
+                    if (n <= 0) return@withContext null
+                    val builder = com.layerbit.stave.engine.dsp.MasteringReport.Builder(s.sampleRate, 2)
+                    val frames = 65_536
+                    val bytes = java.nio.ByteBuffer.allocate(frames * 8).order(java.nio.ByteOrder.LITTLE_ENDIAN)
+                    val block = FloatArray(frames * 2)
+                    java.io.FileInputStream(tmp).channel.use { ch ->
+                        var left = n
+                        while (left > 0) {
+                            val m = minOf(left, frames.toLong()).toInt()
+                            bytes.clear(); bytes.limit(m * 8)
+                            while (bytes.hasRemaining()) if (ch.read(bytes) < 0) break
+                            bytes.flip()
+                            val got = bytes.remaining() / 8
+                            if (got == 0) break
+                            bytes.asFloatBuffer().get(block, 0, got * 2)
+                            builder.add(block, got)
+                            left -= got
+                        }
+                    }
+                    builder.build()
+                } finally { tmp.delete() }
+            }
             _ui.value = _ui.value.copy(busy = null)
-            if (chs == null) return@launch
-            val report = withContext(Dispatchers.Default) { com.layerbit.stave.engine.dsp.MasteringReport.of(chs, s.sampleRate) }
+            if (report == null) { _ui.value = _ui.value.copy(message = app.getString(com.layerbit.stave.R.string.finish_measure_failed)); return@launch }
             _finish.value = _finish.value.copy(reading = report.loudness, report = report)
             onLoudness?.invoke(report.loudness.integratedLufs)
         }
@@ -1338,18 +1363,21 @@ class EditorViewModel(private val app: StaveApplication, val projectId: String) 
                     val offsetMs = range.first * 1000 / rate
                     val beats = com.layerbit.stave.engine.music.BeatDetector.detect(mono, rate)
                     val chroma = com.layerbit.stave.engine.music.Chroma.frames(mono, rate, hopMs = CHORD_HOP_MS)
-                    val key = if (chroma.isEmpty()) null else com.layerbit.stave.engine.music.Key.detect(chroma)
-                    val chords = com.layerbit.stave.engine.music.Chords.detect(chroma).map { span ->
+                    val key = if (chroma.isEmpty()) null else com.layerbit.stave.engine.music.Key.detect(chroma).takeIf { it.confidence > 0.2f }
+                    val spelling = key?.spelling ?: com.layerbit.stave.engine.music.Spelling.CHART
+                    // Gaps under two seconds are not chord changes (ChordChart says why).
+                    val chart = com.layerbit.stave.engine.music.ChordChart.of(com.layerbit.stave.engine.music.Chords.detect(chroma), 2_000 / CHORD_HOP_MS)
+                    val chords = chart.map { span ->
                         // Voiced from the root in the octave above middle C's bass: the pitches the Beats tab's "Chords to pattern" plays.
                         val pitches = span.chord.pitchClasses().sorted().let { pcs -> pcs.map { pc -> 48 + ((pc - span.root).mod(12)) + span.root } }
-                        ChordShown(span.chord.name(), offsetMs + span.startFrame.toLong() * CHORD_HOP_MS, offsetMs + span.endFrame.toLong() * CHORD_HOP_MS, if (span.quality == com.layerbit.stave.engine.music.Quality.NONE) emptyList() else pitches, span.chord.guitarShape())
+                        ChordShown(span.chord.name(spelling), offsetMs + span.startFrame.toLong() * CHORD_HOP_MS, offsetMs + span.endFrame.toLong() * CHORD_HOP_MS, if (span.quality == com.layerbit.stave.engine.music.Quality.NONE) emptyList() else pitches, span.chord.guitarShape())
                     }
                     Analysis(
                         bpm = beats.bpm.toDouble(),
                         confidence = beats.confidence,
                         beatsMs = beats.beatsMs.map { it + offsetMs },
                         downbeatOffset = beats.downbeatOffset,
-                        key = key?.takeIf { it.confidence > 0.2f }?.name(),
+                        key = key?.name(),
                         chords = chords
                     )
                 }

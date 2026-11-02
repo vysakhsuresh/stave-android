@@ -485,7 +485,7 @@ oboe::DataCallbackResult Engine::onAudioReady(oboe::AudioStream* stream, void* a
     return oboe::DataCallbackResult::Continue;
 }
 
-int64_t Engine::renderOffline(int64_t from, int64_t to, std::vector<float>& outv) {
+int64_t Engine::renderOffline(int64_t from, int64_t to, const std::function<bool(const float*, int)>& sink) {
     // Waits out a callback already inside processBlock, then keeps it out until the end.
     std::lock_guard<std::mutex> owner(renderLock);
     Snapshot* s = current.load();
@@ -497,20 +497,20 @@ int64_t Engine::renderOffline(int64_t from, int64_t to, std::vector<float>& outv
     blockWasPlaying = false;   // every mute ramp starts settled: the file is the mix, sample for sample
     for (auto& st : trackStates) st.configuredFor = 0xFFFFFFFFu;
     master.configuredFor = 0xFFFFFFFFu;
-    outv.assign((size_t) (to - from) * 2, 0.0f);
     std::vector<float> block((size_t) MAX_BLOCK * 2);
     int64_t at = from;
-    while (at < to) {
+    bool ok = true;
+    while (at < to && ok) {
         int n = (int) std::min<int64_t>(MAX_BLOCK, to - at);
         processBlock(block.data(), n);
-        std::copy(block.begin(), block.begin() + n * 2, outv.begin() + (at - from) * 2);
+        ok = sink(block.data(), n);
         at += n;
     }
     playing = wasPlaying; stopAtEnd = wasStop; loopOn = wasLoop; playEnd = wasEnd; position.store(wasAt);
     offlineActive.store(false);
     for (auto& st : trackStates) st.configuredFor = 0xFFFFFFFFu;
     master.configuredFor = 0xFFFFFFFFu;
-    return to - from;
+    return ok ? to - from : -1;
 }
 
 } // namespace stave

@@ -388,7 +388,10 @@
     <string name="finish_true_peak">True peak</string>
     <string name="finish_sample_peak">Sample peak</string>
     <string name="finish_target">Deliver to</string>
-    <string name="finish_distance">%1$s from the target</string>
+    <string name="finish_above">%1$s above the target</string>
+    <string name="finish_below">%1$s below the target</string>
+    <string name="finish_on_target">On the target</string>
+    <string name="finish_measure_failed">The mix could not be measured. Try again.</string>
     <string name="finish_character">Character</string>
     <string name="finish_tone">Tone</string>
     <string name="finish_glue">Glue</string>

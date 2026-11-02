@@ -4,6 +4,7 @@
 #include <algorithm>
 #include <atomic>
 #include <chrono>
+#include <functional>
 #include <memory>
 #include <mutex>
 #include <string>
@@ -107,7 +108,9 @@ public:
 
     // Offline: renders [from, to) of the current snapshot into [out] (interleaved stereo),
     // calling the graph as the callback would. Not while the stream is running.
-    int64_t renderOffline(int64_t from, int64_t to, std::vector<float>& out);
+    // Hands the mix to [sink] a block at a time (interleaved stereo, frames); a false return
+    // stops it. A whole 24-track song held here was 133 MB of native memory on top of the file.
+    int64_t renderOffline(int64_t from, int64_t to, const std::function<bool(const float*, int)>& sink);
 
     // Oboe callbacks.
     oboe::DataCallbackResult onAudioReady(oboe::AudioStream* stream, void* audioData, int32_t numFrames) override;

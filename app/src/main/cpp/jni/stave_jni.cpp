@@ -101,15 +101,15 @@ JNIEXPORT void JNICALL FN(scheduleClick)(JNIEnv*, jclass, jlong h, jlong at) { E
 
 // Renders [from, to) of the current snapshot into a raw interleaved stereo float file at [path].
 JNIEXPORT jlong JNICALL FN(renderOffline)(JNIEnv* env, jclass, jlong h, jlong from, jlong to, jstring path) {
-    std::vector<float> out;
-    int64_t n = ENGINE(h)->renderOffline(from, to, out);
-    if (n <= 0) return 0;
     std::string p = jstr(env, path);
     FILE* f = fopen(p.c_str(), "wb");
     if (!f) return -1;
-    size_t written = fwrite(out.data(), sizeof(float), out.size(), f);
+    // Written as it is rendered, a block at a time (Engine::renderOffline says why).
+    int64_t n = ENGINE(h)->renderOffline(from, to, [f](const float* block, int frames) {
+        return fwrite(block, sizeof(float), (size_t) frames * 2, f) == (size_t) frames * 2;
+    });
     fclose(f);
-    return written == out.size() ? n : -2;
+    return n < 0 ? -2 : n;
 }
 
 // ---- StretchNative ---------------------------------------------------------------------------

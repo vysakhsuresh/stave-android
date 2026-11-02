@@ -4,8 +4,23 @@ import kotlin.math.sqrt
 
 /** A key, and how well the piece's pitch-class profile fitted it (a correlation, 0..1). */
 data class KeyEstimate(val root: Int, val isMinor: Boolean, val confidence: Float) {
-    /** "C major", "A minor", "B♭ major". */
-    fun name(): String = PitchClasses.name(root) + if (isMinor) " minor" else " major"
+    /**
+     * The key's signature: flats for F, B♭, E♭, A♭ and D♭ major and their relative minors, sharps
+     * for the rest with one, neither for C major and A minor. F♯ major / E♭ minor are the six-
+     * accidental pair a chart writes as F♯ and E♭; C♯ and G♯ minor are sharp keys, never D♭ or A♭ minor.
+     */
+    val spelling: Spelling get() {
+        val major = if (isMinor) (root + 3).mod(12) else root
+        return when (major) {
+            0 -> Spelling.CHART
+            5, 10, 3, 8, 1 -> Spelling.FLATS
+            6 -> if (isMinor) Spelling.FLATS else Spelling.SHARPS
+            else -> Spelling.SHARPS
+        }
+    }
+
+    /** "C major", "A minor", "B♭ major", "C♯ minor". */
+    fun name(): String = PitchClasses.name(root, spelling) + if (isMinor) " minor" else " major"
 }
 
 /**

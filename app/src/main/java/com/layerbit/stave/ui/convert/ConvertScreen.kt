@@ -82,7 +82,7 @@ fun ConvertScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
             if (running) {
                 Panel(modifier = Modifier.fillMaxWidth()) {
                     Text(label, style = MaterialTheme.typography.bodyMedium, color = StaveColors.Text)
-                    LinearProgressIndicator(progress = { progress }, modifier = Modifier.fillMaxWidth().padding(top = 8.dp), color = StaveColors.Band, trackColor = StaveColors.Border)
+                    com.layerbit.stave.ui.components.JobProgress(progress, Modifier.fillMaxWidth().padding(top = 8.dp))
                 }
             }
             PrimaryButton(pluralStringResource(R.plurals.convert_go, picked.size, picked.size), onClick = {

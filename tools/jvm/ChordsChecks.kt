@@ -1,5 +1,9 @@
 import com.layerbit.stave.engine.dsp.Notes
 import com.layerbit.stave.engine.music.Chord
+import com.layerbit.stave.engine.music.ChordChart
+import com.layerbit.stave.engine.music.ChordSpan
+import com.layerbit.stave.engine.music.KeyEstimate
+import com.layerbit.stave.engine.music.Spelling
 import com.layerbit.stave.engine.music.Chords
 import com.layerbit.stave.engine.music.Chroma
 import com.layerbit.stave.engine.music.GuitarShapes
@@ -59,6 +63,39 @@ object ChordsChecks : Suite {
             check(Chord.NONE.name() == "N.C." && Chord(5, Quality.NONE).name() == "N.C.") { "no chord has no root in its name" }
             check(Chord(0, Quality.MAJOR).pitchClasses() == setOf(0, 4, 7) && Chord(11, Quality.DOMINANT7).pitchClasses() == setOf(11, 3, 6, 9)) { "pitch classes" }
             check(Chords.states.size == 109 && Chords.states.last() == Chord.NONE) { "108 chords and no chord" }
+        }
+
+        section("a key spells its own black keys")
+        run {
+            fun key(root: Int, minor: Boolean) = KeyEstimate(root, minor, 1f)
+            // The phone read a song in E♭ minor and listed "F♯" among D♭ and A♭ chords.
+            check(Chord(6, Quality.MAJOR).name(key(3, true).spelling) == "G♭") { "E♭ minor writes G♭, not ${Chord(6, Quality.MAJOR).name(key(3, true).spelling)}" }
+            check(key(3, true).name() == "E♭ minor") { key(3, true).name() }
+            check(key(1, true).name() == "C♯ minor" && key(8, true).name() == "G♯ minor") { "C♯ and G♯ minor are sharp keys: ${key(1, true).name()}, ${key(8, true).name()}" }
+            check(Chord(1, Quality.MINOR).name(key(4, false).spelling) == "C♯m") { "E major writes C♯m" }
+            check(Chord(8, Quality.MAJOR).name(key(1, false).spelling) == "A♭" && key(1, false).name() == "D♭ major") { "D♭ major writes A♭" }
+            check(key(6, false).name() == "F♯ major" && Chord(3, Quality.MINOR).name(key(6, false).spelling) == "D♯m") { "F♯ major writes D♯m" }
+            check(key(10, true).name() == "B♭ minor" && key(2, true).spelling == Spelling.FLATS) { "B♭ minor; D minor is a flat key" }
+            check(key(0, false).spelling == Spelling.CHART && key(9, true).spelling == Spelling.CHART) { "C major and A minor keep the chart's spelling" }
+        }
+
+        section("a chord chart rides through short gaps")
+        run {
+            fun span(a: Int, b: Int, root: Int, q: Quality) = ChordSpan(a, b, root, q, 0.8f)
+            val nc = Quality.NONE
+            val raw = listOf(
+                span(0, 40, 0, nc),                       // a four-second intro: stays
+                span(40, 80, 1, Quality.SUS2), span(80, 85, 0, nc), span(85, 120, 1, Quality.SUS2),   // one chord across a breath
+                span(120, 130, 0, nc), span(130, 160, 9, Quality.MAJOR7),   // a breath before a change
+                span(160, 200, 0, nc),                    // two seconds: a break, not a breath
+                span(200, 230, 3, Quality.MINOR), span(230, 240, 0, nc)     // the tail stays
+            )
+            val chart = ChordChart.of(raw, 20)
+            val shown = chart.map { "${it.chord.name()} ${it.startFrame}-${it.endFrame}" }
+            val want = listOf("N.C. 0-40", "D♭sus2 40-130", "Amaj7 130-160", "N.C. 160-200", "E♭m 200-230", "N.C. 230-240")
+            check(shown == want) { "chart $shown, wanted $want" }
+            check(chart.zipWithNext().all { (a, b) -> a.endFrame == b.startFrame } && chart.first().startFrame == 0 && chart.last().endFrame == 240) { "the chart covers the song without a hole" }
+            check(ChordChart.of(emptyList(), 20).isEmpty()) { "nothing is nothing" }
         }
 
         section("templates: a clean chord fits its own template first, noise fits none")

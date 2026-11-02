@@ -164,7 +164,7 @@ fun EditorScreen(vm: EditorViewModel, onBack: () -> Unit, onAddSounds: () -> Uni
             )
             ui.busy?.let { b ->
                 Box(Modifier.fillMaxSize().background(StaveColors.Background.copy(alpha = 0.6f)), contentAlignment = Alignment.Center) {
-                    Panel { Text(b.label, style = MaterialTheme.typography.titleMedium, color = StaveColors.Text); LinearProgressIndicator(progress = { b.progress }, modifier = Modifier.fillMaxWidth().padding(top = 10.dp), color = StaveColors.Band, trackColor = StaveColors.Border) }
+                    Panel { Text(b.label, style = MaterialTheme.typography.titleMedium, color = StaveColors.Text); com.layerbit.stave.ui.components.JobProgress(b.progress, Modifier.fillMaxWidth().padding(top = 10.dp)) }
                 }
             }
             if (!ui.loaded) Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator(color = StaveColors.Band) }

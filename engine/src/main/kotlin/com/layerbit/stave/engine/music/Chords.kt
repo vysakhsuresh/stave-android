@@ -3,10 +3,22 @@ package com.layerbit.stave.engine.music
 import kotlin.math.ln
 import kotlin.math.sqrt
 
-/** Pitch-class names as a chord chart spells them: flats where charts use flats, F♯ where they use the sharp. */
+/**
+ * How a black key is written. A chart with no key in view uses [CHART]: flats where charts use
+ * flats, F♯ where they use the sharp. Inside a key the key's own signature decides: in E♭ minor
+ * the chord on the sixth black key is G♭, and the chart spelling "F♯" read as a wrong note.
+ */
+enum class Spelling { CHART, FLATS, SHARPS }
+
 object PitchClasses {
-    private val names = arrayOf("C", "D♭", "D", "E♭", "E", "F", "F♯", "G", "A♭", "A", "B♭", "B")
-    fun name(pitchClass: Int): String = names[pitchClass.mod(12)]
+    private val chart = arrayOf("C", "D♭", "D", "E♭", "E", "F", "F♯", "G", "A♭", "A", "B♭", "B")
+    private val flats = arrayOf("C", "D♭", "D", "E♭", "E", "F", "G♭", "G", "A♭", "A", "B♭", "B")
+    private val sharps = arrayOf("C", "C♯", "D", "D♯", "E", "F", "F♯", "G", "G♯", "A", "A♯", "B")
+    fun name(pitchClass: Int, spelling: Spelling = Spelling.CHART): String = when (spelling) {
+        Spelling.CHART -> chart
+        Spelling.FLATS -> flats
+        Spelling.SHARPS -> sharps
+    }[pitchClass.mod(12)]
 }
 
 /** A chord's shape above its root, and how its name ends. */
@@ -28,7 +40,7 @@ enum class Quality(val suffix: String, val intervals: IntArray) {
 
 data class Chord(val root: Int, val quality: Quality) {
     /** "A", "Am", "G7", "Cmaj7", "Bdim", or "N.C." for no chord. */
-    fun name(): String = if (quality == Quality.NONE) quality.suffix else PitchClasses.name(root) + quality.suffix
+    fun name(spelling: Spelling = Spelling.CHART): String = if (quality == Quality.NONE) quality.suffix else PitchClasses.name(root, spelling) + quality.suffix
 
     /** The pitch classes sounding, as a set. */
     fun pitchClasses(): Set<Int> = quality.intervals.map { (root + it).mod(12) }.toSet()
@@ -168,6 +180,32 @@ object Chords {
             val chord = states[path[start]]
             out.add(ChordSpan(start, end, chord.root, chord.quality, (sum / (end - start)).toFloat()))
             start = end
+        }
+        return out
+    }
+}
+
+/**
+ * The chords as a chart lists them. The tracker answers "no chord" wherever a frame fits nothing,
+ * and on a real song that was a third of the list: a breath, a drum fill, a held vocal between
+ * two strums of the same chord. A gap shorter than [longestGapFrames] is not a chord change: the
+ * chord before it carries on, and runs of one chord either side of it become one. A longer
+ * silence (an intro, a break) stays "no chord", and so does one at the very start or end.
+ */
+object ChordChart {
+    fun of(spans: List<ChordSpan>, longestGapFrames: Int): List<ChordSpan> {
+        val out = ArrayList<ChordSpan>()
+        for ((i, span) in spans.withIndex()) {
+            val brief = span.quality == Quality.NONE && span.frames < longestGapFrames && i > 0 && i < spans.size - 1
+            val last = out.lastOrNull()
+            when {
+                brief && last != null -> out[out.size - 1] = last.copy(endFrame = span.endFrame)
+                last != null && last.quality != Quality.NONE && last.root == span.root && last.quality == span.quality -> {
+                    val frames = last.frames + span.frames
+                    out[out.size - 1] = last.copy(endFrame = span.endFrame, confidence = (last.confidence * last.frames + span.confidence * span.frames) / frames)
+                }
+                else -> out.add(span)
+            }
         }
         return out
     }

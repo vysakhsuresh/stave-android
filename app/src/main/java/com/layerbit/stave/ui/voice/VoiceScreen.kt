@@ -177,7 +177,7 @@ fun VoicePanel(vm: EditorViewModel, ui: EditorViewModel.Ui, modifier: Modifier =
             }
             voice.transcribing?.let { p ->
                 Text(stringResource(R.string.voice_transcribing, (p * 100).toInt()), style = MaterialTheme.typography.bodySmall, color = StaveColors.Muted)
-                LinearProgressIndicator(progress = { p }, modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp), color = StaveColors.Band, trackColor = StaveColors.Border)
+                com.layerbit.stave.ui.components.JobProgress(p, Modifier.fillMaxWidth().padding(vertical = 6.dp))
             }
             PrimaryButton(stringResource(R.string.voice_transcribe), onClick = vm::transcribe, enabled = vm.whisper.available && voice.transcribing == null && ui.session.length > 0, tall = false, modifier = Modifier.fillMaxWidth().padding(top = 4.dp))
             val t = voice.transcript

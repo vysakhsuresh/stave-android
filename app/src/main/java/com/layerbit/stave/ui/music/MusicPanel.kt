@@ -51,7 +51,7 @@ fun MusicPanel(vm: EditorViewModel, ui: EditorViewModel.Ui, modifier: Modifier =
             if (!vm.stemsAvailable) Text(stringResource(R.string.music_stems_none), style = MaterialTheme.typography.bodySmall, color = StaveColors.Hot)
             music.separating?.let { p ->
                 Text(stringResource(R.string.music_stems_working, (p * 100).toInt()), style = MaterialTheme.typography.bodySmall, color = StaveColors.Muted)
-                LinearProgressIndicator(progress = { p }, modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp), color = StaveColors.Band, trackColor = StaveColors.Border)
+                com.layerbit.stave.ui.components.JobProgress(p, Modifier.fillMaxWidth().padding(vertical = 6.dp))
             }
             PrimaryButton(stringResource(R.string.music_stems_go), onClick = vm::separateStems, enabled = vm.stemsAvailable && music.separating == null && ui.session.length > 0, tall = false, modifier = Modifier.fillMaxWidth().padding(top = 4.dp))
             if (music.stemsDone) Text(stringResource(R.string.music_stems_done), style = MaterialTheme.typography.bodySmall, color = StaveColors.Good, modifier = Modifier.padding(top = 6.dp))
