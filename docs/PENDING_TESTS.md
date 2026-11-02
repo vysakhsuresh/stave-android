@@ -107,3 +107,5 @@ back into the roadmap with what broke.
 90. Remove clicks on a song with no clicks: the clip label gains "· Remove clicks" and the
     sound is unchanged by ear; on a vinyl rip the ticks go.
 91. Record, then leave without recording anything; restart the app: no empty "Untitled" row.
+92. Home at rest with Lively on, release build: `dumpsys gfxinfo com.layerbit.stave` over
+    10 s reads about 100 frames (the backdrop steps at 10 a second), not 600.

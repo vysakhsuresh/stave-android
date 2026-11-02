@@ -3,10 +3,6 @@ package com.layerbit.stave.ui.components
 import android.provider.Settings
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
-import androidx.compose.animation.core.LinearEasing
-import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.fillMaxSize
@@ -14,7 +10,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.State
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.withFrameMillis
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
@@ -37,6 +35,7 @@ import kotlin.math.sin
 val LocalLivelyClock = staticCompositionLocalOf<State<Float>?> { null }
 
 private const val LAP_MS = 12_000
+private const val STEP_MS = 100L
 private const val TAU = (2 * PI).toFloat()
 
 @Composable
@@ -49,9 +48,17 @@ fun ProvideLivelyClock(enabled: Boolean, content: @Composable () -> Unit) {
         CompositionLocalProvider(LocalLivelyClock provides null, content = content)
         return
     }
-    val clock = rememberInfiniteTransition(label = "lively").animateFloat(
-        initialValue = 0f, targetValue = 1f, animationSpec = infiniteRepeatable(tween(LAP_MS, easing = LinearEasing)), label = "lively-clock"
-    )
+    // Ten steps a second, not sixty: the pools drift about 11 px a second, so a frame per vsync
+    // redrew four full-screen gradients to move them a fifth of a pixel, for as long as Home was
+    // open. withFrameMillis waits for a frame, so the clock stops when nothing is on screen.
+    val clock = remember { mutableFloatStateOf(0f) }
+    LaunchedEffect(Unit) {
+        while (true) {
+            val now = withFrameMillis { it }
+            clock.floatValue = (now % LAP_MS).toFloat() / LAP_MS
+            delay(STEP_MS)
+        }
+    }
     CompositionLocalProvider(LocalLivelyClock provides clock, content = content)
 }
 
