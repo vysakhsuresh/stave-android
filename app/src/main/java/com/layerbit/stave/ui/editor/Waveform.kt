@@ -289,7 +289,12 @@ fun WaveformStrip(
                     drawClip(clip, source, peaksFor(source), x0, x1, subTop + 2f, subH - 4f, window, clip.muted || !heard)
                     // A clip playing a processed copy says what was done to it: on 2 November the owner heard a
                     // "Remove clicks" copy under the song's plain name and took it for the song.
-                    val label = if (source.kind == com.layerbit.stave.engine.project.Source.Kind.RENDER && source.name.contains(" · ")) clip.name + " · " + source.name.substringAfter(" · ") else clip.name
+                    val label = run {
+                        // The process a render went through ("· Remove clicks"), unless the clip's own
+                        // name already says it: a stem's clip read "Song · Drums · Drums".
+                        val process = if (source.kind == com.layerbit.stave.engine.project.Source.Kind.RENDER && source.name.contains(" · ")) source.name.substringAfterLast(" · ") else null
+                        if (process == null || clip.name.endsWith(" · $process") || clip.name == process) clip.name else clip.name + " · " + process
+                    }
                     if (x1 - x0 > 40f && label.isNotBlank() && subH > 30f) labelAt(measurer, label, Offset(max(x0, 0f) + 6f, subTop + 4f), nameStyle, plate = true)
                 }
                 if (track.name.isNotBlank()) labelAt(measurer, track.name, Offset(6f, top + lane - measurer.measure(track.name, labelStyle).size.height - 4f), labelStyle, plate = true)
