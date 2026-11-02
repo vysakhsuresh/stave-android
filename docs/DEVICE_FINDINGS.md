@@ -235,3 +235,21 @@ for 15 s (the render now streams to its file and Measure reads it in blocks; 13.
 dBTP both ways); Home's Record opened on Edit; at the largest font "Match phone" shrank and a
 track count ran under the menu button. Release-build cold start: 389, 490, 422 ms. Home at rest
 draws 87 frames in 10 s (the backdrop's 10 steps a second); scrolling Home, 5% slow frames.
+
+## 3 November 2026, after midnight — stems on the phone for the first time
+
+The four Open-Unmix models were made by `.github/workflows/models.yml` (int8 weights for drums,
+bass and other, 13.7 MB each, within 2-3.5 % of PyTorch through LiteRT; vocals stays float,
+40 MB, because int8 strayed 11 %) and run on the moto over Kalimba (5:48):
+
+- **Separate works.** Vocals, drums, bass and other landed on their own tracks with the
+  original muted, in 6 min 14 s.
+- **The stems summed to the mix only to -25 dB**, against -141.7 on the JVM: every model's last
+  layer is a ReLU and whole bins came back zero from all four, so the Wiener shares were 0/0 and
+  the bin was dropped. Shared evenly since: -70.3 dB, the rest being the 44.1 kHz round trip.
+- **Memory.** Four interpreters open at once: 3.2 GB of native heap (3.8 GB in all). One at a
+  time with the estimates spooled to disk: 2.3 GB at the float vocals pass, about 0.5 GB for the
+  int8 ones. XNNPACK off: 57 MB, the same 6 minutes, but three stems came back NaN, so it stays
+  on. XNNPACK packs the weights again for each unrolled LSTM step, so the models are converted
+  at 128 frames instead of 256 (PENDING_TESTS 101 measures the result). A model's NaN is now
+  silence in its stem, not NaN in all four.
