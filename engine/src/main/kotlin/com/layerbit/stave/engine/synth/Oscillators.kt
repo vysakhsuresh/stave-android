@@ -343,6 +343,11 @@ abstract class PolyphonicSynth<V : SynthVoice>(voices: List<V>, val sampleRate: 
     /** Output gain and a constant-power pan, -1..1. */
     var gain = 1f
     var pan = 0f
+        set(value) { field = value; val (l, r) = com.layerbit.stave.engine.dsp.Gain.panConstantPower(value); panL = l; panR = r }
+    // Worked out when the pan moves, not on every block: render runs on the audio thread, where
+    // even a Pair a block is garbage the collector may stop the thread for.
+    private var panL = com.layerbit.stave.engine.dsp.Gain.panConstantPower(0f).first
+    private var panR = com.layerbit.stave.engine.dsp.Gain.panConstantPower(0f).second
 
     fun noteOn(pitch: Int, velocity: Int) { allocator.noteOn(pitch, velocity) }
     fun noteOff(pitch: Int) = allocator.noteOff(pitch)
@@ -356,8 +361,7 @@ abstract class PolyphonicSynth<V : SynthVoice>(voices: List<V>, val sampleRate: 
         if (scratch.size < frames) scratch = FloatArray(frames)
         scratch.fill(0f, 0, frames)
         for (v in voices) if (v.isActive) v.render(scratch, frames)
-        val (l, r) = com.layerbit.stave.engine.dsp.Gain.panConstantPower(pan)
-        val gl = l * gain; val gr = r * gain
+        val gl = panL * gain; val gr = panR * gain
         for (i in 0 until frames) { out[2 * i] = scratch[i] * gl; out[2 * i + 1] = scratch[i] * gr }
     }
 }
