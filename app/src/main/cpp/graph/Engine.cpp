@@ -424,6 +424,22 @@ void Engine::processBlock(float* outBuf, int frames) {
         master.volume.set(mv, frames);
         for (int f = 0; f < frames; f++) { float v = master.volume.next(); masterBuf[f * 2] *= v; masterBuf[f * 2 + 1] *= v; }
         if (master.hasLim) master.lim.process(masterBuf.data(), frames);
+        // A loop's end and start rarely meet mid-wave: 64 frames down into the end and up out of the
+        // start, so each pass joins at silence instead of a step (1.3 ms, short of blunting a hit).
+        {
+            const int64_t ls = loopStart.load(), le = loopEnd.load();
+            const int LOOP_FADE = 64;
+            if (loopOn.load() && le - ls > 8 * LOOP_FADE && pos < le && pos + frames > ls) {
+                for (int f = 0; f < frames; f++) {
+                    int64_t p = pos + f;
+                    if (p < ls || p >= le) continue;
+                    float g = 1.0f;
+                    if (p - ls < LOOP_FADE) g = (float) (p - ls + 1) / LOOP_FADE;
+                    if (le - p <= LOOP_FADE) g = std::min(g, (float) (le - p - 1) / LOOP_FADE);
+                    if (g < 1.0f) { masterBuf[f * 2] *= g; masterBuf[f * 2 + 1] *= g; }
+                }
+            }
+        }
         std::copy(masterBuf.begin(), masterBuf.begin() + frames * 2, outBuf);
         // Advance, looping or stopping at the end.
         int64_t next = pos + frames;
