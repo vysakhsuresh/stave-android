@@ -467,25 +467,39 @@ oboe::DataCallbackResult Engine::onAudioReady(oboe::AudioStream* stream, void* a
     if (jump >= 0 && !wasPlaying) { position.store(jump); jump = -1; }
     bool rampUp = (fadeInRequested.exchange(false) || fadeInNext) && wasPlaying;
     fadeInNext = false;
-    int done = 0;
+    int done = 0, endAt = -1;   // where in this buffer a play that ran out stopped
     while (done < numFrames) {
         int n = std::min(numFrames - done, MAX_BLOCK);
+        // A block ends exactly at the loop's end or the play's end. It used to run past them by up
+        // to a block and then wrap by the overshoot: every pass of a loop played a sliver from
+        // after its end and skipped as much of its start, a splice heard as a click.
+        if (playing.load()) {
+            int64_t p = position.load();
+            int64_t le = loopEnd.load(), pe = playEnd.load();
+            if (loopOn.load() && le > loopStart.load() && p < le) n = (int) std::min<int64_t>(n, le - p);
+            if (pe > 0 && p < pe) n = (int) std::min<int64_t>(n, pe - p);
+            if (n < 1) n = 1;
+        }
         processBlock(outBuf + done * 2, n);
         done += n;
+        if (wasPlaying && endAt < 0 && !playing.load()) endAt = done;
     }
     // Over full scale the phone's 16-bit output would clip: kept under it here, bit-exact below it.
     ceiling.process(outBuf, numFrames);
     int ramp = std::min(numFrames, FADE_FRAMES);
     bool endedHere = wasPlaying && !playing.load() && !stopping;   // a selection or the song ran out
     if (stopping || jump >= 0 || endedHere) {
-        // Down over the first [ramp] frames for a pause or a jump; over the last ones when the
-        // play end fell inside this buffer, so the silence after it is reached smoothly.
-        int from = endedHere ? numFrames - ramp : 0;
+        // Down over the first [ramp] frames for a pause or a jump; for a play that ran out, over
+        // the [ramp] frames before its end as heard (the ceiling's millisecond later), so the
+        // silence after it is reached smoothly; what the ceiling still holds past it is dropped.
+        int heardEnd = endedHere ? std::min(numFrames, (endAt < 0 ? numFrames : endAt) + ceiling.window) : 0;
+        int from = endedHere ? std::max(0, heardEnd - ramp) : 0;
         for (int f = 0; f < numFrames; f++) {
             float g = f < from ? 1.0f : (f < from + ramp ? 1.0f - (float) (f - from + 1) / ramp : 0.0f);
             if (endedHere && f < from) continue;
             outBuf[f * 2] *= g; outBuf[f * 2 + 1] *= g;
         }
+        if (endedHere) ceiling.reset();
         if (stopping) playing = false;
         if (jump >= 0) { position.store(jump); if (!stopping) fadeInNext = true; }
         // What the ceiling still holds is from before the pause or the jump; it is not to be heard after it.

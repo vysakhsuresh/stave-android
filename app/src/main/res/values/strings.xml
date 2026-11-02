@@ -722,7 +722,7 @@
     <string name="music_pitch_trace_description">Pitch over time from %1$s to %2$s</string>
     <string name="music_pitch_trace_range">%1$s to %2$s</string>
     <string name="export_preset">Where it is going</string>
-    <string name="export_track_number">Track number</string>
+    <string name="export_track_number">Track</string>
     <string name="export_year">Year</string>
     <string name="export_genre">Genre</string>
 

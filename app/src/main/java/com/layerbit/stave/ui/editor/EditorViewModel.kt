@@ -143,14 +143,25 @@ class EditorViewModel(private val app: StaveApplication, val projectId: String) 
     }
     fun followPlayhead(frame: Long) { if (transport.state.value.playing) _ui.value = _ui.value.copy(window = _ui.value.window.copy(playhead = frame)) }
     private var captureFrom = 0L
+    private var capturing = false
+    /** The live output against the source, sample by sample, on the laptop: CLAUDE.md says how. */
+    private fun saveCapture() {
+        if (!com.layerbit.stave.BuildConfig.DEBUG || !capturing) return
+        capturing = false
+        val n = transport.captureSave(java.io.File(app.cacheDir, "capture.f32"))
+        android.util.Log.i("StaveGraph", "capture: $n frames from frame $captureFrom")
+    }
+    init {
+        // A play that runs out (a selection, the song's end) is saved too; only Pause used to save one.
+        if (com.layerbit.stave.BuildConfig.DEBUG) viewModelScope.launch {
+            var was = false
+            transport.state.collect { st -> if (was && !st.playing) { kotlinx.coroutines.delay(150); saveCapture() }; was = st.playing }
+        }
+    }
     fun togglePlay() {
         if (transport.state.value.playing) {
             transport.pause()
-            if (com.layerbit.stave.BuildConfig.DEBUG) {
-                // The live output against the source, sample by sample, on the laptop: CLAUDE.md says how.
-                val n = transport.captureSave(java.io.File(app.cacheDir, "capture.f32"))
-                android.util.Log.i("StaveGraph", "capture: $n frames from frame $captureFrom")
-            }
+            saveCapture()
         }
         else {
             // A selection is heard once, from its start to its end; nothing loops unless the
@@ -160,7 +171,7 @@ class EditorViewModel(private val app: StaveApplication, val projectId: String) 
             if (!_looper.value.active) transport.setLoop(null)
             if (sel != null && !_looper.value.active) { seek(sel.first); transport.setPlayEnd(sel.last + 1) }
             else { transport.seek(_ui.value.window.playhead); transport.setPlayEnd(-1) }
-            if (com.layerbit.stave.BuildConfig.DEBUG) { captureFrom = if (sel != null && !_looper.value.active) sel.first else _ui.value.window.playhead; transport.captureStart(30) }
+            if (com.layerbit.stave.BuildConfig.DEBUG) { captureFrom = if (sel != null && !_looper.value.active) sel.first else _ui.value.window.playhead; transport.captureStart(60); capturing = true }
             transport.play()
         }
     }
