@@ -47,5 +47,39 @@ object ResamplerChecks : Suite {
         check(st.size == 4000) { "stereo length ${st.size}" }
         near(st[1000].toDouble(), 0.25, 0.01, "left stays left")
         near(st[1001].toDouble(), -0.25, 0.01, "right stays right")
+
+        // The error a converter leaves on a clean tone, against the tone computed at the new rate.
+        // The first version took the nearest of 512 kernel phases: about -57 dB of error at 10 kHz,
+        // which a quiet cymbal can carry into hearing. Interpolating between phases puts it below
+        // what 16 bits hold.
+        section("44.1k to 48k leaves a 10 kHz tone clean to -105 dB")
+        fun errorDb(hz: Double): Double {
+            val src = FloatArray(inRate) { i -> (0.5 * sin(2 * PI * hz * i / inRate)).toFloat() }
+            val got = Resampler(inRate, outRate).convert(src)
+            var sig = 0.0; var err = 0.0
+            for (i in 4000 until outRate - 4000) { val ideal = 0.5 * sin(2 * PI * hz * i / outRate); sig += ideal * ideal; val d = got[i] - ideal; err += d * d }
+            return 10 * kotlin.math.log10(err / sig)
+        }
+        errorDb(10_000.0).let { check(it < -105.0) { "10 kHz error $it dB" } }
+        errorDb(1_000.0).let { check(it < -105.0) { "1 kHz error $it dB" } }
+        section("and the top of the band is flat to 19 kHz")
+        errorDb(19_000.0).let { check(it < -90.0) { "19 kHz error $it dB (the band rolls off too early)" } }
+
+        section("in blocks it is the same as whole")
+        val music = FloatArray(inRate * 2) { i -> val f = i / 2; (0.3 * sin(2 * PI * 440.0 * f / inRate) + (if (i % 2 == 0) 0.2 else -0.1) * sin(2 * PI * 9_000.0 * f / inRate)).toFloat() }
+        val whole = Resampler(inRate, outRate).convertInterleaved(music, 2)
+        val stream = Resampler(inRate, outRate).stream(2)
+        val parts = ArrayList<FloatArray>()
+        var at = 0
+        for (b in listOf(1, 7, 4096, 333, 10_000)) { val n = minOf(b, inRate - at); parts += stream.push(music.copyOfRange(at * 2, (at + n) * 2), n); at += n }
+        while (at < inRate) { val n = minOf(8192, inRate - at); parts += stream.push(music.copyOfRange(at * 2, (at + n) * 2), n); at += n }
+        parts += stream.finish()
+        val joined = FloatArray(parts.sumOf { it.size }).also { o -> var k = 0; for (p in parts) { p.copyInto(o, k); k += p.size } }
+        check(joined.size == whole.size) { "streamed ${joined.size} samples, whole ${whole.size}" }
+        for (i in whole.indices) check(joined[i] == whole[i]) { "sample $i: ${joined[i]} streamed, ${whole[i]} whole" }
+        val minute = FloatArray(44_100 * 60 * 2) { (0.3 * sin(it * 0.01)).toFloat() }
+        val t0 = System.nanoTime()
+        Resampler(44_100, 48_000).convertInterleaved(minute, 2)
+        println("      a stereo minute 44.1k to 48k in ${(System.nanoTime() - t0) / 1_000_000} ms; errors at 1k/10k/19k: ${"%.1f".format(java.util.Locale.ROOT, errorDb(1_000.0))} / ${"%.1f".format(java.util.Locale.ROOT, errorDb(10_000.0))} / ${"%.1f".format(java.util.Locale.ROOT, errorDb(19_000.0))} dB")
     }
 }

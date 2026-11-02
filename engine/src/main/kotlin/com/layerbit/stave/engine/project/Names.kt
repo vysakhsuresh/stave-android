@@ -22,4 +22,25 @@ object Names {
             .trim()
         return tidy.ifBlank { base.ifBlank { fileName } }
     }
+
+    /**
+     * Projects imported before [fromFile] existed carry the raw file name. A name still exactly
+     * that is tidied; anything the person changed is theirs and left alone. Returns the same
+     * object when nothing changes.
+     */
+    fun tidied(session: Session): Session {
+        val renames = HashMap<String, String>()
+        for (s in session.sources) {
+            val origin = s.origin ?: continue
+            val raw = origin.substringBeforeLast('.').ifBlank { origin }
+            val tidy = fromFile(origin)
+            if (s.name == raw && tidy != raw) renames[raw] = tidy
+        }
+        if (renames.isEmpty()) return session
+        return session.copy(
+            name = renames[session.name] ?: session.name,
+            sources = session.sources.map { s -> renames[s.name]?.let { s.copy(name = it) } ?: s },
+            clips = session.clips.map { c -> renames[c.name]?.let { c.copy(name = it) } ?: c }
+        )
+    }
 }

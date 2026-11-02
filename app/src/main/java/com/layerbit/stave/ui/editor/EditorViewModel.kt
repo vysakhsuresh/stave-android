@@ -97,10 +97,21 @@ class EditorViewModel(private val app: StaveApplication, val projectId: String) 
             runCatching { File(files.dir, "history.json").takeIf { it.isFile }?.readText() }.getOrNull()
                 ?.let { com.layerbit.stave.engine.project.HistoryJson.read(it) }
                 ?.let { h -> history.restore(h.current, h.past, h.future) }
+            // Older imports kept the raw file name ("Ramayana_ ... (MP3_320K)"); tidied through the whole
+            // undo history so an undo does not bring the raw name back.
+            val tidiedNow = com.layerbit.stave.engine.project.Names.tidied(history.current)
+            if (tidiedNow !== history.current) {
+                history.amendAll { com.layerbit.stave.engine.project.Names.tidied(it) }
+                // The project and its history are written together: a renamed project beside an old history
+                // would no longer match it, and the history would be dropped at the next open.
+                val h = com.layerbit.stave.engine.project.HistoryJson.write(history)
+                withContext(Dispatchers.IO) { runCatching { files.save(history.current); writeHistory(h) } }
+            }
             transport.open(loaded.sampleRate)
             val rate = if (transport.available) transport.sampleRate else loaded.sampleRate
-            val s = if (loaded.sources.isEmpty() && rate != loaded.sampleRate) loaded.copy(sampleRate = rate) else loaded
-            if (s !== loaded) history = History(s)
+            val opened = history.current
+            val s = if (opened.sources.isEmpty() && rate != opened.sampleRate) opened.copy(sampleRate = rate) else opened
+            if (s !== opened) history = History(s)
             _ui.value = _ui.value.copy(session = s, window = TimeWindow.initial(s.length, widthPx), loaded = true, canUndo = history.canUndo, canRedo = history.canRedo, undoLabel = history.undoLabel, exportSettings = _ui.value.exportSettings.copy(loudnessTargetId = app.settings.current.loudnessTargetId), selectedTrackId = s.tracks.firstOrNull()?.id)
             pushToGraph()
             val pending = app.handoff.take(projectId)

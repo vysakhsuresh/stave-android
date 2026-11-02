@@ -4,16 +4,15 @@ import android.content.ContentValues
 import android.content.Context
 import android.net.Uri
 import android.provider.MediaStore
-import com.layerbit.stave.engine.dsp.Gain
-import com.layerbit.stave.engine.dsp.Limiter
-import com.layerbit.stave.engine.dsp.LoudnessMeter
 import com.layerbit.stave.engine.dsp.LoudnessTarget
-import com.layerbit.stave.engine.dsp.Resampler
+import com.layerbit.stave.engine.export.ExportChain
+import java.io.RandomAccessFile
+import java.nio.ByteBuffer
+import java.nio.ByteOrder
 import com.layerbit.stave.engine.export.ExportSettings
 import com.layerbit.stave.engine.project.Marker
 import com.layerbit.stave.engine.project.Session
 import com.layerbit.stave.files.ProjectFiles
-import com.layerbit.stave.files.RawAudio
 import com.layerbit.stave.native.AvHandles
 import com.layerbit.stave.native.AvNative
 import kotlinx.coroutines.Dispatchers
@@ -48,51 +47,44 @@ class Exporter(private val context: Context) {
             val frames = render(raw)
             coroutineContext.ensureActive()
             if (frames <= 0) throw ExportFailed("Nothing to export: the session is empty.")
-            var rate = session.sampleRate
-            var channels = 2
-            // Loudness: measured off the mix, the gain applied in place, a true-peak limiter after.
-            var samples = RawAudio.read(raw, channels, 0, frames.toInt())
-            val outChannels = settings.outputChannels(channels)
-            if (outChannels == 1 && channels == 2) {
-                val mono = FloatArray(frames.toInt()) { (samples[it * 2] + samples[it * 2 + 1]) * 0.5f }
-                samples = mono; channels = 1
-            }
-            if (settings.normaliseToTarget) {
-                onProgress(0.3f, "Measuring loudness")
-                val target = LoudnessTarget.byId(settings.loudnessTargetId)
-                val measured = LoudnessMeter.integrated(samples, rate, channels)
-                val g = Gain.normaliseLoudness(measured, target.lufs)
-                Gain.apply(samples, g)
-                // Half a decibel under the true-peak ceiling, then read and trimmed (OfflineTools
-                // .normaliseLoudness says why): the limiter holds samples, the target is a true peak.
-                val lim = Limiter(rate, channels, target.truePeakDbtp - 0.5, 5.0, 60.0)
-                lim.process(samples)
-                val tp = LoudnessMeter(rate, channels).also { it.process(samples) }.reading().truePeakDbtp
-                if (tp > target.truePeakDbtp) Gain.apply(samples, Gain.dbToLinear(target.truePeakDbtp - tp - 0.05).toFloat())
-            }
+            // Fold, loudness, limiter, rate, true-peak trim and dither, in blocks (ExportChain): the
+            // whole song was held here as floats until 2 November, and an hour of podcast is 1.4 GB.
+            val rate = session.sampleRate
+            val fmt0 = settings.format
             val outRate = settings.outputRate(rate)
-            if (outRate != rate) {
-                onProgress(0.45f, "Converting the rate")
-                samples = Resampler(rate, outRate).convertInterleaved(samples, channels)
-                rate = outRate
-            }
-            onProgress(0.55f, "Measuring")
-            val meter = LoudnessMeter(rate, channels).also { it.process(samples) }
-            val reading = meter.reading()
-            // Dither: a float mix going to 16 or 24 integer bits gets TPDF noise at one LSB before the
-            // encoder quantises it, so a fade's tail dies into noise rather than into a stepped buzz.
-            // Lossy encoders quantise nothing, so they get the plain float.
+            val channels = settings.outputChannels(2)
             val depth = settings.depth
-            if (settings.dither && settings.format.lossless && depth in setOf(16, 24)) {
-                val dither = com.layerbit.stave.engine.dsp.Dither(depth)
-                for (i in samples.indices) samples[i] = dither.apply(samples[i])
-            }
-            RawAudio.write(raw, samples)
+            val target = if (settings.normaliseToTarget) LoudnessTarget.byId(settings.loudnessTargetId) else null
+            val staged = File(work, "staged-${System.currentTimeMillis()}.f32")
+            val job = coroutineContext
+            val report = try {
+                RandomAccessFile(raw, "r").use { inFile ->
+                    RandomAccessFile(staged, "rw").use { outFile ->
+                        outFile.setLength(0)
+                        ExportChain.run(
+                            source = FileFrames(inFile, 2, frames),
+                            stage = FileStage(outFile, channels),
+                            plan = ExportChain.Plan(
+                                rate = rate, outRate = outRate, outChannels = channels,
+                                targetLufs = target?.lufs, ceilingDbtp = target?.truePeakDbtp ?: -1.0,
+                                // Lossy encoders quantise nothing, so they get the plain float.
+                                ditherBits = if (settings.dither && fmt0.lossless && depth in setOf(16, 24)) depth else null
+                            ),
+                            progress = { p -> onProgress(0.1f + 0.5f * p, if (target != null) "Measuring and levelling" else "Preparing") },
+                            alive = { job.ensureActive() }
+                        )
+                    }
+                }
+            } catch (e: Throwable) { staged.delete(); throw e }
+            raw.delete()
+            staged.renameTo(raw)
+            val reading = report
+            val outFrames = report.frames
             val outFile = File(files.exports, settings.fileName(fallbackName))
             onProgress(0.6f, "Encoding")
             val fmt = settings.format
-            val h = AvNative.encOpen(raw.path, (samples.size / channels).toLong(), rate, channels, outFile.path, fmt.muxer, settings.encoderName(),
-                if (fmt.lossless) 0 else settings.bitrateKbps * 1000, rate, channels, -1f)
+            val h = AvNative.encOpen(raw.path, outFrames, outRate, channels, outFile.path, fmt.muxer, settings.encoderName(),
+                if (fmt.lossless) 0 else settings.bitrateKbps * 1000, outRate, channels, -1f)
             if (AvHandles.failed(h)) throw ExportFailed("The encoder for ${fmt.label} could not be opened.")
             try {
                 if (settings.title.isNotBlank()) AvNative.encSetTag(h, "title", settings.title)
@@ -121,7 +113,7 @@ class Exporter(private val context: Context) {
             } finally { AvNative.encClose(h) }
             onProgress(0.97f, "Saving to Music")
             val uri = publish(outFile, fmt.mime)
-            Result(outFile, uri, outFile.length(), reading.integratedLufs, reading.truePeakDbtp, samples.size / channels * 1000L / rate)
+            Result(outFile, uri, outFile.length(), reading.integratedLufs, reading.truePeakDbtp, outFrames * 1000L / outRate)
         } finally { raw.delete() }
     }
 
@@ -139,4 +131,38 @@ class Exporter(private val context: Context) {
         resolver.update(uri, ContentValues().apply { put(MediaStore.Audio.Media.IS_PENDING, 0) }, null, null)
         uri
     }.getOrNull()
+}
+
+/** A raw interleaved float file read in blocks, little-endian as the graph writes it. */
+private class FileFrames(private val file: RandomAccessFile, override val channels: Int, override val frames: Long) : ExportChain.Source {
+    private var bytes = ByteArray(0)
+    override fun read(from: Long, count: Int, into: FloatArray) {
+        val n = count * channels * 4
+        if (bytes.size < n) bytes = ByteArray(n)
+        file.seek(from * channels * 4)
+        file.readFully(bytes, 0, n)
+        ByteBuffer.wrap(bytes, 0, n).order(ByteOrder.LITTLE_ENDIAN).asFloatBuffer().get(into, 0, count * channels)
+    }
+}
+
+/** The staged signal: appended once, then read back and rewritten in place by the trim and dither pass. */
+private class FileStage(private val file: RandomAccessFile, private val channels: Int) : ExportChain.Stage {
+    private var bytes = ByteArray(0)
+    private var end = 0L
+    private fun put(at: Long, block: FloatArray, frames: Int) {
+        val n = frames * channels * 4
+        if (bytes.size < n) bytes = ByteArray(n)
+        ByteBuffer.wrap(bytes, 0, n).order(ByteOrder.LITTLE_ENDIAN).asFloatBuffer().put(block, 0, frames * channels)
+        file.seek(at * channels * 4)
+        file.write(bytes, 0, n)
+    }
+    override fun append(block: FloatArray, frames: Int) { put(end, block, frames); end += frames }
+    override fun overwrite(from: Long, block: FloatArray, frames: Int) = put(from, block, frames)
+    override fun read(from: Long, count: Int, into: FloatArray) {
+        val n = count * channels * 4
+        if (bytes.size < n) bytes = ByteArray(n)
+        file.seek(from * channels * 4)
+        file.readFully(bytes, 0, n)
+        ByteBuffer.wrap(bytes, 0, n).order(ByteOrder.LITTLE_ENDIAN).asFloatBuffer().get(into, 0, count * channels)
+    }
 }

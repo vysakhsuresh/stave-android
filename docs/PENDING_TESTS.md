@@ -96,3 +96,14 @@ back into the roadmap with what broke.
 85. Edit → the Undo history lists the steps newest first; tapping the third goes back three steps and Redo returns them one at a time.
 86. With a Bluetooth keyboard: Space plays and pauses, Delete cuts the selection, Ctrl+Z and Ctrl+Y undo and redo, Ctrl+A selects all, Home and End jump; typing in a name field does not trigger any of them.
 
+
+## 2 November 2026 — built while the phone was away
+87. Export the 6-minute "24 tracks" project to WAV 24-bit with no target, then to MP3 at
+    Streaming: no out-of-memory, the WAV matches the mix (od/awk diff against a captured mix),
+    the MP3 reads -14 LUFS and at most -1 dBTP in Finish → Measure. (ExportChain, streamed.)
+88. Export a project at 44.1 kHz (Export → rate 44.1k): plays at the right pitch and length.
+89. Open the Ramayana project: the title reads "Ramayana Ravana Tandavam (Song) - Ranbir Yash -
+    …" without "(MP3_320K)"; Undo still works after reopening (the history was rewritten with it).
+90. Remove clicks on a song with no clicks: the clip label gains "· Remove clicks" and the
+    sound is unchanged by ear; on a vinyl rip the ticks go.
+91. Record, then leave without recording anything; restart the app: no empty "Untitled" row.

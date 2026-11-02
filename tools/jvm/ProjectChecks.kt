@@ -54,6 +54,22 @@ object ProjectChecks : Suite {
         Names.fromFile("archive.tar.ogg").let { check(it == "archive.tar") { "only the last extension goes" + ": \"$it\"" } }
         Names.fromFile("___.mp3").let { check(it == "___") { "a name that would vanish is kept" + ": \"$it\"" } }
         Names.fromFile("Song").let { check(it == "Song") { "no extension" + ": \"$it\"" } }
+        section("an old project's raw names are tidied, a name someone chose is not")
+        val rawName = "Ramayana_ Song _ AR Rahman(MP3_320K)"
+        val raw = Session(name = rawName,
+            sources = listOf(Source("s1", rawName, "media/s1.f32", 48_000, 2, 100, Source.Kind.AUDIO, origin = "$rawName.mp3"),
+                Source("s2", "Mine", "media/s2.f32", 48_000, 2, 100, Source.Kind.AUDIO, origin = "other_file.wav")),
+            clips = listOf(Clip("c1", "s1", "t1", 0, 0, 100, name = rawName), Clip("c2", "s2", "t1", 100, 0, 100, name = "Mine")))
+        val tidy = Names.tidied(raw)
+        check(tidy.name == "Ramayana Song - AR Rahman") { "session name: \"${tidy.name}\"" }
+        check(tidy.sources[0].name == "Ramayana Song - AR Rahman" && tidy.sources[0].origin == "$rawName.mp3") { "source: ${tidy.sources[0]}" }
+        check(tidy.clips[0].name == "Ramayana Song - AR Rahman") { "clip: ${tidy.clips[0].name}" }
+        check(tidy.sources[1].name == "Mine" && tidy.clips[1].name == "Mine") { "a chosen name was changed" }
+        val renamed = raw.copy(name = "My mix")
+        check(Names.tidied(renamed).name == "My mix") { "a renamed project was changed" }
+        val clean = Names.tidied(tidy)
+        check(clean === tidy) { "a tidy project is returned as it was" }
+
 
         section("a session with every field set round-trips through the file")
         val s = full()
