@@ -5,7 +5,7 @@ The contract StemsRunner.kt assumes (keep the two in step):
     input  [1, T, 2, 2049] float32   magnitude spectrogram, STFT 4096 / hop 1024, stereo
     output [1, T, 2, 2049] float32   the stem's magnitude estimate for the same frames
 
-UMX's own forward takes a magnitude spectrogram shaped (frames, batch, channels, bins) and
+UMX's own forward takes a magnitude spectrogram shaped (batch, channels, bins, frames) and
 returns the same; this wraps each target model so the batch is first, exports it through
 ai_edge_torch and quantises to int8 dynamic-range (about 9 MB a stem), then checks the
 converted model against PyTorch on a random spectrogram.
@@ -45,8 +45,10 @@ class BatchFirst(torch.nn.Module):
         self.model = model
 
     def forward(self, x):            # x: [1, T, 2, 2049]
-        y = self.model(x.permute(1, 0, 2, 3))   # UMX wants [T, 1, 2, 2049]
-        return y.permute(1, 0, 2, 3)
+        # OpenUnmix.forward takes and returns (samples, channels, bins, frames) and crops to its
+        # own bandwidth inside; the first wrapper fed it (frames, samples, channels, bins).
+        y = self.model(x.permute(0, 2, 3, 1))   # [1, 2, 2049, T]
+        return y.permute(0, 3, 1, 2)            # back to [1, T, 2, 2049]
 
 
 def main(dest: str) -> None:
