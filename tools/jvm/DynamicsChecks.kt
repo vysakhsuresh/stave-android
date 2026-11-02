@@ -63,6 +63,27 @@ object DynamicsChecks : Suite {
         near(peakDb(burst, 10_000 + lim.latency + 100, 11_000 + lim.latency - 100), -3.0, 0.05, "the burst sits at the ceiling")
         near(peakDb(burst, 30_000, 40_000), Gain.linearToDb(0.05), 0.2, "the quiet part is untouched after release")
 
+        // The first limiter dropped its gain in one sample the moment a peak entered the
+        // look-ahead: a step in gain on a loud signal is a click, heard as grit on every master.
+        section("the limiter's gain slides down across its look-ahead, never in one step")
+        val level = FloatArray(rate) { i -> if (i in 20_000..30_000) 0.9f else 0.1f }
+        val slide = Limiter(rate, 1, ceilingDb = -6.0, lookaheadMs = 5.0)
+        val out = level.copyOf().also { slide.process(it) }
+        val cap = Gain.dbToLinear(-6.0).toFloat()
+        val lookahead = (5.0 * rate / 1000).toInt()
+        var steepest = 0f
+        var prev = Float.NaN
+        for (n in slide.latency until level.size) {
+            val g = out[n] / level[n - slide.latency]
+            if (!prev.isNaN()) steepest = maxOf(steepest, abs(g - prev))
+            prev = g
+        }
+        val ramp = (1f - cap / 0.9f) / lookahead
+        check(steepest <= ramp * 1.05f) { "the gain stepped ${steepest} in a sample; a ramp over the look-ahead moves ${ramp}" }
+        var over = 0f; for (v in out) over = maxOf(over, abs(v))
+        check(over <= cap + 1e-5f) { "passed the ceiling: $over" }
+        near(out[25_000 + slide.latency].toDouble(), cap.toDouble(), 1e-4, "the held level sits on the ceiling")
+
         section("gate closes on silence, opens on signal, holds through a short dip")
         val gated = FloatArray(rate * 2) { i ->
             val t = i.toDouble() / rate

@@ -99,54 +99,82 @@ class Compressor(val sampleRate: Int, val channels: Int, settings: CompressorSet
 }
 
 /**
- * A brick-wall limiter: a look-ahead window finds the peak ahead, the gain is pulled down in
- * time to meet it and let go at the release, and the signal is delayed by the look-ahead so
- * nothing ever passes the ceiling. True-peak safe when fed through [TruePeak] (the ceiling is
- * lowered by the inter-sample margin the oversampler reports).
+ * A brick-wall limiter. Each frame states the gain it needs (ceiling over its peak); the gain
+ * applied is the lowest any frame in the look-ahead needs, averaged over the look-ahead, so it
+ * slides down in a straight ramp and has arrived when the peak leaves the delay. Release lets
+ * it back up on its time constant, never above that bound, so nothing passes the ceiling.
+ *
+ * The first version dropped the gain in one sample the moment a peak entered the look-ahead:
+ * a step in gain on a loud signal is a click, and Master and every export to a target ran
+ * through it (2 November). DynamicsChecks measures the steepest step against the ramp.
+ * True-peak safe when fed through [TruePeak] (the caller lowers the ceiling by the margin).
  */
 class Limiter(val sampleRate: Int, val channels: Int, ceilingDb: Double = -1.0, lookaheadMs: Double = 5.0, releaseMs: Double = 60.0) {
     var ceilingDb = ceilingDb
-    private val lookahead = max(1, (lookaheadMs * sampleRate / 1000).toInt())
+    private val window = max(1, (lookaheadMs * sampleRate / 1000).toInt())
     private val release = timeConstant(releaseMs, sampleRate)
-    private val delay = Array(channels) { FloatArray(lookahead) }
-    private val peaks = FloatArray(lookahead)
+    /** The output is the input [window] - 1 frames ago: the last frame every gain in the average covers. */
+    private val depth = window - 1
+    private val delay = Array(channels) { FloatArray(window) }
     private var at = 0
+    // Sliding minimum of the needed gain over the last [window] frames: a deque of (frame, gain)
+    // with gains rising from the front, so each frame costs a constant amount.
+    private val dqFrame = LongArray(window + 1)
+    private val dqGain = FloatArray(window + 1)
+    private var dqHead = 0
+    private var dqSize = 0
+    // Running average of those minima over the last [window] frames.
+    private val minima = FloatArray(window) { 1f }
+    private var sum = window.toDouble()
+    private var frame = 0L
     private var gain = 1f
     var reductionDb = 0.0
         private set
 
     fun process(buffer: FloatArray, frames: Int = buffer.size / channels) {
         val ceiling = Gain.dbToLinear(ceilingDb).toFloat()
+        val cap = dqFrame.size
         var i = 0
         for (f in 0 until frames) {
             var peak = 0f
             for (c in 0 until channels) { val a = abs(buffer[i + c]); if (a > peak) peak = a }
-            peaks[at] = peak
-            // The loudest sample within the look-ahead decides the gain now, so the reduction has
-            // arrived by the time that sample leaves the delay.
-            var ahead = 0f
-            for (p in peaks) if (p > ahead) ahead = p
-            val wanted = if (ahead > ceiling) ceiling / ahead else 1f
-            gain = if (wanted < gain) wanted else gain + release * (wanted - gain)
+            val need = if (peak > ceiling) ceiling / peak else 1f
+            // Push onto the deque: drop every gain at the back that is not lower than this one.
+            while (dqSize > 0 && dqGain[(dqHead + dqSize - 1) % cap] >= need) dqSize--
+            val back = (dqHead + dqSize) % cap
+            dqFrame[back] = frame; dqGain[back] = need; dqSize++
+            // Drop the front when it has left the window.
+            if (dqFrame[dqHead] <= frame - window) { dqHead = (dqHead + 1) % cap; dqSize-- }
+            val lowest = dqGain[dqHead]
+            val slot = (frame % window).toInt()
+            sum += lowest - minima[slot]
+            minima[slot] = lowest
+            val bound = (sum / window).toFloat().coerceAtMost(1f)
+            gain = if (bound < gain) bound else gain + release * (bound - gain)
             reductionDb = Gain.linearToDb(gain.toDouble())
             for (c in 0 until channels) {
                 val d = delay[c]
-                val old = d[at]
+                // The frame [depth] ago sits [depth] slots behind the write position.
+                val outAt = (at + window - depth) % window
                 d[at] = buffer[i + c]
-                var y = old * gain
-                // The look-ahead is the guarantee; this clamp is for a rounding error, not a plan.
+                var y = d[outAt] * gain
+                // The ramp is the guarantee; this clamp is for a rounding error, not a plan.
                 if (y > ceiling) y = ceiling else if (y < -ceiling) y = -ceiling
                 buffer[i + c] = y
             }
-            at = (at + 1) % lookahead
+            at = (at + 1) % window
+            frame++
             i += channels
         }
     }
 
     /** Samples of delay the limiter adds, so the caller can line the output up with the input. */
-    val latency: Int get() = lookahead
+    val latency: Int get() = depth
 
-    fun reset() { delay.forEach { it.fill(0f) }; peaks.fill(0f); at = 0; gain = 1f }
+    fun reset() {
+        delay.forEach { it.fill(0f) }; at = 0; dqHead = 0; dqSize = 0
+        minima.fill(1f); sum = window.toDouble(); frame = 0; gain = 1f
+    }
 }
 
 /** A noise gate with hysteresis and a hold, or an expander with a range: the same machine. */

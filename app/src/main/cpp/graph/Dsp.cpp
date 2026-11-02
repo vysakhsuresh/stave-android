@@ -66,32 +66,44 @@ void Compressor::process(float* buf, int frames, int channels) {
 
 void Limiter::configure(float ceilingDb, float lookaheadMs, float releaseMs, int rate, int ch) {
     ceiling = dbToLinear(ceilingDb);
-    lookahead = std::max(1, (int) (lookaheadMs * rate / 1000));
+    window = std::max(1, (int) (lookaheadMs * rate / 1000));
+    depth = window - 1;
     release = timeConstant(releaseMs, rate);
     channels = ch;
-    delay.assign((size_t) lookahead * channels, 0.0f);
-    peaks.assign(lookahead, 0.0f);
-    at = 0; gain = 1.0f;
+    delay.assign((size_t) window * channels, 0.0f);
+    dqFrame.assign((size_t) window + 1, 0);
+    dqGain.assign((size_t) window + 1, 1.0f);
+    dqHead = 0; dqSize = 0;
+    minima.assign((size_t) window, 1.0f);
+    sum = window;
+    frame = 0; at = 0; gain = 1.0f;
 }
 
 void Limiter::process(float* buf, int frames) {
+    const int cap = window + 1;
     for (int f = 0; f < frames; f++) {
         float peak = 0;
         for (int c = 0; c < channels; c++) { float a = std::fabs(buf[f * channels + c]); if (a > peak) peak = a; }
-        peaks[at] = peak;
-        float ahead = 0;
-        for (float p : peaks) if (p > ahead) ahead = p;
-        float wanted = ahead > ceiling ? ceiling / ahead : 1.0f;
-        gain = wanted < gain ? wanted : gain + release * (wanted - gain);
+        float need = peak > ceiling ? ceiling / peak : 1.0f;
+        while (dqSize > 0 && dqGain[(dqHead + dqSize - 1) % cap] >= need) dqSize--;
+        int back = (dqHead + dqSize) % cap;
+        dqFrame[back] = frame; dqGain[back] = need; dqSize++;
+        if (dqFrame[dqHead] <= frame - window) { dqHead = (dqHead + 1) % cap; dqSize--; }
+        float lowest = dqGain[dqHead];
+        int slot = (int) (frame % window);
+        sum += lowest - minima[slot];
+        minima[slot] = lowest;
+        float bound = (float) (sum / window); if (bound > 1.0f) bound = 1.0f;
+        gain = bound < gain ? bound : gain + release * (bound - gain);
+        int outAt = (at + window - depth) % window;
         for (int c = 0; c < channels; c++) {
-            float& slot = delay[(size_t) at * channels + c];
-            float old = slot;
-            slot = buf[f * channels + c];
-            float y = old * gain;
+            delay[(size_t) at * channels + c] = buf[f * channels + c];
+            float y = delay[(size_t) outAt * channels + c] * gain;
             if (y > ceiling) y = ceiling; else if (y < -ceiling) y = -ceiling;
             buf[f * channels + c] = y;
         }
-        at = (at + 1) % lookahead;
+        at = (at + 1) % window;
+        frame++;
     }
 }
 

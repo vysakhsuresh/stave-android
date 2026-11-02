@@ -61,12 +61,20 @@ struct Compressor {
     void process(float* interleaved, int frames, int channels);
 };
 
+// Mirrors engine/dsp/Dynamics.kt Limiter line for line: the gain is the lowest any frame in the
+// look-ahead needs, averaged over the look-ahead, so it ramps rather than steps (a one-sample
+// gain step on a loud signal is a click). DynamicsChecks executes the Kotlin.
 struct Limiter {
     float ceiling = 0.891f;  // -1 dBTP
-    int lookahead = 1, at = 0;
+    int window = 1, depth = 0, at = 0;
     float gain = 1.0f, release = 0.0f;
-    std::vector<float> delay;   // interleaved
-    std::vector<float> peaks;
+    std::vector<float> delay;   // interleaved, [window] frames
+    std::vector<long long> dqFrame;   // sliding minimum: frames and gains, gains rising from the front
+    std::vector<float> dqGain;
+    int dqHead = 0, dqSize = 0;
+    std::vector<float> minima;  // the last [window] minima, averaged
+    double sum = 1.0;
+    long long frame = 0;
     int channels = 2;
     void configure(float ceilingDb, float lookaheadMs, float releaseMs, int rate, int channels);
     void process(float* interleaved, int frames);

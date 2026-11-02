@@ -109,3 +109,6 @@ back into the roadmap with what broke.
 91. Record, then leave without recording anything; restart the app: no empty "Untitled" row.
 92. Home at rest with Lively on, release build: `dumpsys gfxinfo com.layerbit.stave` over
     10 s reads about 100 frames (the backdrop steps at 10 a second), not 600.
+93. Master a loud song to Streaming and listen to the loudest chorus against the original:
+    no added crackle on drum hits (the limiter now ramps its gain). A Limiter insert on the
+    master, live, the same (the C++ twin has never been heard).
