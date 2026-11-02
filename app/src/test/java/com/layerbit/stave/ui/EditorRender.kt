@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onRoot
+import androidx.compose.ui.test.performScrollTo
 import androidx.test.core.app.ApplicationProvider
 import com.github.takahirom.roborazzi.captureRoboImage
 import com.layerbit.stave.StaveApplication
@@ -120,6 +121,26 @@ class EditorRender {
         compose.runOnIdle { vm.setTab(EditorTab.BEATS); vm.newPattern() }
         compose.runOnIdle { for (s in listOf(0, 4, 8, 12)) vm.toggleStep(36, s); for (s in listOf(4, 12)) vm.toggleStep(38, s); for (s in 0 until 16 step 2) vm.toggleStep(42, s) }
         shot("beats")
+    }
+
+    /** The Voice tab as a podcaster sees it: a transcript of a spoken minute, with fillers. */
+    @Test fun voiceTranscript() {
+        val app = ApplicationProvider.getApplicationContext<StaveApplication>()
+        val id = project(app)
+        val words = "Welcome back to the show. Um, today we are talking about, uh, how to record a podcast at home with nothing but a phone. So, you know, the first thing is the room. A small room with soft things in it, a sofa, curtains, a bed, sounds much better than a big empty kitchen.".split(" ")
+        var t = 400L
+        val arr = words.joinToString(",") { w -> val d = 180L + w.length * 45L; val s = "[$t,${t + d},\"${w.replace("\"", "")}\"]"; t += d + 60; s }
+        java.io.File(app.projects.dir(id), "transcript.json").writeText("{\"language\":\"en\",\"words\":[$arr]}")
+        val vm = EditorViewModel(app, id)
+        waitUntil { vm.ui.value.loaded }
+        compose.setContent { StaveTheme(ThemeChoice.DARK) { Box(Modifier.fillMaxSize().background(StaveColors.Background)) { EditorScreen(vm, onBack = {}, onAddSounds = {}) } } }
+        compose.runOnIdle { vm.setTab(EditorTab.VOICE) }
+        compose.waitForIdle(); Thread.sleep(300); compose.waitForIdle()
+        compose.onRoot().captureRoboImage("build/outputs/roborazzi/voice-transcript.png")
+        compose.runOnIdle { vm.toggleWord(13); vm.toggleWord(14) }
+        runCatching { compose.onAllNodes(androidx.compose.ui.test.hasText("kitchen.", substring = true))[0].performScrollTo() }
+        compose.waitForIdle(); Thread.sleep(300); compose.waitForIdle()
+        compose.onRoot().captureRoboImage("build/outputs/roborazzi/voice-transcript-words.png")
     }
 
     @Test fun dark() = run(ThemeChoice.DARK)

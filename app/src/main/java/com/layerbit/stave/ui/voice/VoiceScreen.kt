@@ -29,6 +29,10 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.pluralStringResource
@@ -156,8 +160,17 @@ fun VoicePanel(vm: EditorViewModel, ui: EditorViewModel.Ui, modifier: Modifier =
         Panel(modifier = Modifier.fillMaxWidth()) {
             SectionHeading(stringResource(R.string.voice_transcript_title))
             Spacer(Modifier.height(8.dp))
-            Text(stringResource(R.string.voice_language), style = MaterialTheme.typography.bodyMedium, color = StaveColors.Text)
-            ChipRow(options = vm.whisper.languages, selected = voice.language, onSelect = vm::setLanguage, modifier = Modifier.padding(vertical = 6.dp))
+            // One row saying the language, the grid of twenty-four only when asked for: open, it stood
+            // between the recorder and the words for two screens of scrolling.
+            var choosing by remember { mutableStateOf(false) }
+            val chosen = vm.whisper.languages.firstOrNull { it.first == voice.language }?.second ?: voice.language
+            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()
+                .toggleable(value = choosing, role = Role.Button) { choosing = it }.padding(vertical = 8.dp)) {
+                Text(stringResource(R.string.voice_language), style = MaterialTheme.typography.bodyMedium, color = StaveColors.Text, modifier = Modifier.weight(1f))
+                Text(chosen, style = MaterialTheme.typography.bodyMedium, color = StaveColors.Band)
+                androidx.compose.material3.Icon(androidx.compose.material.icons.Icons.Filled.KeyboardArrowDown, contentDescription = null, tint = StaveColors.Muted, modifier = Modifier.padding(start = 4.dp).size(20.dp).graphicsLayer { rotationZ = if (choosing) 180f else 0f })
+            }
+            if (choosing) ChipRow(options = vm.whisper.languages, selected = voice.language, onSelect = { vm.setLanguage(it); choosing = false }, modifier = Modifier.padding(vertical = 6.dp))
             when {
                 !vm.whisper.available && !com.layerbit.stave.native.WhisperNative.loaded -> Text(stringResource(R.string.voice_no_whisper), style = MaterialTheme.typography.bodySmall, color = StaveColors.Dim)
                 !vm.whisper.available -> Text(stringResource(R.string.voice_no_model), style = MaterialTheme.typography.bodySmall, color = StaveColors.Dim)
@@ -246,13 +259,21 @@ fun VoicePanel(vm: EditorViewModel, ui: EditorViewModel.Ui, modifier: Modifier =
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun WordFlow(words: List<String>, selected: Set<Int>, onToggle: (Int) -> Unit) {
-    FlowRow(horizontalArrangement = Arrangement.spacedBy(4.dp), verticalArrangement = Arrangement.spacedBy(4.dp), modifier = Modifier.fillMaxWidth().padding(top = 8.dp)) {
+    // Read as text: a box around every word turned a minute of speech into a wall of chips. A
+    // chosen word is highlighted; a filler (the ones Take out fillers will cut) reads dim and
+    // slanted so it is found before it is removed.
+    val fillers = remember(words) { com.layerbit.stave.engine.transcript.Fillers.find(words.map { com.layerbit.stave.engine.transcript.Word(it, 0, 0) }).toSet() }
+    val shape = androidx.compose.foundation.shape.RoundedCornerShape(6.dp)
+    FlowRow(verticalArrangement = Arrangement.spacedBy(2.dp), modifier = Modifier.fillMaxWidth().padding(top = 10.dp)) {
         words.forEachIndexed { i, w ->
             val on = i in selected
+            val filler = i in fillers
             Text(
-                w, style = MaterialTheme.typography.bodyMedium, color = if (on) StaveColors.OnBand else StaveColors.Text,
-                modifier = Modifier.background(if (on) StaveColors.Band else StaveColors.SurfaceDim, ChipShape).border(1.dp, if (on) StaveColors.Band else StaveColors.Border, ChipShape)
-                    .selectable(selected = on, role = Role.Checkbox) { onToggle(i) }.padding(horizontal = 8.dp, vertical = 4.dp)
+                w,
+                style = MaterialTheme.typography.bodyLarge.copy(fontStyle = if (filler) androidx.compose.ui.text.font.FontStyle.Italic else androidx.compose.ui.text.font.FontStyle.Normal),
+                color = when { on -> StaveColors.OnBand; filler -> StaveColors.Dim; else -> StaveColors.Text },
+                modifier = Modifier.background(if (on) StaveColors.Band else androidx.compose.ui.graphics.Color.Transparent, shape)
+                    .selectable(selected = on, role = Role.Checkbox) { onToggle(i) }.padding(horizontal = 3.dp, vertical = 3.dp)
             )
         }
     }
