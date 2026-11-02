@@ -115,6 +115,8 @@ android {
 
     testOptions {
         unitTests.isIncludeAndroidResources = true
+        // ScreensRender writes its pictures only when asked: -Pscreens on the command line.
+        unitTests.all { it.systemProperty("roborazzi.test.record", if (project.hasProperty("screens")) "true" else "false") }
     }
 
     lint {
@@ -182,6 +184,13 @@ dependencies {
 
     testImplementation(libs.junit)
     testImplementation(libs.robolectric)
+    // Screens rendered on the laptop at the phone's size, both themes (ScreensRender): the eye
+    // a session without a phone still has. Test-only; nothing here reaches the app.
+    testImplementation(libs.roborazzi)
+    testImplementation(libs.roborazzi.compose)
+    testImplementation(platform(libs.androidx.compose.bom))
+    testImplementation(libs.androidx.ui.test.junit4)
+    debugImplementation(libs.androidx.ui.test.manifest)
 }
 
 // DEPENDENCIES DELIBERATELY NOT HERE

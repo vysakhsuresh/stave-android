@@ -9,14 +9,13 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.IntrinsicSize
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.MaterialTheme
@@ -118,10 +117,11 @@ fun HomeScreen(
             }
             item {
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = rise(0)) {
-                    Pill(stringResource(R.string.app_pill_free), StaveColors.Good)
+                    // Four equal promises, one style.
+                    Pill(stringResource(R.string.app_pill_free), StaveColors.Band)
                     Pill(stringResource(R.string.app_pill_no_internet), StaveColors.Band)
-                    Pill(stringResource(R.string.app_pill_no_account), StaveColors.Muted)
-                    Pill(stringResource(R.string.app_pill_no_limits), StaveColors.Muted)
+                    Pill(stringResource(R.string.app_pill_no_account), StaveColors.Band)
+                    Pill(stringResource(R.string.app_pill_no_limits), StaveColors.Band)
                 }
             }
             item {
@@ -143,16 +143,17 @@ fun HomeScreen(
             }
             item { SectionHeading(stringResource(R.string.home_tools), modifier = rise(3).padding(top = 6.dp)) }
             item {
-                // Six tiles, two a row; a grid inside a column needs its height stated.
-                LazyVerticalGrid(columns = GridCells.Fixed(2), modifier = rise(4).fillMaxWidth().height(3 * 92.dp + 2 * 10.dp), userScrollEnabled = false,
-                    horizontalArrangement = Arrangement.spacedBy(10.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    items(Tool.entries) { tool ->
-                        Panel(modifier = Modifier.height(92.dp), onClick = { onTool(tool.id) }, inset = 12.dp) {
-                            Row(verticalAlignment = Alignment.Top) {
-                                IconTile(iconRes = tool.iconRes, accent = tool.accent, size = 36.dp)
-                                Column(Modifier.padding(start = 10.dp)) {
-                                    Text(stringResource(tool.titleRes), style = MaterialTheme.typography.titleMedium, color = StaveColors.Text)
-                                    Text(stringResource(tool.hintRes), style = MaterialTheme.typography.bodySmall, color = StaveColors.Dim, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                // Six tiles, two a row, each row as tall as its taller tile and the icon above the
+                // words. Beside them it took a third of the width: "Record, transcript, podc..." cut
+                // short over an empty strip, and a fixed 92 dp clipped larger font sizes.
+                Column(rise(4).fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Tool.entries.chunked(2).forEach { pair ->
+                        Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                            pair.forEach { tool ->
+                                Panel(modifier = Modifier.weight(1f).fillMaxHeight(), onClick = { onTool(tool.id) }, inset = 14.dp) {
+                                    IconTile(iconRes = tool.iconRes, accent = tool.accent, size = 36.dp)
+                                    Text(stringResource(tool.titleRes), style = MaterialTheme.typography.titleMedium, color = StaveColors.Text, modifier = Modifier.padding(top = 10.dp))
+                                    Text(stringResource(tool.hintRes), style = MaterialTheme.typography.bodySmall, color = StaveColors.Dim)
                                 }
                             }
                         }
