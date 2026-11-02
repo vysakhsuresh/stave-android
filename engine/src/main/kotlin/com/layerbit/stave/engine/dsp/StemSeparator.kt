@@ -100,7 +100,10 @@ class StemSeparator(val stemCount: Int, private val spoolDir: File) {
                 model.infer(callStart, input, output)
                 while (next < keepEnd) {
                     val base = (next - callStart) * 2 * BINS
-                    for (k in 0 until 2 * BINS) out.writeShort(Half.of(output[base + k]).toInt())
+                    // A magnitude is finite and not negative: a model that answers NaN (LiteRT's own
+                    // kernels did, for three of four stems) is heard as silence in that stem, and the
+                    // even share keeps the mix whole, rather than every stem turning to NaN.
+                    for (k in 0 until 2 * BINS) { val v = output[base + k]; out.writeShort(Half.of(if (v.isFinite() && v > 0f) v else 0f).toInt()) }
                     next++
                 }
                 onProgress(next.toFloat() / frames)

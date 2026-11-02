@@ -99,6 +99,18 @@ object StemSeparatorChecks : Suite {
             check(e < -80) { "with silent bins the stems sum to the mix only to $e dB" }
         }
 
+        section("a model answering NaN or infinity spoils nothing: the stems stay finite and sum to the mix")
+        run {
+            val l = bursts(n, 90, false, 13); val r = bursts(n, 90, true, 14)
+            val stems = separate(l, r, 4) { stem, _, _, out ->
+                for (k in out.indices) out[k] = when { stem == 0 -> Float.NaN; stem == 1 && k % 7 == 0 -> Float.POSITIVE_INFINITY; else -> 0.5f }
+            }
+            check(stems.all { (a, b) -> a.all { it.isFinite() } && b.all { it.isFinite() } }) { "a stem came out with NaN or infinity in it" }
+            val sumL = FloatArray(n); for ((a, _) in stems) for (i in 0 until n) sumL[i] += a[i]
+            val e = errorDb(sumL, l)
+            check(e < -80) { "with a NaN model the stems sum to the mix only to $e dB" }
+        }
+
         section("with the true magnitudes, the stems come back as the sources: the masks sit on their own frames")
         run {
             // Two sources taking turns every 90 ms, so a mask applied a few frames off would put
