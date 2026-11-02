@@ -332,11 +332,22 @@ fun EvenGrid(labels: List<String>, modifier: Modifier = Modifier, cell: @Composa
     val gap = 8.dp
     BoxWithConstraints(modifier.fillMaxWidth()) {
         val widths = remember(labels, style) { labels.map { measurer.measure(it, style, maxLines = 1).size.width } }
-        val typical = widths.sorted()[((widths.size - 1) * 4) / 5]
-        val cellMin = with(density) { typical.toDp() } + 28.dp
-        val fit = (((maxWidth + gap) / (cellMin + gap)).toInt()).coerceIn(1, minOf(4, labels.size))
-        val rows = (labels.size + fit - 1) / fit
-        val columns = (labels.size + rows - 1) / rows
+        // Columns for a label of [w] px: how many fit, then balanced so the rows fill evenly.
+        fun columnsFor(w: Int, margin: androidx.compose.ui.unit.Dp): Int {
+            val cellMin = with(density) { w.toDp() } + margin
+            val fit = (((maxWidth + gap) / (cellMin + gap)).toInt()).coerceIn(1, minOf(4, labels.size))
+            val rows = (labels.size + fit - 1) / fit
+            return (labels.size + rows - 1) / rows
+        }
+        fun rowsOf(columns: Int) = (labels.size + columns - 1) / columns
+        val byTypical = columnsFor(widths.sorted()[((widths.size - 1) * 4) / 5], 28.dp)
+        // The widest label at nine tenths of its size in exactly the room a cell gives its text
+        // (its width less 16 dp): a shrink nobody can see ("Wave pluck" at 96%) is not worth a row.
+        val byWidest = columnsFor((widths.max() * 0.9f).toInt() + 1, 16.dp)
+        // One more row is a fair price for every label at full size: at the largest font "Match
+        // phone" shrank beside "Dark" and "Light". A long list (26 languages) still shrinks its
+        // few long names rather than growing by rows.
+        val columns = if (byWidest < byTypical && rowsOf(byWidest) <= rowsOf(byTypical) + 1) byWidest else byTypical
         val textRoom = with(density) { ((maxWidth - gap * (columns - 1)) / columns - 16.dp).toPx() }
         val sizes = labels.indices.map { i -> if (widths[i] <= textRoom) style.fontSize else (style.fontSize * (textRoom / widths[i]) * 0.97f).let { if (it.value < 10f) 10.sp else it } }
         Column(verticalArrangement = Arrangement.spacedBy(gap)) {

@@ -201,6 +201,7 @@ fun HomeScreen(
     }
 }
 
+@OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 @Composable
 private fun ProjectRow(p: ProjectStore.Entry, modifier: Modifier, onOpen: () -> Unit, onRemove: () -> Unit, onRename: () -> Unit, onDuplicate: () -> Unit) {
     var menu by remember { mutableStateOf(false) }
@@ -210,7 +211,8 @@ private fun ProjectRow(p: ProjectStore.Entry, modifier: Modifier, onOpen: () -> 
             IconTile(iconRes = tool.iconRes, accent = tool.accent, size = 40.dp)
             Column(Modifier.weight(1f).padding(start = 12.dp)) {
                 Text(p.name.ifBlank { stringResource(R.string.home_project_untitled) }, style = MaterialTheme.typography.titleMedium, color = StaveColors.Text, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                // Wraps: at the largest font the track count ran under the menu button ("24 trac").
+                androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(4.dp), itemVerticalAlignment = Alignment.CenterVertically) {
                     Text(stringResource(R.string.home_project_modified, DateFormat.getDateInstance(DateFormat.MEDIUM).format(Date(p.modifiedAt))), style = MaterialTheme.typography.bodySmall, color = StaveColors.Dim)
                     if (p.durationMs > 0) Pill(Timecode.display(p.durationMs), StaveColors.Muted, numeric = true)
                     if (p.tracks > 1) Pill(pluralStringResource(R.plurals.app_track_count, p.tracks, p.tracks), StaveColors.Muted)
