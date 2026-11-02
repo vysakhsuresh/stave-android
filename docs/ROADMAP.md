@@ -92,6 +92,6 @@ Built-not-seen is never called done.
 - [~] Finish tab: Measure (integrated, range, true peak, sample peak, the distance to the target), the target, Tone and Glue, Master to the target in one step; the report (correlation, balance, lows/mids/highs); Match a reference (its spectrum read off the file, the bands solved jointly, strength, Apply); Width; Three bands; Transients; Compare with before at matched loudness
 
 ## P9 — Polish and release (v1.0)
-- [ ] Accessibility sweep (zero NAF), locale sweep, RTL, font scale
+- [~] Accessibility sweep: zero NAF seen on the phone on Home, its five pages and every editor tab and sheet (2 Nov; the only flags are controls cut by a scroll edge, whose label is clipped out of the dump); font scale 1.3 seen on the phone (Settings grid and project rows fixed); right to left drawn on the laptop (text direction by content); locale: timecodes under ar-EG (`TimecodeChecks`). RTL on a phone not yet seen
 - [x] Perf build frame times; graph CPU at 24 tracks
 - [~] fastlane listing text and changelog (`fastlane/metadata/android/en-US`), `release/CHANGELOG.md`; the Play flavour's models as an install-time asset pack (`models_pack`); screenshots, the icon in the listing and a signed release wait for a phone and the owner's keystore

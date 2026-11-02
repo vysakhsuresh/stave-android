@@ -220,3 +220,10 @@ names in commits, code or docs. `docs/ROADMAP.md` is ticked honestly: built-not-
   differ by -71 dB on a real song, and ours is measured at -112 dB against an ideal.
 - **An offline render reports the state from before it** (`offlineActive`): the screen polls the
   engine, and followed Read the song's render to the end of the song.
+- **A NAF node at a panel's top or bottom edge is the scroll clip, not a missing name**: a button
+  half under the edge keeps its bounds while its label is clipped out of the dump. Scroll it
+  fully into view and dump again before fixing anything.
+- **The Beats tab has its own output** (PatternPlayer's AudioTrack): anything the graph's output
+  gets (the ceiling) it needs too, and nothing may allocate on its thread.
+- **Tap by text, not by remembered coordinates, once a sheet is open**: the chip row moves up
+  and a coordinate meant for a chip lands inside the sheet. One such tap edited a test project.
