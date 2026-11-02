@@ -1249,16 +1249,20 @@ class EditorViewModel(private val app: StaveApplication, val projectId: String) 
         viewModelScope.launch {
             val result = runCatching {
                 val chs = mixdown(0, s.length) ?: throw IllegalStateException("Nothing to separate.")
-                app.stems.separate(chs, s.sampleRate) { p -> _music.value = _music.value.copy(separating = p) }
+                app.stems.separate(chs, s.sampleRate, File(app.cacheDir, "work")) { p -> _music.value = _music.value.copy(separating = p) }
             }
             _music.value = _music.value.copy(separating = null)
             result.onSuccess { r ->
                 if (r == null) { _ui.value = _ui.value.copy(message = app.getString(com.layerbit.stave.R.string.music_stems_none)); return@onSuccess }
                 val sources = ArrayList<Source>(); val tracks = ArrayList<Track>(); val clips = ArrayList<Clip>()
                 withContext(Dispatchers.IO) {
-                    for ((name, chs) in r.stems) {
+                    for ((name, made) in r.files) {
                         val parent = s.sources.firstOrNull() ?: Source("mix", "Mix", "", s.sampleRate, 2, s.length)
-                        val source = com.layerbit.stave.processing.OfflineTools.writeSource(files, chs, r.sampleRate, parent, name).copy(kind = Source.Kind.STEM, name = name.replaceFirstChar { it.uppercase() })
+                        // The stem was written as it was made; it moves into the project's media as it is.
+                        val id = Ids.next("s")
+                        val dest = files.newSourceFile(id)
+                        if (!made.renameTo(dest)) { made.copyTo(dest, overwrite = true); made.delete() }
+                        val source = Source(id, name.replaceFirstChar { it.uppercase() }, "media/${dest.name}", r.sampleRate, 2, r.frames, Source.Kind.STEM, parentId = parent.id)
                         peaksFor(source)
                         val track = Track(Ids.next("t"), source.name)
                         sources += source; tracks += track
@@ -1284,9 +1288,8 @@ class EditorViewModel(private val app: StaveApplication, val projectId: String) 
     fun isolateVoice() {
         if (!app.stems.available) { _ui.value = _ui.value.copy(message = app.getString(com.layerbit.stave.R.string.music_stems_none)); return }
         applyOffline(app.getString(com.layerbit.stave.R.string.voice_isolate), OfflineTools.Transform { chs, rate ->
-            val r = kotlinx.coroutines.runBlocking { app.stems.separate(chs, rate) {} } ?: return@Transform chs
-            val vocals = r.stems["vocals"] ?: return@Transform chs
-            val back = if (r.sampleRate == rate) vocals else vocals.map { com.layerbit.stave.engine.dsp.Resampler(r.sampleRate, rate).convert(it) }
+            val r = kotlinx.coroutines.runBlocking { app.stems.separate(chs, rate, File(app.cacheDir, "work")) {} } ?: return@Transform chs
+            val back = try { r.read("vocals") } finally { r.files.values.forEach { it.delete() } } ?: return@Transform chs
             // The same channel count and length as what went in, so the range lands back exactly.
             val n = chs[0].size
             List(chs.size) { c -> val a = back.getOrElse(c) { back[0] }; if (a.size == n) a else FloatArray(n) { i -> a.getOrElse(i) { 0f } } }

@@ -24,6 +24,7 @@ object Registry {
         ExportChecks,
         ExportChainChecks,
         OutputCeilingChecks,
+        StemSeparatorChecks,
         SpectralEditChecks,
         EffectsChecks,
         PitchCorrectChecks,

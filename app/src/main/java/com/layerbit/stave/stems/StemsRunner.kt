@@ -1,9 +1,7 @@
 package com.layerbit.stave.stems
 
 import android.content.Context
-import com.layerbit.stave.engine.dsp.Fft
-import com.layerbit.stave.engine.dsp.Stft
-import com.layerbit.stave.engine.dsp.Windows
+import com.layerbit.stave.engine.dsp.StemSeparator
 import com.layerbit.stave.models.ModelStore
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ensureActive
@@ -12,8 +10,6 @@ import java.io.File
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import kotlin.coroutines.coroutineContext
-import kotlin.math.hypot
-import kotlin.math.max
 
 /**
  * Stem separation on the phone, unlimited, with nothing uploaded: Open-Unmix (UMX, MIT) as four
@@ -27,9 +23,9 @@ import kotlin.math.max
  * estimates (each stem's share of the energy per bin), so the four add back to the mix - which is
  * the check the phone runs: vocals + drums + bass + other − mix ≈ 0 (docs/PENDING_TESTS.md).
  *
- * The model files are loaded through LiteRT's Interpreter by reflection-free direct use; when
- * they are not on the phone the runner says so and nothing happens. Chunked over 6 s windows
- * with 1 s of overlap so a four-minute song fits a phone's memory.
+ * The model files are loaded through LiteRT's Interpreter, reached by name; when they are not on
+ * the phone the runner says so and nothing happens. [StemSeparator] does the rest a window at a
+ * time, so any length of song fits a phone's memory.
  */
 class StemsRunner(private val context: Context, private val models: ModelStore) {
 
@@ -45,98 +41,69 @@ class StemsRunner(private val context: Context, private val models: ModelStore) 
 
     private fun interpreterClassPresent(): Boolean = runCatching { Class.forName("org.tensorflow.lite.Interpreter") }.isSuccess
 
-    class Result(val stems: Map<String, List<FloatArray>>, val sampleRate: Int)
+    /** Each stem as a file of interleaved stereo floats at [sampleRate], [frames] long. */
+    class Result(val files: Map<String, File>, val sampleRate: Int, val frames: Long) {
+        /** One stem read back whole, planar: for a selection, never a whole song. */
+        fun read(name: String): List<FloatArray>? = files[name]?.let { com.layerbit.stave.files.RawAudio.readPlanar(it, 2, frames.toInt()) }
+    }
 
     /**
-     * [channels] (mono is doubled) at [sampleRate], which is resampled to 44.1 kHz for the models
-     * and back. [onProgress] 0..1. Null when the models are not here.
+     * [channels] (mono is doubled) at [sampleRate], brought to 44.1 kHz for the models and back,
+     * separated by [StemSeparator] (its checks hold the framing, the Wiener sum and the
+     * alignment) and written as it is made into [dir], a stem a file. [onProgress] 0..1. Null
+     * when the models are not here.
+     *
+     * The first runner held the whole song's complex spectrogram and four estimates (about a
+     * gigabyte for four minutes), fed the fixed-shape models a short last window they refuse, and
+     * applied each mask three hops from its own frame.
      */
-    suspend fun separate(channels: List<FloatArray>, sampleRate: Int, onProgress: (Float) -> Unit): Result? = withContext(Dispatchers.Default) {
+    suspend fun separate(channels: List<FloatArray>, sampleRate: Int, dir: File, onProgress: (Float) -> Unit): Result? = withContext(Dispatchers.Default) {
         val files = modelFiles() ?: return@withContext null
         val modelRate = 44_100
         val left = if (sampleRate == modelRate) channels[0] else com.layerbit.stave.engine.dsp.Resampler(sampleRate, modelRate).convert(channels[0])
         val right = if (channels.size > 1) (if (sampleRate == modelRate) channels[1] else com.layerbit.stave.engine.dsp.Resampler(sampleRate, modelRate).convert(channels[1])) else left
-        val n = left.size
-        val size = 4096; val hop = 1024
-        val stft = Stft(size, hop, Windows.hann(size))
-        val bins = stft.bins
-        // Complex spectrograms of both channels, kept for the Wiener filter.
-        val frames = stft.frameCount(n)
-        val reL = Array(frames) { FloatArray(bins) }; val imL = Array(frames) { FloatArray(bins) }
-        val reR = Array(frames) { FloatArray(bins) }; val imR = Array(frames) { FloatArray(bins) }
-        stft.analyze(left) { re, im, f -> if (f < frames) { re.copyInto(reL[f], 0, 0, bins); im.copyInto(imL[f], 0, 0, bins) } }
-        stft.analyze(right) { re, im, f -> if (f < frames) { re.copyInto(reR[f], 0, 0, bins); im.copyInto(imR[f], 0, 0, bins) } }
-        coroutineContext.ensureActive()
-        // Each model over windows of 256 frames (about 6 s) with 43 frames (1 s) of overlap.
-        val window = 256; val overlap = 43
-        val estimates = HashMap<String, Array<FloatArray>>()   // per stem: [frames][2*bins] magnitudes (L then R)
         val interpreterClass = Class.forName("org.tensorflow.lite.Interpreter")
-        var done = 0; val total = stemNames.size * max(1, (frames + window - overlap - 1) / (window - overlap))
-        for ((si, name) in stemNames.withIndex()) {
-            val estimate = Array(frames) { FloatArray(2 * bins) }
-            val weight = FloatArray(frames)
-            val interpreter = interpreterClass.getConstructor(File::class.java).newInstance(files[name]!!)
-            try {
-                val run = interpreterClass.getMethod("run", Any::class.java, Any::class.java)
-                var start = 0
-                while (start < frames) {
-                    coroutineContext.ensureActive()
-                    val end = minOf(frames, start + window)
-                    val t = end - start
-                    val input = ByteBuffer.allocateDirect(4 * t * 2 * bins).order(ByteOrder.nativeOrder())
-                    for (f in start until end) {
-                        for (k in 0 until bins) input.putFloat(hypot(reL[f][k], imL[f][k]))
-                        for (k in 0 until bins) input.putFloat(hypot(reR[f][k], imR[f][k]))
-                    }
-                    input.rewind()
-                    val output = ByteBuffer.allocateDirect(4 * t * 2 * bins).order(ByteOrder.nativeOrder())
-                    run.invoke(interpreter, input, output)
-                    output.rewind()
-                    for (f in start until end) {
-                        // A triangular weight over the window, so the overlap cross-fades the two estimates.
-                        val local = f - start
-                        val w = minOf(local + 1, t - local).toFloat().coerceAtMost(overlap.toFloat()) / overlap
-                        for (k in 0 until 2 * bins) estimate[f][k] += output.getFloat() * w
-                        weight[f] += w
-                    }
-                    done++; onProgress(done.toFloat() / total)
-                    if (end >= frames) break
-                    start = end - overlap
-                }
-            } finally { runCatching { interpreterClass.getMethod("close").invoke(interpreter) } }
-            for (f in 0 until frames) if (weight[f] > 0) for (k in 0 until 2 * bins) estimate[f][k] /= weight[f]
-            estimates[name] = estimate
-            @Suppress("UNUSED_VARIABLE") val unused = si
+        val run = interpreterClass.getMethod("run", Any::class.java, Any::class.java)
+        val interpreters = stemNames.map { interpreterClass.getConstructor(File::class.java).newInstance(files[it]!!) }
+        val floats = StemSeparator.WINDOW * 2 * StemSeparator.BINS
+        val input = ByteBuffer.allocateDirect(4 * floats).order(ByteOrder.nativeOrder())
+        val output = ByteBuffer.allocateDirect(4 * floats).order(ByteOrder.nativeOrder())
+        dir.mkdirs()
+        val outFiles = stemNames.associateWith { File(dir, "stem-$it-${System.nanoTime()}.f32") }
+        val streams = outFiles.mapValues { (_, f) -> java.io.BufferedOutputStream(java.io.FileOutputStream(f), 1 shl 16) }
+        val back = stemNames.associateWith { if (sampleRate == modelRate) null else com.layerbit.stave.engine.dsp.Resampler(modelRate, sampleRate).Stream(2) }
+        val written = HashMap<String, Long>()
+        fun write(name: String, inter: FloatArray) {
+            if (inter.isEmpty()) return
+            val bb = ByteBuffer.allocate(inter.size * 4).order(ByteOrder.LITTLE_ENDIAN)
+            bb.asFloatBuffer().put(inter); streams[name]!!.write(bb.array())
+            written[name] = (written[name] ?: 0L) + inter.size / 2
         }
-        // Wiener filter: each stem takes its share of the mixture's energy per bin, so the four sum to the mix.
-        val out = HashMap<String, List<FloatArray>>()
-        for (name in stemNames) {
-            val est = estimates[name]!!
-            val resyn = listOf(FloatArray(n), FloatArray(n))
-            for ((ch, pair) in listOf(reL to imL, reR to imR).withIndex()) {
-                val (reC, imC) = pair
-                val o = Stft(size, hop, Windows.hann(size)).process(if (ch == 0) left else right) { re, im, f ->
-                    if (f >= frames) return@process
-                    for (k in 0 until bins) {
-                        var total = 1e-9f
-                        for (other in stemNames) { val e = estimates[other]!![f][ch * bins + k]; total += e * e }
-                        val e = est[f][ch * bins + k]
-                        val share = e * e / total
-                        re[k] *= share; im[k] *= share
-                    }
-                    for (k in 1 until size / 2) { re[size - k] = re[k]; im[size - k] = -im[k] }
-                    @Suppress("UNUSED_VARIABLE") val unusedC = reC.size + imC.size
-                }
-                o.copyInto(resyn[ch], 0, 0, minOf(o.size, n))
-            }
-            out[name] = if (sampleRate == modelRate) resyn else resyn.map { com.layerbit.stave.engine.dsp.Resampler(modelRate, sampleRate).convert(it) }
+        val job = coroutineContext
+        try {
+            StemSeparator(stemNames.size) { stem, _, inArr, outArr ->
+                job.ensureActive()
+                input.clear(); input.asFloatBuffer().put(inArr); input.rewind()
+                output.clear()
+                run.invoke(interpreters[stem], input, output)
+                output.rewind(); output.asFloatBuffer().get(outArr)
+            }.run(left, right, { stem, l, r, count ->
+                val name = stemNames[stem]
+                val inter = FloatArray(count * 2) { i -> if (i % 2 == 0) l[i / 2] else r[i / 2] }
+                write(name, back[name]?.push(inter) ?: inter)
+            }, onProgress)
+            for (name in stemNames) back[name]?.let { write(name, it.finish()) }
+        } catch (e: Throwable) {
+            outFiles.values.forEach { it.delete() }; throw e
+        } finally {
+            streams.values.forEach { runCatching { it.close() } }
+            interpreters.forEach { runCatching { interpreterClass.getMethod("close").invoke(it) } }
         }
-        Result(out, sampleRate)
+        Result(outFiles, sampleRate, written.values.minOrNull() ?: 0L)
     }
 
     companion object {
         /** Spectrogram arithmetic the phone and the converter share: frames for a length. */
-        fun framesFor(samples: Int, hop: Int = 1024): Int = if (samples <= 0) 0 else (samples + hop - 1) / hop
-        @Suppress("unused") private val fftWarm = Fft.of(4096)
+        fun framesFor(samples: Int): Int = StemSeparator.framesFor(samples)
     }
 }
