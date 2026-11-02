@@ -137,6 +137,51 @@ void Limiter::process(float* buf, int frames) {
     }
 }
 
+void OutputCeiling::configure(int rate, int ch) {
+    window = std::max(1, rate / 1000);
+    channels = ch;
+    release = timeConstant(60.0f, rate);
+    delay.assign((size_t) window * channels, 0.0f);
+    needs.assign((size_t) window, 1.0f);
+    reset();
+}
+
+void OutputCeiling::reset() {
+    std::fill(delay.begin(), delay.end(), 0.0f);
+    std::fill(needs.begin(), needs.end(), 1.0f);
+    at = 0; gain = 1.0f; sinceOver = INT32_MAX;
+}
+
+void OutputCeiling::process(float* buf, int frames) {
+    const int w = window;
+    for (int f = 0; f < frames; f++) {
+        float peak = 0;
+        for (int c = 0; c < channels; c++) { float a = std::fabs(buf[f * channels + c]); if (a > peak) peak = a; }
+        float need = peak > ceiling ? ceiling / peak : 1.0f;
+        // Frame n - w leaves through slot [at] as frame n takes it.
+        float target = needs[at];
+        needs[at] = need;
+        if (need < 1.0f) sinceOver = 0; else if (sinceOver != INT32_MAX) sinceOver++;
+        if (sinceOver <= w) {
+            // Frame n - w + j sits in slot (at + j) % w; a line from here reaches its need in j frames.
+            for (int j = 1; j <= w; j++) {
+                float n = needs[(at + j) % w];
+                if (n < 1.0f) { float line = 1.0f - (1.0f - n) * (float) (w - j) / (float) w; if (line < target) target = line; }
+            }
+        }
+        gain = target < gain ? target : gain + release * (target - gain);
+        if (gain > 1.0f - 1e-4f) gain = 1.0f;
+        for (int c = 0; c < channels; c++) {
+            float y = delay[(size_t) at * channels + c];
+            delay[(size_t) at * channels + c] = buf[f * channels + c];
+            float o = gain == 1.0f ? y : y * gain;
+            if (o > ceiling) o = ceiling; else if (o < -ceiling) o = -ceiling;
+            buf[f * channels + c] = o;
+        }
+        at = (at + 1) % w;
+    }
+}
+
 void Gate::configure(float threshold, float range, float attackMs, float releaseMs, float holdMs, int rate) {
     thresholdDb = threshold; rangeDb = range;
     open = timeConstant(attackMs, rate); close = timeConstant(releaseMs, rate);

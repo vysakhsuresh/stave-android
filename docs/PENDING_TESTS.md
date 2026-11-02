@@ -131,3 +131,6 @@ back into the roadmap with what broke.
     November evening). Then Ready the mic on the Voice tab, Hear myself on headphones: the voice
     comes back quickly (the low-latency path), and after closing the mic a play is the normal path
     again (`StaveGraph: output ... normal` in logcat).
+100. Kalimba (decoded peaks 1.086) on the speaker and on headphones: loud hits sound clean, not
+    crunchy; measured: the capture never exceeds 0.999, and the Ramayana song is bit-exact 48 frames
+    late. Import a 44.1 kHz MP3: plays at the right pitch and length (Kalimba: 16,706,664 frames).

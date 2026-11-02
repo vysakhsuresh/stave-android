@@ -133,6 +133,8 @@ private:
     // play went the low-latency way, and the owner heard the song grainy beside Poweramp with
     // the samples handed over bit-exact.
     bool lowLatencyOutput = false;
+    // The live output's last stage (Dsp.h); configured when the stream opens, emptied at a pause or a jump.
+    OutputCeiling ceiling;
     std::mutex streamLock;
 
     std::atomic<Snapshot*> current{nullptr};

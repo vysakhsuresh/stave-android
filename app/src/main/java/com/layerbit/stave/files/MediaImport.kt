@@ -78,20 +78,55 @@ class MediaImport(private val context: Context) {
             try {
                 val info = AvNative.decInfo(h)
                 val watcher = kotlinx.coroutines.CoroutineScope(coroutineContext).launch(Dispatchers.Default) {
-                    while (true) { onProgress(AvNative.decProgress(h) / 1000f); kotlinx.coroutines.delay(120) }
+                    while (true) { onProgress(AvNative.decProgress(h) / 1000f * if (sampleRate > 0 && sampleRate != info[0].toInt()) 0.7f else 1f); kotlinx.coroutines.delay(120) }
                 }
-                val frames = try {
-                    AvNative.decRun(h, out.path, sampleRate, 0)
+                // Decoded at the file's own rate, then brought to the project's by the app's own
+                // converter (Resampler: -112 dB against an ideal, measured), not by FFmpeg's
+                // default resampler, which nothing here had measured.
+                val native = File(out.parentFile, "${id}.native.f32")
+                val decoded = try {
+                    AvNative.decRun(h, native.path, 0, 0)
                 } finally { watcher.cancel() }
                 coroutineContext.ensureActive()
-                if (frames <= 0) { out.delete(); throw ImportFailed(if (frames == -2L) "Cancelled." else "$name could not be decoded all the way through.") }
-                val rate = AvNative.decOutRate(h).takeIf { r -> r > 0 } ?: info[0].toInt()
+                if (decoded <= 0) { native.delete(); throw ImportFailed(if (decoded == -2L) "Cancelled." else "$name could not be decoded all the way through.") }
+                val fileRate = AvNative.decOutRate(h).takeIf { r -> r > 0 } ?: info[0].toInt()
                 val channels = AvNative.decOutChannels(h).takeIf { c -> c > 0 } ?: info[1].toInt()
+                val rate = if (sampleRate > 0) sampleRate else fileRate
+                val frames = try {
+                    if (rate == fileRate) { if (!native.renameTo(out)) { native.copyTo(out, overwrite = true) }; decoded }
+                    else convertRate(native, out, channels, fileRate, rate, decoded) { p -> onProgress(0.7f + 0.3f * p) }
+                } finally { native.delete() }
+                coroutineContext.ensureActive()
                 Source(id = id, name = com.layerbit.stave.engine.project.Names.fromFile(name), file = "media/${out.name}", sampleRate = rate, channels = channels, frames = frames, kind = Source.Kind.AUDIO, origin = name)
             } catch (e: Throwable) {
                 AvNative.decCancel(h); out.delete(); throw e
             } finally { AvNative.decClose(h) }
         }
+    }
+
+    /** [from] (interleaved float at [inRate]) streamed through the Resampler into [to] at [outRate]; returns frames written. */
+    private suspend fun convertRate(from: File, to: File, channels: Int, inRate: Int, outRate: Int, frames: Long, onProgress: (Float) -> Unit): Long {
+        val stream = com.layerbit.stave.engine.dsp.Resampler(inRate, outRate).Stream(channels)
+        val block = 65_536
+        var written = 0L
+        to.outputStream().buffered(1 shl 16).use { out ->
+            fun put(x: FloatArray) {
+                if (x.isEmpty()) return
+                val bb = java.nio.ByteBuffer.allocate(x.size * 4).order(java.nio.ByteOrder.LITTLE_ENDIAN)
+                bb.asFloatBuffer().put(x); out.write(bb.array()); written += x.size / channels
+            }
+            var at = 0L
+            while (at < frames) {
+                coroutineContext.ensureActive()
+                val chunk = RawAudio.read(from, channels, at, minOf(block.toLong(), frames - at).toInt())
+                if (chunk.isEmpty()) break
+                put(stream.push(chunk))
+                at += chunk.size / channels
+                onProgress(at.toFloat() / frames)
+            }
+            put(stream.finish())
+        }
+        return written
     }
 
     /** A take's WAV copied into media/ as a Source (the header skipped). */

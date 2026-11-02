@@ -80,6 +80,17 @@ struct Limiter {
     void process(float* interleaved, int frames);
 };
 
+// The last thing before the speaker: every sample at or under [ceiling], and otherwise bit-exact
+// a millisecond late. engine/dsp/OutputCeiling.kt is the reference, line for line, and says why.
+struct OutputCeiling {
+    float ceiling = 0.999f, release = 0.0f, gain = 1.0f;
+    int window = 48, channels = 2, at = 0, sinceOver = INT32_MAX;
+    std::vector<float> delay, needs;
+    void configure(int rate, int channels);
+    void reset();
+    void process(float* interleaved, int frames);
+};
+
 struct Gate {
     float thresholdDb = -45, rangeDb = 80, ratio = 10, hysteresisDb = 4;
     float open = 0, close = 0, gain = 0;

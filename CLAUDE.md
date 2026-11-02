@@ -160,7 +160,7 @@ before writing the fix.
   80 bytes of dd statistics exec-out appends), and diff with `od -tf4` and awk. On 1 November
   12.4 s of a song came back bit-exact. The owner had heard "terrible" sound: Play was looping
   a selection an accidental drag had made. Since 2 November Play ramps up over its first 256 frames
-  and Pause down over 256 (Engine.h), so compare from frame 256 and stop 256 short of the end.
+  and Pause down over 256 (Engine.h), so compare from frame 256 and stop 256 short of the end. Since the evening of 2 November the live output passes an OutputCeiling (Dsp.h) a millisecond long: compare capture frame i + 48 (at 48 kHz) with source frame i. A song with no sample over 0.999 is then bit-exact; one decoded over full scale is eased under it around each over.
 - **Driving the phone**: `uiautomator dump` text matches are substrings unless anchored ("320"
   matched a sentence before the chip); a sheet's own buttons share names with the chip row
   ("Export"), so tap by position after checking the dump; a swipe starting below a sheet's
@@ -205,3 +205,18 @@ before writing the fix.
 
 All work lands on `main` and is pushed when the suites pass. Commit messages say why. No model
 names in commits, code or docs. `docs/ROADMAP.md` is ticked honestly: built-not-seen is not done.
+
+## Things the second evening taught (2 November), for the next stranger
+
+- **"Grainy" with bit-exact samples is the path, not the samples.** A low-latency output stream
+  lands as a FAST track, which on the moto skips the effects Motorola attaches to a music
+  session (Mot Speaker Helper, Dolby Music Listener): `dumpsys media.audio_flinger` shows them on
+  a normal track and not on a fast one. Plain playback is `PerformanceMode::None`; only an open
+  mic takes the low-latency path. The play-head is drawn the output latency behind the render.
+- **The phone's output is 16-bit and clips at 1.0.** MP3s decode over full scale (Kalimba at
+  1.086). The live output's last stage keeps every sample at or under 0.999 and is bit-exact
+  below it (OutputCeiling, Kotlin reference with checks, C++ twin).
+- **Import converts the rate with the app's own Resampler**, not FFmpeg's default swr: the two
+  differ by -71 dB on a real song, and ours is measured at -112 dB against an ideal.
+- **An offline render reports the state from before it** (`offlineActive`): the screen polls the
+  engine, and followed Read the song's render to the end of the song.

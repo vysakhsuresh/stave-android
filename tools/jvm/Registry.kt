@@ -23,6 +23,7 @@ object Registry {
         SessionEditsChecks,
         ExportChecks,
         ExportChainChecks,
+        OutputCeilingChecks,
         SpectralEditChecks,
         EffectsChecks,
         PitchCorrectChecks,

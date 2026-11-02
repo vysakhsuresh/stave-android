@@ -92,6 +92,7 @@ bool Engine::start() {
     }
     rate = out->getSampleRate();
     burst = out->getFramesPerBurst();
+    ceiling.configure(rate, 2);
     if (lowLatencyOutput) {
         // "Safer" in Settings starts at four bursts; either way the tuner grows it on an underrun.
         out->setBufferSizeInFrames(burst * (safeLatency ? 4 : 2));
@@ -472,6 +473,8 @@ oboe::DataCallbackResult Engine::onAudioReady(oboe::AudioStream* stream, void* a
         processBlock(outBuf + done * 2, n);
         done += n;
     }
+    // Over full scale the phone's 16-bit output would clip: kept under it here, bit-exact below it.
+    ceiling.process(outBuf, numFrames);
     int ramp = std::min(numFrames, FADE_FRAMES);
     bool endedHere = wasPlaying && !playing.load() && !stopping;   // a selection or the song ran out
     if (stopping || jump >= 0 || endedHere) {
@@ -485,6 +488,8 @@ oboe::DataCallbackResult Engine::onAudioReady(oboe::AudioStream* stream, void* a
         }
         if (stopping) playing = false;
         if (jump >= 0) { position.store(jump); if (!stopping) fadeInNext = true; }
+        // What the ceiling still holds is from before the pause or the jump; it is not to be heard after it.
+        if (stopping || jump >= 0) ceiling.reset();
     } else if (rampUp) {
         for (int f = 0; f < ramp; f++) { float g = (float) (f + 1) / ramp; outBuf[f * 2] *= g; outBuf[f * 2 + 1] *= g; }
     }
