@@ -1,6 +1,11 @@
 package com.layerbit.stave.ui.music
 
 import androidx.compose.foundation.layout.Arrangement
+import com.layerbit.stave.ui.components.ChipShape
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.draw.clip
+import androidx.compose.runtime.remember
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
@@ -53,17 +58,31 @@ fun AnalysisCard(vm: EditorViewModel, ui: EditorViewModel.Ui) {
                 LabelledValue(stringResource(R.string.music_key), a.key ?: "—", Modifier.weight(1f))
             }
             Text(stringResource(R.string.music_confidence, (a.confidence * 100).toInt()), style = MaterialTheme.typography.bodySmall, color = StaveColors.Dim, modifier = Modifier.padding(top = 4.dp))
-            if (a.chords.isNotEmpty()) {
+            if (a.chords.any { it.pitches.isNotEmpty() }) {
                 SectionHeading(stringResource(R.string.music_chords), modifier = Modifier.padding(top = 10.dp))
+                // As a chord sheet writes them: a chord holds until the next, so "no chord" between two
+                // is left out (on a kalimba piece it was every other chip) and a chord either side of
+                // one gap is one chip. A tap puts the play-head on that chord.
+                val sheet = remember(a.chords) {
+                    a.chords.filter { it.pitches.isNotEmpty() }.fold(ArrayList<EditorViewModel.ChordShown>()) { out, c ->
+                        if (out.lastOrNull()?.name == c.name) out[out.size - 1] = out.last().copy(endMs = c.endMs) else out.add(c)
+                        out
+                    }
+                }
+                val now = ui.window.playhead * 1000 / ui.session.sampleRate
+                val rate = ui.session.sampleRate
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.padding(top = 6.dp)) {
-                    for (c in a.chords.take(64)) {
-                        val under = ui.window.playhead * 1000 / ui.session.sampleRate in c.startMs until c.endMs
-                        Pill("${c.name} · ${Timecode.display(c.startMs)}", if (under) StaveColors.Band else StaveColors.Muted, filled = under)
+                    for ((i, c) in sheet.take(96).withIndex()) {
+                        val until = sheet.getOrNull(i + 1)?.startMs ?: c.endMs
+                        val under = now in c.startMs until until
+                        Pill(
+                            "${c.name} · ${Timecode.display(c.startMs)}", if (under) StaveColors.Band else StaveColors.Muted, filled = under,
+                            modifier = Modifier.clip(ChipShape).clickable(role = Role.Button) { vm.seek(c.startMs * rate / 1000) }
+                        )
                     }
                 }
                 // The chord under the play-head as a guitar shape, when the engine knows one.
-                val now = ui.window.playhead * 1000 / ui.session.sampleRate
-                val current = a.chords.lastOrNull { it.startMs <= now } ?: a.chords.first()
+                val current = sheet.lastOrNull { it.startMs <= now } ?: sheet.firstOrNull() ?: a.chords.first()
                 current.shape?.let { shape ->
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.padding(top = 10.dp)) {
                         ChordDiagram(shape, Modifier.size(width = 84.dp, height = 96.dp))
