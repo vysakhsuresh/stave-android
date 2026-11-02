@@ -89,7 +89,9 @@ fun EditorRoute(projectId: String, startTool: String?, onBack: () -> Unit, onAdd
     val context = LocalContext.current
     val app = context.applicationContext as StaveApplication
     val vm: EditorViewModel = viewModel(key = projectId, factory = viewModelFactory { initializer { EditorViewModel(app, projectId) } })
-    LaunchedEffect(startTool) { startTool?.let { EditorTab.entries.firstOrNull { t -> t.id == it } }?.let(vm::setTab) }
+    // Home's Record and the launcher shortcut ask for "record", which is no tab: it opened on Edit,
+    // an empty strip and no Record button in sight. Recording is on the Voice tab.
+    LaunchedEffect(startTool) { (if (startTool == "record") EditorTab.VOICE else startTool?.let { EditorTab.entries.firstOrNull { t -> t.id == it } })?.let(vm::setTab) }
     EditorScreen(vm, onBack = { vm.saveNow(); onBack() }, onAddSounds = onAddSounds)
 }
 
@@ -168,6 +170,19 @@ fun EditorScreen(vm: EditorViewModel, onBack: () -> Unit, onAddSounds: () -> Uni
                 }
             }
             if (!ui.loaded) Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator(color = StaveColors.Band) }
+            else if (ui.busy == null && ui.session.clips.isEmpty() && ui.session.patterns.isEmpty()) {
+                // An empty project was a blank strip with nothing to say what to do first.
+                // On its own card: the play-head line ran straight through the words.
+                Box(Modifier.fillMaxSize().padding(24.dp), contentAlignment = Alignment.Center) {
+                Column(Modifier.clip(PanelShape).background(StaveColors.Surface).border(1.dp, StaveColors.Border, PanelShape).padding(horizontal = 20.dp, vertical = 16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(stringResource(R.string.editor_empty_title), style = MaterialTheme.typography.titleMedium, color = StaveColors.Text, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+                    Text(
+                        stringResource(if (ui.tab == EditorTab.VOICE) R.string.editor_empty_voice else R.string.editor_empty_hint),
+                        style = MaterialTheme.typography.bodyMedium, color = StaveColors.Muted, textAlign = androidx.compose.ui.text.style.TextAlign.Center, modifier = Modifier.padding(top = 6.dp)
+                    )
+                }
+                }
+            }
         }
         TransportBar(vm, ui, transport.playing)
         AnimatedContent(targetState = ui.tab, label = "tab") { tab ->
