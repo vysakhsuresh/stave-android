@@ -31,7 +31,7 @@ fun GuideScreen(modifier: Modifier = Modifier) {
     val sections = listOf(
         Triple(R.drawable.ic_folder, R.string.guide_open_title, R.string.guide_open_body),
         Triple(R.drawable.ic_wave, R.string.guide_edit_title, R.string.guide_edit_body),
-        Triple(R.drawable.ic_wave, R.string.guide_repair_title, R.string.guide_repair_body),
+        Triple(R.drawable.ic_sparkle, R.string.guide_repair_title, R.string.guide_repair_body),
         Triple(R.drawable.ic_mic, R.string.guide_voice_title, R.string.guide_voice_body),
         Triple(R.drawable.ic_studio, R.string.guide_studio_title, R.string.guide_studio_body),
         Triple(R.drawable.ic_stems, R.string.guide_music_title, R.string.guide_music_body),

@@ -27,7 +27,7 @@ import org.robolectric.annotation.GraphicsMode
  */
 @RunWith(RobolectricTestRunner::class)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
-@Config(sdk = [35], qualifiers = "w411dp-h913dp-xxhdpi", application = android.app.Application::class)
+@Config(sdk = [35], qualifiers = "w411dp-h913dp-xxhdpi")
 class ScreensRender {
     @get:Rule val compose = createComposeRule()
 
@@ -47,6 +47,20 @@ class ScreensRender {
 
     @Test fun homeDark() = shot("home", ThemeChoice.DARK) { home() }
     @Test fun homeLight() = shot("home", ThemeChoice.LIGHT) { home() }
+
+    // The long pages on a tall canvas, so the whole page is seen at once.
+    @Test @Config(qualifiers = "w411dp-h2400dp-xxhdpi") fun settingsDark() = shot("settings", ThemeChoice.DARK) { settings() }
+    @Test @Config(qualifiers = "w411dp-h2400dp-xxhdpi") fun settingsLight() = shot("settings", ThemeChoice.LIGHT) { settings() }
+    @Test @Config(qualifiers = "w411dp-h2400dp-xxhdpi") fun guideDark() = shot("guide", ThemeChoice.DARK) { com.layerbit.stave.ui.pages.GuideScreen() }
+    @Test fun aboutDark() = shot("about", ThemeChoice.DARK) { com.layerbit.stave.ui.about.AboutScreen() }
+    @Test fun contactDark() = shot("contact", ThemeChoice.DARK) { com.layerbit.stave.ui.pages.ContactScreen() }
+    @Test fun aboutLight() = shot("about", ThemeChoice.LIGHT) { com.layerbit.stave.ui.about.AboutScreen() }
+    @Test @Config(qualifiers = "w411dp-h2400dp-xxhdpi") fun libraryDark() = shot("library", ThemeChoice.DARK) { com.layerbit.stave.ui.library.LibraryScreen() }
+
+    @Composable private fun settings() = com.layerbit.stave.ui.settings.SettingsScreen(
+        settings = com.layerbit.stave.prefs.Settings(), projectBytes = 312_000_000, scratchBytes = 48_000_000, projectCount = 4,
+        onChange = {}, onClearScratch = {}
+    )
 
     @Composable private fun home() = HomeScreen(
         projects = projects, onOpenSounds = {}, onRecord = {}, onNewSession = {}, onOpenProject = {},

@@ -50,10 +50,11 @@ fun AboutScreen(onGuide: () -> Unit = {}, onContact: () -> Unit = {}, modifier: 
                         Image(painterResource(R.drawable.ic_launcher_foreground), contentDescription = null, modifier = Modifier.requiredSize(96.dp))
                     }
                     Column(Modifier.padding(start = 4.dp)) {
+                        // The flavour suffix ("-full") is for the report template, not for the person reading.
                         Text(stringResource(R.string.app_name), style = MaterialTheme.typography.headlineMedium, color = StaveColors.Text)
-                        Text(stringResource(R.string.about_version, BuildConfig.VERSION_NAME), style = MaterialTheme.typography.bodySmall, color = StaveColors.Dim)
+                        Text(stringResource(R.string.about_version, BuildConfig.VERSION_NAME.substringBefore('-')), style = MaterialTheme.typography.bodySmall, color = StaveColors.Dim)
                         Row(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.padding(top = 6.dp)) {
-                            Pill(stringResource(R.string.app_pill_free), StaveColors.Good)
+                            Pill(stringResource(R.string.app_pill_free), StaveColors.Band)
                             Pill(stringResource(R.string.app_pill_no_internet), StaveColors.Band)
                         }
                     }
@@ -67,7 +68,7 @@ fun AboutScreen(onGuide: () -> Unit = {}, onContact: () -> Unit = {}, modifier: 
                     SecondaryButton(stringResource(R.string.guide_title), iconRes = R.drawable.ic_guide, onClick = onGuide, modifier = Modifier.fillMaxWidth(), tall = false)
                     SecondaryButton(stringResource(R.string.contact_title), iconRes = R.drawable.ic_contact, onClick = onContact, modifier = Modifier.fillMaxWidth(), tall = false)
                     SecondaryButton(stringResource(R.string.contact_source), iconRes = R.drawable.ic_github, onClick = { BrandLinks.openUrl(context, BrandLinks.SOURCE_URL) }, modifier = Modifier.fillMaxWidth(), tall = false)
-                    SecondaryButton(stringResource(R.string.about_licences), onClick = { BrandLinks.openUrl(context, BrandLinks.SOURCE_URL + "/blob/main/THIRD_PARTY_NOTICES.md") }, modifier = Modifier.fillMaxWidth(), tall = false)
+                    SecondaryButton(stringResource(R.string.about_licences), iconRes = R.drawable.ic_doc, onClick = { BrandLinks.openUrl(context, BrandLinks.SOURCE_URL + "/blob/main/THIRD_PARTY_NOTICES.md") }, modifier = Modifier.fillMaxWidth(), tall = false)
                 }
             }
             item { Text(stringResource(R.string.about_family), style = MaterialTheme.typography.bodySmall, color = StaveColors.Dim, modifier = Modifier.padding(top = 8.dp)) }
