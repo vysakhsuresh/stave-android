@@ -118,3 +118,6 @@ back into the roadmap with what broke.
     Mute and unmute the drums in "Night drive" while it plays: no click. Tap far along the
     ruler while playing: the jump is a quick dip, not a crack. The debug capture after a play
     from the start matches the decoded source from frame 256 on (the ramp before it).
+96. Cold start on the release build, before and after this build (`am start -W` three times
+    after `am force-stop`, read TotalTime): the app's own baseline profile should take
+    noticeable time off the first launch and the first scroll of Home.
