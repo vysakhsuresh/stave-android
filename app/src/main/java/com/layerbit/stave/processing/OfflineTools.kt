@@ -247,8 +247,8 @@ object OfflineTools {
     fun readSource(files: ProjectFiles, source: Source, maxFrames: Int = Int.MAX_VALUE): List<FloatArray> {
         val file = files.sourceFile(source.file)
         val frames = minOf(source.frames, maxFrames.toLong()).toInt()
-        val inter = RawAudio.read(file, source.channels, 0, frames)
-        return deinterleave(inter, source.channels)
+        // Planar straight from the mapping: the interleaved copy beside it held the song twice.
+        return RawAudio.readPlanar(file, source.channels, frames)
     }
 }
 

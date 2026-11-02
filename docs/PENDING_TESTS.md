@@ -121,3 +121,8 @@ back into the roadmap with what broke.
 96. Cold start on the release build, before and after this build (`am start -W` three times
     after `am force-stop`, read TotalTime): the app's own baseline profile should take
     noticeable time off the first launch and the first scroll of Home.
+97. Convert (Home → the arrows): a 30-minute WAV to MP3 completes without running out of
+    memory, and the MP3 is the same length.
+98. The laptop renders have been seen; the phone has not: Home (cards, pills), the editor's
+    sheets (Edit grid, Spectral, EQ labels, Markers rows), Studio's strip toggles, Settings at
+    the phone's own font size and at the largest. Re-take the store screenshots 1-12 after.

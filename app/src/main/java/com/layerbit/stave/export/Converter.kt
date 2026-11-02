@@ -36,15 +36,27 @@ class Converter(private val context: Context, private val media: MediaImport, pr
                     val session = Session(name = source.name, sampleRate = source.sampleRate)
                     val result = exporter.export(session, files, settings.copy(title = settings.title.ifBlank { source.name }), source.name, render = { target ->
                         // The exporter wants interleaved stereo at the session's rate: a mono file is doubled, more than two channels are folded to two.
-                        val frames = source.frames.toInt()
-                        val inter = RawAudio.read(raw, source.channels, 0, frames)
-                        val stereo = when (source.channels) {
-                            2 -> inter
-                            1 -> FloatArray(frames * 2) { inter[it / 2] }
-                            else -> FloatArray(frames * 2) { k -> val f = k / 2; val c = k % 2; var sum = 0f; var n = 0; for (ch in c until source.channels step 2) { sum += inter[f * source.channels + ch]; n++ }; if (n == 0) 0f else sum / n }
+                        // In blocks: the whole file as floats was an hour of podcast in memory, twice.
+                        val frames = source.frames
+                        val chs = source.channels
+                        val block = 65_536
+                        target.delete()
+                        var at = 0L
+                        while (at < frames) {
+                            val n = minOf(block.toLong(), frames - at).toInt()
+                            val inter = RawAudio.read(raw, chs, at, n)
+                            val got = inter.size / chs
+                            val stereo = when (chs) {
+                                2 -> inter
+                                1 -> FloatArray(got * 2) { inter[it / 2] }
+                                else -> FloatArray(got * 2) { k -> val f = k / 2; val c = k % 2; var sum = 0f; var m = 0; for (ch in c until chs step 2) { sum += inter[f * chs + ch]; m++ }; if (m == 0) 0f else sum / m }
+                            }
+                            RawAudio.write(target, stereo, append = true)
+                            at += got
+                            if (got < n) break
                         }
-                        RawAudio.write(target, stereo)
-                        frames.toLong()
+                        // What was written, which the exporter reads back frame for frame.
+                        at
                     }, onProgress = { p, label -> onProgress(i, 0.5f + p * 0.5f, label) })
                     out += Outcome(name, result, null)
                     raw.delete()
