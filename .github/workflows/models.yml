@@ -20,12 +20,9 @@ jobs:
         with:
           python-version: "3.11"
       - name: Install the converter
-        run: |
-          pip install -r tools/models/requirements-umx.txt
-          # ai-edge-torch pins torch; openunmix pulls the newest torchaudio, which then will not
-          # load against it. The torchaudio built for that torch, from PyTorch's CPU index.
-          V=$(python -c "import torch; print(torch.__version__.split('+')[0])")
-          pip install --force-reinstall --no-deps "torchaudio==$V" --index-url https://download.pytorch.org/whl/cpu
+        # torch and torchaudio pinned as a pair (requirements-umx.txt): unpinned, the converter
+        # took a torch no torchaudio was built for, and openunmix needs torchaudio.
+        run: pip install -r tools/models/requirements-umx.txt --extra-index-url https://download.pytorch.org/whl/cpu
       - name: Convert and check against PyTorch
         run: python tools/models/umx_to_tflite.py out
       - uses: actions/upload-artifact@v4

@@ -31,9 +31,12 @@ import org.robolectric.annotation.GraphicsMode
 class ScreensRender {
     @get:Rule val compose = createComposeRule()
 
-    private fun shot(name: String, theme: ThemeChoice, content: @Composable () -> Unit) {
+    private fun shot(name: String, theme: ThemeChoice, rtl: Boolean = false, content: @Composable () -> Unit) {
         compose.setContent {
-            StaveTheme(theme) { Box(Modifier.fillMaxSize().background(StaveColors.Background)) { content() } }
+            // Robolectric's ldrtl qualifier does not reach Compose's layout direction; it is set here.
+            androidx.compose.runtime.CompositionLocalProvider(androidx.compose.ui.platform.LocalLayoutDirection provides if (rtl) androidx.compose.ui.unit.LayoutDirection.Rtl else androidx.compose.ui.unit.LayoutDirection.Ltr) {
+                StaveTheme(theme) { Box(Modifier.fillMaxSize().background(StaveColors.Background)) { content() } }
+            }
         }
         compose.onRoot().captureRoboImage("build/outputs/roborazzi/$name-${theme.name.lowercase()}.png")
     }
@@ -49,6 +52,9 @@ class ScreensRender {
     @Test fun homeLight() = shot("home", ThemeChoice.LIGHT) { home() }
     // At the font size a person with weaker sight sets: nothing may clip or overlap.
     @Test @Config(fontScale = 1.3f) fun homeLargeText() = shot("home-large-text", ThemeChoice.DARK) { home() }
+    // Right to left, as Arabic and Urdu phones lay a screen out: rows mirror, nothing overlaps.
+    @Test @Config(qualifiers = "ldrtl-w411dp-h913dp-xxhdpi") fun homeRtl() = shot("home-rtl", ThemeChoice.DARK, rtl = true) { home() }
+    @Test @Config(qualifiers = "ldrtl-w411dp-h2400dp-xxhdpi") fun settingsRtl() = shot("settings-rtl", ThemeChoice.DARK, rtl = true) { settings() }
     @Test @Config(fontScale = 1.3f) fun contactLargeText() = shot("contact-large-text", ThemeChoice.DARK) { com.layerbit.stave.ui.pages.ContactScreen() }
 
     // The long pages on a tall canvas, so the whole page is seen at once.

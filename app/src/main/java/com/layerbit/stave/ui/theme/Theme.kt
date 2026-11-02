@@ -14,6 +14,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.ExperimentalTextApi
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.style.TextDirection
 import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontVariation
@@ -123,25 +124,30 @@ val FiraCode = FontFamily(
     Font(R.font.fira_code_variable, FontWeight.SemiBold, variationSettings = FontVariation.Settings(FontVariation.weight(600)))
 )
 
+// Every paragraph takes its direction from its own first letters: on a right-to-left phone an
+// English sentence was set right to left, its full stop at the front (".Every sound tool") and its
+// count after the word ("projects 4"); an Arabic project name still reads right to left.
+private val ByContent = TextDirection.Content
+
 /** A measured number in a pill or beside a label. */
-val Numerals = TextStyle(fontFamily = FiraCode, fontSize = 12.sp, fontWeight = FontWeight.Medium, letterSpacing = 0.sp)
+val Numerals = TextStyle(textDirection = ByContent, fontFamily = FiraCode, fontSize = 12.sp, fontWeight = FontWeight.Medium, letterSpacing = 0.sp)
 /** The big clock over the waveform. */
-val Clock = TextStyle(fontFamily = FiraCode, fontSize = 22.sp, fontWeight = FontWeight.SemiBold, letterSpacing = 0.sp)
+val Clock = TextStyle(textDirection = ByContent, fontFamily = FiraCode, fontSize = 22.sp, fontWeight = FontWeight.SemiBold, letterSpacing = 0.sp)
 /** A meter's scale. */
-val Scale = TextStyle(fontFamily = FiraCode, fontSize = 9.sp, fontWeight = FontWeight.Medium, letterSpacing = 0.sp)
+val Scale = TextStyle(textDirection = ByContent, fontFamily = FiraCode, fontSize = 9.sp, fontWeight = FontWeight.Medium, letterSpacing = 0.sp)
 
 private val StaveTypography = Typography(
-    displayLarge = TextStyle(fontFamily = SpaceGrotesk, fontSize = 52.sp, fontWeight = FontWeight.Bold, letterSpacing = (-2.0).sp, lineHeight = 54.sp),
-    displayMedium = TextStyle(fontFamily = SpaceGrotesk, fontSize = 42.sp, fontWeight = FontWeight.Bold, letterSpacing = (-1.5).sp, lineHeight = 46.sp),
-    headlineMedium = TextStyle(fontFamily = SpaceGrotesk, fontSize = 32.sp, fontWeight = FontWeight.Bold, letterSpacing = (-0.8).sp, lineHeight = 36.sp),
-    headlineSmall = TextStyle(fontFamily = SpaceGrotesk, fontSize = 26.sp, fontWeight = FontWeight.Bold, letterSpacing = (-0.5).sp, lineHeight = 30.sp),
-    titleLarge = TextStyle(fontFamily = SpaceGrotesk, fontSize = 22.sp, fontWeight = FontWeight.Bold, letterSpacing = (-0.3).sp),
-    titleMedium = TextStyle(fontFamily = SpaceGrotesk, fontSize = 16.sp, fontWeight = FontWeight.SemiBold),
-    bodyLarge = TextStyle(fontFamily = SpaceGrotesk, fontSize = 15.sp, fontWeight = FontWeight.Normal),
-    bodyMedium = TextStyle(fontFamily = SpaceGrotesk, fontSize = 13.5.sp, fontWeight = FontWeight.Normal),
-    bodySmall = TextStyle(fontFamily = SpaceGrotesk, fontSize = 12.5.sp, fontWeight = FontWeight.Normal),
-    labelMedium = TextStyle(fontFamily = SpaceGrotesk, fontSize = 12.sp, fontWeight = FontWeight.Medium),
-    labelSmall = TextStyle(fontFamily = SpaceGrotesk, fontSize = 11.sp, fontWeight = FontWeight.Medium)
+    displayLarge = TextStyle(textDirection = ByContent, fontFamily = SpaceGrotesk, fontSize = 52.sp, fontWeight = FontWeight.Bold, letterSpacing = (-2.0).sp, lineHeight = 54.sp),
+    displayMedium = TextStyle(textDirection = ByContent, fontFamily = SpaceGrotesk, fontSize = 42.sp, fontWeight = FontWeight.Bold, letterSpacing = (-1.5).sp, lineHeight = 46.sp),
+    headlineMedium = TextStyle(textDirection = ByContent, fontFamily = SpaceGrotesk, fontSize = 32.sp, fontWeight = FontWeight.Bold, letterSpacing = (-0.8).sp, lineHeight = 36.sp),
+    headlineSmall = TextStyle(textDirection = ByContent, fontFamily = SpaceGrotesk, fontSize = 26.sp, fontWeight = FontWeight.Bold, letterSpacing = (-0.5).sp, lineHeight = 30.sp),
+    titleLarge = TextStyle(textDirection = ByContent, fontFamily = SpaceGrotesk, fontSize = 22.sp, fontWeight = FontWeight.Bold, letterSpacing = (-0.3).sp),
+    titleMedium = TextStyle(textDirection = ByContent, fontFamily = SpaceGrotesk, fontSize = 16.sp, fontWeight = FontWeight.SemiBold),
+    bodyLarge = TextStyle(textDirection = ByContent, fontFamily = SpaceGrotesk, fontSize = 15.sp, fontWeight = FontWeight.Normal),
+    bodyMedium = TextStyle(textDirection = ByContent, fontFamily = SpaceGrotesk, fontSize = 13.5.sp, fontWeight = FontWeight.Normal),
+    bodySmall = TextStyle(textDirection = ByContent, fontFamily = SpaceGrotesk, fontSize = 12.5.sp, fontWeight = FontWeight.Normal),
+    labelMedium = TextStyle(textDirection = ByContent, fontFamily = SpaceGrotesk, fontSize = 12.sp, fontWeight = FontWeight.Medium),
+    labelSmall = TextStyle(textDirection = ByContent, fontFamily = SpaceGrotesk, fontSize = 11.sp, fontWeight = FontWeight.Medium)
 )
 
 /** One quiet colour per family of tools, for the icon tiles and the dots beside headings. */
