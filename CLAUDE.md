@@ -183,6 +183,24 @@ before writing the fix.
   is checked against a real record (`STAVE_RECORD=<a project's media .f32> sh tools/jvm/run.sh
   repair`), not only a sine.
 
+## Things the second day taught (2 November), for the next stranger
+
+- **Screens can be seen without a phone.** `./gradlew :app:testFullDebugUnitTest --tests '*Render*'
+  -Pscreens` draws Home, Settings, Guide, About, Contact, Library and the real editor (a
+  generated project, every tab and every Edit sheet) at the moto's 411 x 913 dp, dark, light and
+  at a 130% font, into `app/build/outputs/roborazzi/`. Robolectric's native graphics; the
+  native audio libraries are absent, so nothing plays. A day of fixes came from these pictures:
+  labels cut or shrunk in grids, rows whose edges did not meet, chips off screen, unlabelled
+  axes. Run them before and after any UI change. The emulator on this laptop is unusable
+  (its system UI stalls under software rendering); the renders replace it.
+- **A grid never shrinks a label.** EvenGrid can, and every time it did the grid looked like
+  stones again; shorten the words instead ("Leave a gap", "EBU R128").
+- **Sizes in a Canvas are dp, not pixels.** The EQ's band dots were 6 px, two dp across; the
+  ruler asked for 90 px between labels wider than that.
+- **Measure a DSP change against an ideal, not by ear.** The resampler's error against a tone
+  computed at the new rate (-56 dB before, -112 after), the limiter's steepest gain step against
+  a ramp, the EQ against its analog curve: each was a number before it was a fix.
+
 ## Working agreement
 
 All work lands on `main` and is pushed when the suites pass. Commit messages say why. No model
