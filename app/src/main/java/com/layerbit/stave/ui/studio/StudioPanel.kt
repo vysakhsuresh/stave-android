@@ -167,9 +167,9 @@ private fun Toggle(label: String, on: Boolean, colour: androidx.compose.ui.graph
 private fun TrackDetail(vm: EditorViewModel, ui: EditorViewModel.Ui, t: Track) {
     var name by remember(t.id) { mutableStateOf(t.name) }
     Panel(modifier = Modifier.fillMaxWidth(), inset = 10.dp) {
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             OutlinedTextField(value = name, onValueChange = { name = it; vm.updateTrack(t.id, "Rename track", gesture = "name-${t.id}") { tr -> tr.copy(name = it) } }, label = { Text(stringResource(R.string.studio_rename)) }, singleLine = true, modifier = Modifier.weight(1f))
-            SecondaryButton(stringResource(R.string.studio_remove), onClick = { vm.removeTrack(t.id) }, tall = false)
+            SecondaryButton(stringResource(R.string.studio_remove), onClick = { vm.removeTrack(t.id) }, tall = false, modifier = Modifier.height(56.dp))
         }
         if (t.kind == Track.Kind.AUDIO || t.kind == Track.Kind.MIDI) {
             val frozen = ui.session.clipsOn(t.id).let { clips -> clips.isNotEmpty() && clips.all { c -> ui.session.source(c.sourceId)?.kind == com.layerbit.stave.engine.project.Source.Kind.FREEZE } }

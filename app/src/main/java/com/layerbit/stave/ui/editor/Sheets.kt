@@ -420,9 +420,11 @@ private fun MarkersSheet(vm: EditorViewModel, ui: EditorViewModel.Ui) {
     Spacer(Modifier.height(12.dp))
     Text(stringResource(R.string.regions_title), style = MaterialTheme.typography.bodyMedium, color = StaveColors.Text)
     var regionName by remember { mutableStateOf("") }
-    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 6.dp)) {
+    // Bottoms aligned and the button at the field's 56 dp: centred, the 40 dp button floated beside
+    // a taller field and neither edge met.
+    Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 6.dp)) {
         OutlinedTextField(value = regionName, onValueChange = { regionName = it }, label = { Text(stringResource(R.string.regions_name)) }, singleLine = true, modifier = Modifier.weight(1f))
-        SecondaryButton(stringResource(R.string.regions_add), onClick = { vm.addRegionFromSelection(regionName); regionName = "" }, tall = false, enabled = ui.selection != null)
+        SecondaryButton(stringResource(R.string.regions_add), onClick = { vm.addRegionFromSelection(regionName); regionName = "" }, tall = false, enabled = ui.selection != null, modifier = Modifier.height(56.dp))
     }
     if (ui.session.regions.isEmpty()) Text(stringResource(R.string.regions_none), style = MaterialTheme.typography.bodySmall, color = StaveColors.Dim, modifier = Modifier.padding(top = 6.dp))
     for (r in ui.session.regions) {
