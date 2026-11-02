@@ -101,19 +101,19 @@ fun HomeScreen(
         AmbientBackdrop(strength = 0.9f)
         LazyColumn(modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 12.dp, bottom = 40.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             item {
-                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
-                    Column(Modifier.weight(1f)) {
-                        Text(stringResource(R.string.app_name), style = MaterialTheme.typography.headlineMedium, color = StaveColors.Text)
-                        Text(stringResource(R.string.app_tagline), style = MaterialTheme.typography.bodyMedium, color = StaveColors.Muted)
+                // The name and the five doors share one row, evenly spaced; the tagline gets the whole
+                // width under them. Squeezed beside the buttons it broke over three lines on a 420 dpi
+                // screen, and the buttons sat 0 and 6 dp apart by turns.
+                Column(Modifier.fillMaxWidth()) {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.fillMaxWidth()) {
+                        Text(stringResource(R.string.app_name), style = MaterialTheme.typography.headlineMedium, color = StaveColors.Text, maxLines = 1, modifier = Modifier.weight(1f))
+                        RoundIconButton(iconRes = R.drawable.ic_finish, contentDescription = stringResource(R.string.home_library), onClick = onLibrary)
+                        RoundIconButton(iconRes = R.drawable.ic_convert, contentDescription = stringResource(R.string.convert_title), onClick = onConvert)
+                        RoundIconButton(iconRes = R.drawable.ic_guide, contentDescription = stringResource(R.string.home_guide), onClick = onGuide)
+                        RoundIconButton(iconRes = R.drawable.ic_contact, contentDescription = stringResource(R.string.home_contact), onClick = onContact)
+                        RoundIconButton(iconRes = R.drawable.ic_settings, contentDescription = stringResource(R.string.app_settings), onClick = onSettings)
                     }
-                    RoundIconButton(iconRes = R.drawable.ic_finish, contentDescription = stringResource(R.string.home_library), onClick = onLibrary)
-                    RoundIconButton(iconRes = R.drawable.ic_convert, contentDescription = stringResource(R.string.convert_title), onClick = onConvert)
-                    Spacer(Modifier.width(6.dp))
-                    RoundIconButton(iconRes = R.drawable.ic_guide, contentDescription = stringResource(R.string.home_guide), onClick = onGuide)
-                    Spacer(Modifier.width(6.dp))
-                    RoundIconButton(iconRes = R.drawable.ic_contact, contentDescription = stringResource(R.string.home_contact), onClick = onContact)
-                    Spacer(Modifier.width(6.dp))
-                    RoundIconButton(iconRes = R.drawable.ic_settings, contentDescription = stringResource(R.string.app_settings), onClick = onSettings)
+                    Text(stringResource(R.string.app_tagline), style = MaterialTheme.typography.bodyMedium, color = StaveColors.Muted, modifier = Modifier.padding(top = 2.dp))
                 }
             }
             item {

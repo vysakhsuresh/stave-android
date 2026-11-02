@@ -74,7 +74,10 @@ bool Engine::start() {
      ->setFormat(oboe::AudioFormat::Float)
      ->setChannelCount(2)
      ->setSampleRate(rate)
-     ->setSampleRateConversionQuality(oboe::SampleRateConversionQuality::Medium)
+     // Only used when the device will not run at the session's rate (a 44.1k project on a 48k
+     // phone): High keeps that conversion below hearing, for a few percent of a callback that
+     // measured under 20% of a core at 24 tracks.
+     ->setSampleRateConversionQuality(oboe::SampleRateConversionQuality::High)
      ->setUsage(oboe::Usage::Media)
      ->setContentType(oboe::ContentType::Music)
      ->setDataCallback(this)
