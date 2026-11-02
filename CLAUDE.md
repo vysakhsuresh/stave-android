@@ -159,7 +159,8 @@ before writing the fix.
   source with `run-as ... dd if=files/projects/<id>/media/<src>.f32 bs=384000 count=N` (cut the
   80 bytes of dd statistics exec-out appends), and diff with `od -tf4` and awk. On 1 November
   12.4 s of a song came back bit-exact. The owner had heard "terrible" sound: Play was looping
-  a selection an accidental drag had made.
+  a selection an accidental drag had made. Since 2 November Play ramps up over its first 256 frames
+  and Pause down over 256 (Engine.h), so compare from frame 256 and stop 256 short of the end.
 - **Driving the phone**: `uiautomator dump` text matches are substrings unless anchored ("320"
   matched a sentence before the chip); a sheet's own buttons share names with the chip row
   ("Export"), so tap by position after checking the dump; a swipe starting below a sheet's

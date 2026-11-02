@@ -17,6 +17,7 @@ namespace stave {
 
 struct TrackState {
     Ramp volume, panL, panR;
+    Ramp audible;   // 1 heard, 0 muted or soloed out: a mute ramps over a block instead of cutting
     Eq eq; Compressor comp; Gate gate; Limiter lim;
     bool hasEq = false, hasComp = false, hasGate = false, hasLim = false;
     Meter meter;
@@ -42,10 +43,14 @@ public:
     bool setSnapshot(const uint8_t* bytes, size_t length);
 
     // Transport, all atomic.
-    void play() { playing = true; }
-    void pause() { playing = false; }
+    // Pause and a seek while playing are requests the callback carries out over its next buffer:
+    // a ramp of up to FADE_FRAMES down, then the stop or the jump, and after a jump or a fresh
+    // Play a ramp up. Cutting a loud signal in one sample is a click; a player that pops on
+    // every pause does not sound like the file. With no stream running they act at once.
+    void play() { if (!playing.load()) fadeInRequested.store(true); stopRequested.store(false); playing = true; }
+    void pause() { if (playing.load() && running.load()) stopRequested.store(true); else playing = false; }
     bool isPlaying() const { return playing.load(); }
-    void seek(int64_t frame) { position.store(frame < 0 ? 0 : frame); }
+    void seek(int64_t frame) { int64_t f = frame < 0 ? 0 : frame; if (playing.load() && running.load()) seekTo.store(f); else position.store(f); }
     int64_t getPosition() const { return position.load(); }
     void setLoop(int64_t start, int64_t end, bool enabled) { loopStart = start; loopEnd = end; loopOn = enabled; }
     // Play stops by itself here (a selection heard once); -1 for no stop short of the end.
@@ -116,6 +121,11 @@ private:
     std::mutex snapshotLock;
 
     std::atomic<bool> playing{false};
+    std::atomic<bool> stopRequested{false}, fadeInRequested{false}, running{false};
+    std::atomic<int64_t> seekTo{-1};
+    bool fadeInNext = false;          // the callback's own: a jump just happened, ramp the next buffer up
+    bool blockWasPlaying = false;     // processBlock's own: false makes the mute ramps start where they stand
+    static constexpr int FADE_FRAMES = 256;
     std::atomic<int64_t> position{0};
     std::atomic<int64_t> loopStart{0}, loopEnd{0};
     std::atomic<bool> loopOn{false}, stopAtEnd{true};

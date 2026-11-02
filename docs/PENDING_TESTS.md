@@ -114,3 +114,7 @@ back into the roadmap with what broke.
     master, live, the same (the C++ twin has never been heard).
 94. EQ: a +6 dB band at 12 kHz on cymbals sounds like a lift of the air, not a narrow
     whistle; the live insert and the exported file sound alike (both use the matched band).
+95. Play and pause a loud song ten times in its chorus, on headphones: no pop at either end.
+    Mute and unmute the drums in "Night drive" while it plays: no click. Tap far along the
+    ruler while playing: the jump is a quick dip, not a crack. The debug capture after a play
+    from the start matches the decoded source from frame 256 on (the ramp before it).

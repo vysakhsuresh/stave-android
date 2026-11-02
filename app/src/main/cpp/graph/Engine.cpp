@@ -97,11 +97,16 @@ bool Engine::start() {
     r = out->requestStart();
     if (r != oboe::Result::OK) { LOGW("start: %s", oboe::convertToText(r)); out->close(); out.reset(); return false; }
     LOGI("output %d Hz, burst %d, %s", rate, burst, out->getSharingMode() == oboe::SharingMode::Exclusive ? "exclusive" : "shared");
+    running.store(true);
     return true;
 }
 
 void Engine::stop() {
     std::lock_guard<std::mutex> g(streamLock);
+    running.store(false);
+    // A pause or a seek asked for and never carried out by a callback is carried out here.
+    if (stopRequested.exchange(false)) playing = false;
+    { int64_t pending = seekTo.exchange(-1); if (pending >= 0) position.store(pending); }
     if (!out) return;
     out->requestStop();
     latencyTuner.reset();
@@ -112,6 +117,9 @@ void Engine::stop() {
 void Engine::onErrorAfterClose(oboe::AudioStream* stream, oboe::Result error) {
     // Headphones out, a route change: Oboe closed the stream; open a new one on the new route.
     LOGW("stream closed: %s; reopening", oboe::convertToText(error));
+    running.store(false);
+    if (stopRequested.exchange(false)) playing = false;
+    { int64_t pending = seekTo.exchange(-1); if (pending >= 0) position.store(pending); }
     { std::lock_guard<std::mutex> g(streamLock); latencyTuner.reset(); out.reset(); }
     start();
 }
@@ -346,6 +354,8 @@ void Engine::processBlock(float* outBuf, int frames) {
     Snapshot* s = current.load(std::memory_order_acquire);
     int64_t pos = position.load();
     if (s && playing.load()) {
+        bool fresh = !blockWasPlaying;
+        blockWasPlaying = true;
         configureStates(*s);
         size_t nTracks = s->tracks.size();
         std::fill(busScratch.begin(), busScratch.end(), 0.0f);
@@ -365,7 +375,12 @@ void Engine::processBlock(float* outBuf, int frames) {
                 if (isBus) std::copy(busScratch.begin() + t * MAX_BLOCK * 2, busScratch.begin() + t * MAX_BLOCK * 2 + frames * 2, buf);
                 else renderTrack(*s, (int) t, pos, frames, buf);
                 bool heard = !tr.muted && (isBus || !s->anySolo || tr.solo);
-                if (!heard) { st.meter.peak[0] = st.meter.peak[1] = 0; continue; }
+                // A mute or a solo ramps over this block rather than cutting mid-wave; at the
+                // start of playback (or of an offline render) it starts where it stands.
+                float audibleTarget = heard ? 1.0f : 0.0f;
+                if (fresh) st.audible.jump(audibleTarget);
+                else if (st.audible.target != audibleTarget) st.audible.set(audibleTarget, frames);
+                if (!heard && st.audible.current == 0.0f) { st.meter.peak[0] = st.meter.peak[1] = 0; continue; }
                 if (st.hasGate) st.gate.process(buf, frames, 2);
                 if (st.hasEq) st.eq.process(buf, frames, 2);
                 if (st.hasComp) st.comp.process(buf, frames, 2);
@@ -379,7 +394,7 @@ void Engine::processBlock(float* outBuf, int frames) {
                 st.volume.set(vol, frames); st.panL.set(pl * 1.41421356f, frames); st.panR.set(pr * 1.41421356f, frames);
                 for (const auto& send : tr.sends) if (send.pre && send.to >= 0 && send.to < (int) nTracks) mixInto(&busScratch[(size_t) send.to * MAX_BLOCK * 2], buf, frames, send.gain);
                 for (int f = 0; f < frames; f++) {
-                    float v = st.volume.next(), l = st.panL.next(), r = st.panR.next();
+                    float v = st.volume.next() * st.audible.next(), l = st.panL.next(), r = st.panR.next();
                     buf[f * 2] *= v * l; buf[f * 2 + 1] *= v * r;
                     st.meter.feed(buf[f * 2], buf[f * 2 + 1]);
                 }
@@ -405,7 +420,7 @@ void Engine::processBlock(float* outBuf, int frames) {
         }
         position.store(next);
         seenGeneration.store(s->generation);
-    }
+    } else blockWasPlaying = false;
     addClicks(outBuf, pos, frames);
     // Monitoring: whatever the input callback put in the ring.
     if (monitorOn.load() && !inRing.empty()) {
@@ -429,16 +444,40 @@ oboe::DataCallbackResult Engine::onAudioReady(oboe::AudioStream* stream, void* a
         std::fill(outBuf, outBuf + (size_t) numFrames * 2, 0.0f);
         return oboe::DataCallbackResult::Continue;
     }
+    // Requests from the UI thread (Engine.h says why they are requests).
+    bool wasPlaying = playing.load();
+    bool stopping = stopRequested.exchange(false) && wasPlaying;
+    int64_t jump = seekTo.exchange(-1);
+    if (jump >= 0 && !wasPlaying) { position.store(jump); jump = -1; }
+    bool rampUp = (fadeInRequested.exchange(false) || fadeInNext) && wasPlaying;
+    fadeInNext = false;
     int done = 0;
     while (done < numFrames) {
         int n = std::min(numFrames - done, MAX_BLOCK);
         processBlock(outBuf + done * 2, n);
-        if (capturing.load(std::memory_order_relaxed)) {
-            size_t at = captureAt.load(std::memory_order_relaxed), take = std::min((size_t) n * 2, capture.size() - at);
-            std::copy(outBuf + done * 2, outBuf + done * 2 + take, capture.begin() + (long) at);
-            captureAt.store(at + take, std::memory_order_relaxed);
-        }
         done += n;
+    }
+    int ramp = std::min(numFrames, FADE_FRAMES);
+    bool endedHere = wasPlaying && !playing.load() && !stopping;   // a selection or the song ran out
+    if (stopping || jump >= 0 || endedHere) {
+        // Down over the first [ramp] frames for a pause or a jump; over the last ones when the
+        // play end fell inside this buffer, so the silence after it is reached smoothly.
+        int from = endedHere ? numFrames - ramp : 0;
+        for (int f = 0; f < numFrames; f++) {
+            float g = f < from ? 1.0f : (f < from + ramp ? 1.0f - (float) (f - from + 1) / ramp : 0.0f);
+            if (endedHere && f < from) continue;
+            outBuf[f * 2] *= g; outBuf[f * 2 + 1] *= g;
+        }
+        if (stopping) playing = false;
+        if (jump >= 0) { position.store(jump); if (!stopping) fadeInNext = true; }
+    } else if (rampUp) {
+        for (int f = 0; f < ramp; f++) { float g = (float) (f + 1) / ramp; outBuf[f * 2] *= g; outBuf[f * 2 + 1] *= g; }
+    }
+    // The debug capture is what the speaker is handed, ramps included.
+    if (capturing.load(std::memory_order_relaxed)) {
+        size_t at = captureAt.load(std::memory_order_relaxed), take = std::min((size_t) numFrames * 2, capture.size() - at);
+        std::copy(outBuf, outBuf + take, capture.begin() + (long) at);
+        captureAt.store(at + take, std::memory_order_relaxed);
     }
     if (latencyTuner) latencyTuner->tune();
     auto x = stream->getXRunCount();
@@ -454,6 +493,7 @@ int64_t Engine::renderOffline(int64_t from, int64_t to, std::vector<float>& outv
     bool wasPlaying = playing.load(); int64_t wasAt = position.load(); bool wasStop = stopAtEnd.load(); bool wasLoop = loopOn.load();
     int64_t wasEnd = playEnd.load();
     playing = true; stopAtEnd = false; loopOn = false; playEnd = -1; position.store(from);
+    blockWasPlaying = false;   // every mute ramp starts settled: the file is the mix, sample for sample
     for (auto& st : trackStates) st.configuredFor = 0xFFFFFFFFu;
     master.configuredFor = 0xFFFFFFFFu;
     outv.assign((size_t) (to - from) * 2, 0.0f);
