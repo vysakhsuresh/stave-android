@@ -1,5 +1,6 @@
 package com.layerbit.stave.ui.editor
 
+import com.layerbit.stave.ui.components.edgeFade
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
@@ -299,7 +300,7 @@ private fun EqSheet(vm: EditorViewModel, ui: EditorViewModel.Ui) {
     if (graphicBands != null) {
         val centres = if (mode == "g10") ParametricEq.ISO_10 else ParametricEq.ISO_31
         val gains = if (mode == "g10") gains10 else gains31
-        Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+        Row(rememberScrollState().let { s -> Modifier.fillMaxWidth().edgeFade(s).horizontalScroll(s) }.padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(2.dp)) {
             for (i in centres.indices) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.width(if (mode == "g10") 44.dp else 30.dp)) {
                     // A vertical fader: Compose's slider is horizontal, so it is laid out turned a quarter.

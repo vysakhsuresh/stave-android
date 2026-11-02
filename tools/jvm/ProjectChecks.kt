@@ -5,6 +5,7 @@ import com.layerbit.stave.engine.project.Fade
 import com.layerbit.stave.engine.project.History
 import com.layerbit.stave.engine.project.Insert
 import com.layerbit.stave.engine.project.Marker
+import com.layerbit.stave.engine.project.Names
 import com.layerbit.stave.engine.project.ProjectJson
 import com.layerbit.stave.engine.project.Region
 import com.layerbit.stave.engine.project.Send
@@ -42,6 +43,18 @@ object ProjectChecks : Suite {
     }
 
     override fun run() {
+        section("a sound is named from its file the way a person would write it")
+        // Downloaded songs arrive as "Ramayana_ Ravana Tandavam (Song) _ Ranbir_ Yash ...(MP3_320K).mp3":
+        // a colon and bars turned to underscores, and the site's bitrate tag on the end.
+        Names.fromFile("Ramayana_ Ravana Tandavam (Song) _ Ranbir_ Yash _ AR Rahman(MP3_320K).mp3").let { check(it == "Ramayana Ravana Tandavam (Song) - Ranbir Yash - AR Rahman") { "a downloaded song" + ": \"$it\"" } }
+        Names.fromFile("my_first_take.wav").let { check(it == "my first take") { "underscores are spaces" + ": \"$it\"" } }
+        Names.fromFile("Interview [128kbps].m4a").let { check(it == "Interview") { "a bracketed bitrate goes" + ": \"$it\"" } }
+        Names.fromFile("Track 01 (Live).flac").let { check(it == "Track 01 (Live)") { "a real bracket stays" + ": \"$it\"" } }
+        Names.fromFile("Episode 12 - Home studio.mp3").let { check(it == "Episode 12 - Home studio") { "a tidy name is left as it is" + ": \"$it\"" } }
+        Names.fromFile("archive.tar.ogg").let { check(it == "archive.tar") { "only the last extension goes" + ": \"$it\"" } }
+        Names.fromFile("___.mp3").let { check(it == "___") { "a name that would vanish is kept" + ": \"$it\"" } }
+        Names.fromFile("Song").let { check(it == "Song") { "no extension" + ": \"$it\"" } }
+
         section("a session with every field set round-trips through the file")
         val s = full()
         val text = ProjectJson.write(s)

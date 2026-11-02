@@ -284,7 +284,10 @@ fun WaveformStrip(
                     val source = session.source(clip.sourceId) ?: continue
                     val subTop = top + clip.lane.coerceIn(0, takeLanes - 1) * subH
                     drawClip(clip, source, peaksFor(source), x0, x1, subTop + 2f, subH - 4f, window, clip.muted)
-                    if (x1 - x0 > 40f && clip.name.isNotBlank() && subH > 30f) labelAt(measurer, clip.name, Offset(max(x0, 0f) + 6f, subTop + 4f), nameStyle, plate = true)
+                    // A clip playing a processed copy says what was done to it: on 2 November the owner heard a
+                    // "Remove clicks" copy under the song's plain name and took it for the song.
+                    val label = if (source.kind == com.layerbit.stave.engine.project.Source.Kind.RENDER && source.name.contains(" · ")) clip.name + " · " + source.name.substringAfter(" · ") else clip.name
+                    if (x1 - x0 > 40f && label.isNotBlank() && subH > 30f) labelAt(measurer, label, Offset(max(x0, 0f) + 6f, subTop + 4f), nameStyle, plate = true)
                 }
                 if (track.name.isNotBlank()) labelAt(measurer, track.name, Offset(6f, top + lane - measurer.measure(track.name, labelStyle).size.height - 4f), labelStyle, plate = true)
             }

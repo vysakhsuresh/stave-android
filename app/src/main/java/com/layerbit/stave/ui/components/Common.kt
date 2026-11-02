@@ -43,6 +43,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Brush
@@ -416,3 +418,22 @@ fun formatBytes(bytes: Long): String = when {
     bytes < 1024L * 1024 * 1024 -> String.format(Locale.getDefault(), "%.1f MB", bytes / (1024.0 * 1024))
     else -> String.format(Locale.getDefault(), "%.2f GB", bytes / (1024.0 * 1024 * 1024))
 }
+
+/**
+ * Fades a horizontally scrolled row out at whichever edge has more beyond it, so a chip cut in
+ * half reads as "this scrolls" rather than as a layout mistake. Goes before `horizontalScroll`.
+ */
+fun Modifier.edgeFade(state: androidx.compose.foundation.ScrollState, width: androidx.compose.ui.unit.Dp = 28.dp): Modifier =
+    this.graphicsLayer { compositingStrategy = androidx.compose.ui.graphics.CompositingStrategy.Offscreen }
+        .drawWithContent {
+            drawContent()
+            val fade = width.toPx().coerceAtMost(size.width / 4)
+            if (state.value > 0) drawRect(
+                androidx.compose.ui.graphics.Brush.horizontalGradient(listOf(androidx.compose.ui.graphics.Color.Transparent, androidx.compose.ui.graphics.Color.Black), startX = 0f, endX = fade),
+                blendMode = androidx.compose.ui.graphics.BlendMode.DstIn
+            )
+            if (state.value < state.maxValue) drawRect(
+                androidx.compose.ui.graphics.Brush.horizontalGradient(listOf(androidx.compose.ui.graphics.Color.Black, androidx.compose.ui.graphics.Color.Transparent), startX = size.width - fade, endX = size.width),
+                blendMode = androidx.compose.ui.graphics.BlendMode.DstIn
+            )
+        }

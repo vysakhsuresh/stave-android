@@ -87,7 +87,7 @@ class MediaImport(private val context: Context) {
                 if (frames <= 0) { out.delete(); throw ImportFailed(if (frames == -2L) "Cancelled." else "$name could not be decoded all the way through.") }
                 val rate = AvNative.decOutRate(h).takeIf { r -> r > 0 } ?: info[0].toInt()
                 val channels = AvNative.decOutChannels(h).takeIf { c -> c > 0 } ?: info[1].toInt()
-                Source(id = id, name = name.substringBeforeLast('.').ifBlank { name }, file = "media/${out.name}", sampleRate = rate, channels = channels, frames = frames, kind = Source.Kind.AUDIO, origin = name)
+                Source(id = id, name = com.layerbit.stave.engine.project.Names.fromFile(name), file = "media/${out.name}", sampleRate = rate, channels = channels, frames = frames, kind = Source.Kind.AUDIO, origin = name)
             } catch (e: Throwable) {
                 AvNative.decCancel(h); out.delete(); throw e
             } finally { AvNative.decClose(h) }

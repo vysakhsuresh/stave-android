@@ -1,5 +1,6 @@
 package com.layerbit.stave.ui.studio
 
+import com.layerbit.stave.ui.components.edgeFade
 import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.selection.toggleable
@@ -74,7 +75,7 @@ fun StudioPanel(vm: EditorViewModel, ui: EditorViewModel.Ui, modifier: Modifier 
                 SecondaryButton(stringResource(R.string.studio_add_bus), onClick = { vm.addTrack(Track.Kind.BUS) }, tall = false)
             }
             if (tracks.isEmpty()) Text(stringResource(R.string.studio_no_tracks), style = MaterialTheme.typography.bodySmall, color = StaveColors.Dim, modifier = Modifier.padding(top = 8.dp))
-            Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(rememberScrollState().let { s -> Modifier.fillMaxWidth().edgeFade(s).horizontalScroll(s) }.padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 tracks.forEachIndexed { i, t ->
                     val index = ui.session.tracks.indexOf(t)
                     Strip(t, selected = t.id == ui.selectedTrackId, heard = ui.session.heard(t),

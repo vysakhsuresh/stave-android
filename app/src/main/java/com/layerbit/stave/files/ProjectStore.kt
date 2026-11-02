@@ -27,9 +27,27 @@ class ProjectStore(context: Context) {
 
     fun dir(id: String): File = File(root, id)
 
-    fun list(): List<Entry> = root.listFiles { f -> f.isDirectory && f.name != "trash" }.orEmpty()
+    /** Every project; [withEmpty] false leaves out the ones nothing was ever put in (the home list). */
+    fun list(withEmpty: Boolean = true): List<Entry> = root.listFiles { f -> f.isDirectory && f.name != "trash" }.orEmpty()
+        .filter { withEmpty || !isEmpty(it) }
         .mapNotNull { entryOf(it) }
         .sortedByDescending { it.modifiedAt }
+
+    /**
+     * A project nothing was put in: no sound, no track, no pattern, no take, no marker. Record and
+     * New session make one each time, and the home list filled with "Untitled" rows that opened
+     * onto nothing. Any doubt (a file that will not parse) counts as not empty.
+     */
+    private fun isEmpty(dir: File): Boolean {
+        val json = runCatching { Json.parse(File(dir, "project.json").readText()) as? JsonObject }.getOrNull() ?: return false
+        if (listOf("sources", "tracks", "clips", "patterns", "markers", "regions").any { (json.arr(it)?.size ?: 0) > 0 }) return false
+        return listOf("media", "takes").none { File(dir, it).listFiles()?.isNotEmpty() == true }
+    }
+
+    /** Bins the empty projects; called at startup only, when none can be open. The bin keeps them thirty days. */
+    fun sweepEmpty() {
+        root.listFiles { f -> f.isDirectory && f.name != "trash" }.orEmpty().filter { isEmpty(it) }.forEach { remove(it.name) }
+    }
 
     private fun entryOf(dir: File): Entry? {
         val meta = File(dir, "project.json")

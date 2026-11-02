@@ -1,5 +1,6 @@
 package com.layerbit.stave.ui.editor
 
+import com.layerbit.stave.ui.components.edgeFade
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
@@ -194,7 +195,7 @@ fun EditorScreen(vm: EditorViewModel, onBack: () -> Unit, onAddSounds: () -> Uni
 
 @Composable
 private fun TabRow(current: EditorTab, onTab: (EditorTab) -> Unit) {
-    Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 12.dp, vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+    Row(rememberScrollState().let { s -> Modifier.fillMaxWidth().edgeFade(s).horizontalScroll(s) }.padding(horizontal = 12.dp, vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
         for (tab in EditorTab.entries) {
             val active = tab == current
             val interaction = remember { MutableInteractionSource() }
@@ -231,7 +232,7 @@ private fun TransportBar(vm: EditorViewModel, ui: EditorViewModel.Ui, playing: B
 
 @Composable
 private fun ToolRail(open: EditSheet?, onSheet: (EditSheet?) -> Unit) {
-    Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 12.dp, vertical = 2.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+    Row(rememberScrollState().let { s -> Modifier.fillMaxWidth().edgeFade(s).horizontalScroll(s) }.padding(horizontal = 12.dp, vertical = 2.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
         for (sheet in EditSheet.entries) {
             val active = sheet == open
             val interaction = remember { MutableInteractionSource() }

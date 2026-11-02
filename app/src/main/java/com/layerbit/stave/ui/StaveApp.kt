@@ -94,7 +94,7 @@ fun StaveApp(
 
     var projects by remember { mutableStateOf<List<ProjectStore.Entry>>(emptyList()) }
     var projectsStamp by remember { mutableLongStateOf(0L) }
-    LaunchedEffect(projectsStamp) { projects = withContext(Dispatchers.IO) { stave.projects.list() } }
+    LaunchedEffect(projectsStamp) { projects = withContext(Dispatchers.IO) { stave.projects.list(withEmpty = false) } }
     var removing by remember { mutableStateOf<ProjectStore.Entry?>(null) }
 
     LaunchedEffect(arrivalTicket) {
