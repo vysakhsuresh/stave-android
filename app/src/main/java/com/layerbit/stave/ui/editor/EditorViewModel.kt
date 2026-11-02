@@ -236,6 +236,7 @@ class EditorViewModel(private val app: StaveApplication, val projectId: String) 
 
     fun importAll(uris: List<Uri>) {
         viewModelScope.launch {
+            val wasEmpty = session.length == 0L
             for ((i, uri) in uris.withIndex()) {
                 val name = app.media.displayName(uri)
                 _ui.value = _ui.value.copy(busy = Busy("Opening $name", 0f))
@@ -248,7 +249,13 @@ class EditorViewModel(private val app: StaveApplication, val projectId: String) 
                 }
             }
             _ui.value = _ui.value.copy(busy = null)
-            fit()
+            // The first sound opens at its start, zoomed to the screen; one added to a project keeps
+            // the play-head where it was. fit() centres the play-head, and Play then began 8 s into
+            // a 30 s file (seen on the emulator, 2 November).
+            val w = _ui.value.window.copy(totalSamples = session.length)
+            val fitted = w.fitted()
+            _ui.value = _ui.value.copy(window = fitted.copy(playhead = if (wasEmpty) 0L else w.playhead.coerceIn(0, session.length)))
+            transport.seek(_ui.value.window.playhead)
         }
     }
 
