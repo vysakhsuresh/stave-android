@@ -49,6 +49,11 @@ class ProjectStore(context: Context) {
         root.listFiles { f -> f.isDirectory && f.name != "trash" }.orEmpty().filter { isEmpty(it) }.forEach { remove(it.name) }
     }
 
+    /** Tidies raw imported names in every project ([ProjectFiles.tidyNames]); startup only. */
+    fun tidyNames() {
+        root.listFiles { f -> f.isDirectory && f.name != "trash" }.orEmpty().forEach { runCatching { ProjectFiles(it).tidyNames() } }
+    }
+
     private fun entryOf(dir: File): Entry? {
         val meta = File(dir, "project.json")
         val json = runCatching { Json.parse(meta.readText()) as? JsonObject }.getOrNull()

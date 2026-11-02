@@ -27,6 +27,31 @@ class ProjectFiles(val dir: File) {
         if (!tmp.renameTo(sessionFile)) { sessionFile.delete(); tmp.renameTo(sessionFile) }
     }
 
+    /**
+     * Tidies names still carrying the raw file they came from ([com.layerbit.stave.engine.project.Names.tidied]),
+     * through the undo history too so an undo cannot bring the raw name back. Run at startup: the
+     * home list reads `project.json` and showed "Ramayana_ ... (MP3_320K)" until the project was
+     * opened. The file's time is put back, or tidying would reorder the list. True when it wrote.
+     */
+    fun tidyNames(): Boolean {
+        val loaded = load() ?: return false
+        val tidy = com.layerbit.stave.engine.project.Names.tidied(loaded)
+        if (tidy === loaded) return false
+        val stamp = sessionFile.lastModified()
+        val historyFile = File(dir, "history.json")
+        val saved = runCatching { historyFile.takeIf { it.isFile }?.readText()?.let { com.layerbit.stave.engine.project.HistoryJson.read(it) } }.getOrNull()
+        val history = com.layerbit.stave.engine.project.History(loaded)
+        if (saved != null && history.restore(saved.current, saved.past, saved.future)) {
+            history.amendAll { com.layerbit.stave.engine.project.Names.tidied(it) }
+            val tmp = File(dir, "history.json.tmp")
+            tmp.writeText(com.layerbit.stave.engine.project.HistoryJson.write(history))
+            if (!tmp.renameTo(historyFile)) { historyFile.delete(); tmp.renameTo(historyFile) }
+            save(history.current)
+        } else save(tidy)
+        if (stamp > 0) sessionFile.setLastModified(stamp)
+        return true
+    }
+
     /** A copy of the session every ten minutes, five kept: the "Earlier version" a grid offers. */
     fun snapshotIfDue(session: Session, now: Long = System.currentTimeMillis()) {
         val latest = snapshots.listFiles()?.maxOfOrNull { it.lastModified() } ?: 0L

@@ -38,6 +38,6 @@ class StaveApplication : Application() {
         super.onCreate()
         CrashLog.install(this)
         Strings.install(this)
-        applicationScope.launch { projects.sweepEmpty(); projects.sweepBin() }
+        applicationScope.launch { projects.sweepEmpty(); projects.tidyNames(); projects.sweepBin() }
     }
 }
