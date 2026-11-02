@@ -22,10 +22,17 @@ from pathlib import Path
 import numpy as np
 import torch
 
+# The converter was renamed LiteRT Torch (litert_torch); ai-edge-torch 0.4.0 is the last with
+# convert() under the old name, and requirements-umx.txt pins it. Either is taken.
 try:
-    import ai_edge_torch
+    import litert_torch as ai_edge_torch
 except ImportError:
-    sys.exit("pip install ai-edge-torch (the converter) first")
+    try:
+        import ai_edge_torch
+    except ImportError:
+        sys.exit("pip install ai-edge-torch==0.4.0 (the converter) first")
+if not hasattr(ai_edge_torch, "convert"):
+    sys.exit("this ai-edge-torch has no convert(); pin ai-edge-torch==0.4.0")
 
 from openunmix import umxhq_spec  # the hq weights: 4096 FFT, 1024 hop, 44.1 kHz
 
