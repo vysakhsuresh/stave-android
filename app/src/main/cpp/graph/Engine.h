@@ -3,9 +3,11 @@
 #pragma once
 #include <algorithm>
 #include <atomic>
+#include <chrono>
 #include <memory>
 #include <mutex>
 #include <string>
+#include <thread>
 #include <vector>
 #include <oboe/Oboe.h>
 #include "Dsp.h"
@@ -57,7 +59,13 @@ public:
     void setPlayEnd(int64_t end) { playEnd = end; }
     // Debug: what the output callback hands the speaker, kept for a diff against the source.
     void captureStart(int seconds) { std::lock_guard<std::mutex> owner(renderLock); capturing = false; capture.assign((size_t) std::max(1, seconds) * (size_t) rate * 2, 0.0f); captureAt = 0; capturing = true; }
-    size_t captureStop() { std::lock_guard<std::mutex> owner(renderLock); capturing = false; return captureAt.load(); }
+    // A pause is a request the next callback fades out; stopping the capture straight after asking
+    // cut it off before the fade, so the capture never showed the ramp it exists to check. Waits
+    // (a debug build, at most 100 ms) for that callback; the lock then waits out its end.
+    size_t captureStop() {
+        for (int i = 0; i < 50 && stopRequested.load() && running.load(); i++) std::this_thread::sleep_for(std::chrono::milliseconds(2));
+        std::lock_guard<std::mutex> owner(renderLock); capturing = false; return captureAt.load();
+    }
     const float* captureData() const { return capture.data(); }
     void setStopAtEnd(bool v) { stopAtEnd = v; }
 
