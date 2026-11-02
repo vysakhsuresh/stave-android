@@ -134,3 +134,9 @@ back into the roadmap with what broke.
 100. Kalimba (decoded peaks 1.086) on the speaker and on headphones: loud hits sound clean, not
     crunchy; measured: the capture never exceeds 0.999, and the Ramayana song is bit-exact 48 frames
     late. Import a 44.1 kHz MP3: plays at the right pitch and length (Kalimba: 16,706,664 frames).
+101. Stems on the phone (full build with the four models from `models.yml`): Separate stems on a
+    four-minute song finishes without running out of memory; the four tracks summed against the
+    mix (export each, or a capture with the originals muted) agree to -40 dB or better; the vocals
+    stem of a pop song is the voice. Keep only the voice on a selection.
+102. A loop of two bars played ten passes on headphones: no click at the join (measured: a 64-frame
+    dip, steepest step 0.10 where the splice was 0.32).

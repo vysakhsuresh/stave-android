@@ -46,12 +46,19 @@ The things most likely to need a touch, and what they lean on.
 
 ## Stems (Open-Unmix on LiteRT)
 
-- Four models, one per stem, `umx_<stem>.tflite`, made by `tools/models/umx_to_tflite.py` on a
-  desktop and shipped in the full flavour's assets and the Play asset pack. The contract both
+- Four models, one per stem, `umx_<stem>.tflite`, made by `tools/models/umx_to_tflite.py` and
+  shipped in the full flavour's assets and the Play asset pack. The converter (litert-torch,
+  formerly ai-edge-torch) does not install on Windows: `gh workflow run models.yml` makes them on
+  an Ubuntu 22.04 runner and `gh run download <run> --name stem-models -D app/src/full/assets/models`
+  brings them back. Each is checked against PyTorch through LiteRT before it is uploaded. The
+  pins in `requirements-umx.txt` are a set that installs together (torch with its torchaudio);
+  six runs went into finding one. The contract both
   sides keep: input `[1, T, 2, 2049]` magnitudes (STFT 4096/1024 at 44.1 kHz), output the same
-  shape as the stem's magnitude estimate. `StemsRunner` windows 256 frames with 43 of overlap,
-  Wiener-filters the mixture's complex spectrogram by each stem's share, and the four sum to
-  the mix - which is the first thing to check on the phone.
+  shape as the stem's magnitude estimate. `engine/dsp/StemSeparator` frames as torch.stft does
+  (centred, periodic Hann, unnormalised), calls the models 256 frames at a time with 21 frames of
+  context kept each side, Wiener-filters the mixture's complex spectrogram by each stem's share
+  and overlap-adds straight to one file per stem; `StemSeparatorChecks` holds the sum to the mix
+  and, with an oracle model, the alignment of each mask with its own frame.
 - LiteRT's Interpreter is reached by name (`Class.forName`) so the engine door compiles with or
   without the dependency on a build; the dependency is declared in the catalog.
 

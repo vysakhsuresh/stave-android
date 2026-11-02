@@ -70,6 +70,12 @@ class PatternPlayer(private val sampleRate: Int) : AutoCloseable {
             .setPerformanceMode(AudioTrack.PERFORMANCE_MODE_LOW_LATENCY)
             .build()
         val block = FloatArray(BLOCK * 2)
+        // Reused: a new array for every run of frames made garbage on the audio thread, and a
+        // collection there is a dropout.
+        val part = FloatArray(BLOCK * 2)
+        // A kit and a pad stacked go over full scale, and the output clips over 1.0: the same last
+        // stage the graph has (engine/dsp/OutputCeiling), bit-exact below the ceiling.
+        val ceiling = com.layerbit.stave.engine.dsp.OutputCeiling(sampleRate, 2)
         var frameInLoop = 0L
         var loopIndex = 0
         var events: List<PatternRenderer.Event> = emptyList()
@@ -107,7 +113,6 @@ class PatternPlayer(private val sampleRate: Int) : AutoCloseable {
                         val nextEvent = if (eventAt < events.size) events[eventAt].frame - frameInLoop else Long.MAX_VALUE
                         val run = minOf((BLOCK - done).toLong(), toWrap, if (nextEvent <= 0) Long.MAX_VALUE else nextEvent).toInt()
                         if (run > 0) {
-                            val part = FloatArray(run * 2)
                             inst.render(part, run)
                             System.arraycopy(part, 0, block, done * 2, run * 2)
                             done += run
@@ -134,6 +139,7 @@ class PatternPlayer(private val sampleRate: Int) : AutoCloseable {
                     // Nothing to play for a second: let the thread go rather than feed silence for ever.
                     if (idleBlocks * BLOCK > sampleRate && live.isEmpty()) break
                 }
+                ceiling.process(block, BLOCK)
                 track.write(block, 0, BLOCK * 2, AudioTrack.WRITE_BLOCKING)
             }
         } catch (_: Throwable) {
