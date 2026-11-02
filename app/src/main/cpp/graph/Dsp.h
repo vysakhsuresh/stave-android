@@ -27,7 +27,7 @@ struct Ramp {
 
 struct BiquadCoefficients { double b0 = 1, b1 = 0, b2 = 0, a1 = 0, a2 = 0; };
 
-// RBJ cookbook. kind: 0 low-pass 1 high-pass 2 band-pass 3 notch 4 all-pass 5 peaking 6 low shelf 7 high shelf.
+// RBJ cookbook, but the peaking band is matched to its analog curve. kind: 0 low-pass 1 high-pass 2 band-pass 3 notch 4 all-pass 5 peaking 6 low shelf 7 high shelf.
 BiquadCoefficients biquad(int kind, double hz, int sampleRate, double q, double gainDb);
 
 struct Biquad {

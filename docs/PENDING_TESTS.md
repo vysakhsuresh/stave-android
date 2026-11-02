@@ -112,3 +112,5 @@ back into the roadmap with what broke.
 93. Master a loud song to Streaming and listen to the loudest chorus against the original:
     no added crackle on drum hits (the limiter now ramps its gain). A Limiter insert on the
     master, live, the same (the C++ twin has never been heard).
+94. EQ: a +6 dB band at 12 kHz on cymbals sounds like a lift of the air, not a narrow
+    whistle; the live insert and the exported file sound alike (both use the matched band).

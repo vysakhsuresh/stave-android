@@ -48,12 +48,40 @@ object BiquadChecks : Suite {
         check(notch.magnitudeDb(50.0, rate) < -60.0) { "notch is deep at its centre" }
         check(notch.magnitudeDb(100.0, rate) > -0.1) { "notch leaves the octave above: ${notch.magnitudeDb(100.0, rate)}" }
 
+        // A band set to 15 kHz, Q 2, +6 dB means the analog curve an engineer has in mind. The
+        // cookbook's bilinear transform squeezes it towards Nyquist: narrower than set, and the
+        // skirts several dB off where they should be at the top of the band.
+        section("a peaking band keeps its analog shape to the top of the band")
+        fun analogPeakDb(f: Double, f0: Double, q: Double, gainDb: Double): Double {
+            val a = Math.pow(10.0, gainDb / 40.0); val w = f / f0; val re = 1 - w * w
+            return 10 * Math.log10((re * re + (a * w / q) * (a * w / q)) / (re * re + (w / (a * q)) * (w / (a * q))))
+        }
+        var worstEq = 0.0; var worstAt = ""
+        for (f0 in listOf(1_000.0, 8_000.0, 12_000.0, 16_000.0)) for (q in listOf(0.7, 2.0, 4.0)) for (g in listOf(-12.0, 6.0, 12.0)) {
+            val c = BiquadCoefficients.of(FilterKind.PEAKING, f0, rate, q, g)
+            near(c.magnitudeDb(f0, rate), g, 0.01, "gain at the centre, $f0 Hz Q $q")
+            var f = 20.0
+            while (f <= 20_000.0) {
+                val e = Math.abs(c.magnitudeDb(f, rate) - analogPeakDb(f, f0, q, g))
+                if (e > worstEq) { worstEq = e; worstAt = "$f Hz for a $g dB band at $f0 Hz Q $q" }
+                f *= 1.05
+            }
+        }
+        // 5.5 dB with the cookbook; 1.2 matched, the worst being a wide -12 dB band at 12 kHz read at
+        // 19.4 kHz, about what one second-order section can do that near Nyquist.
+        check(worstEq < 1.5) { "off the analog curve by $worstEq dB at $worstAt" }
+        println("      worst departure from the analog band below 20 kHz: ${"%.2f".format(java.util.Locale.ROOT, worstEq)} dB")
+
         section("octave-wide peaking")
         val oct = BiquadCoefficients.peakingByOctaves(1000.0, rate, 1.0, 6.0)
         near(oct.magnitudeDb(1000.0, rate), 6.0, 0.01, "centre")
         // At the octave edges (707 and 1414 Hz) the gain is half, in dB.
         near(oct.magnitudeDb(707.1, rate), 3.0, 0.3, "lower edge")
         near(oct.magnitudeDb(1414.2, rate), 3.0, 0.3, "upper edge")
+        // And high up, where the cookbook's squeeze once had to be paid back by widening the band.
+        val oct8 = BiquadCoefficients.peakingByOctaves(8_000.0, rate, 1.0, 6.0)
+        near(oct8.magnitudeDb(5_656.9, rate), 3.0, 0.3, "8 kHz band, lower edge")
+        near(oct8.magnitudeDb(11_313.7, rate), 3.0, 0.3, "8 kHz band, upper edge")
 
         section("parametric eq")
         val eq = ParametricEq(ParametricEq.VOICE_PRESET, rate, 2)

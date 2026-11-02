@@ -3,6 +3,36 @@
 
 namespace stave {
 
+// Mirrors engine/dsp/Biquad.kt matchedPeaking (Vicanek 2016): poles mapped exactly, zeros matched to
+// the analog band at DC, the centre and Nyquist. BiquadChecks measures the Kotlin against the analog
+// curve; the live EQ and the export must agree, so the two change together.
+static BiquadCoefficients matchedPeaking(double f0, int sampleRate, double q, double gainDb) {
+    if (gainDb == 0.0) return {};
+    double w0 = 2.0 * M_PI * f0 / sampleRate;
+    double g = std::pow(10.0, gainDb / 20.0);
+    double zeta = 1.0 / (2.0 * q * std::sqrt(g));
+    double decay = std::exp(-zeta * w0);
+    double a1 = zeta <= 1.0 ? -2.0 * decay * std::cos(std::sqrt(1.0 - zeta * zeta) * w0)
+                            : -2.0 * decay * std::cosh(std::sqrt(zeta * zeta - 1.0) * w0);
+    double a2 = decay * decay;
+    double sinHalf = std::sin(w0 / 2.0);
+    double phi1 = sinHalf * sinHalf, phi0 = 1.0 - phi1, phi2 = 4.0 * phi0 * phi1;
+    double aa0 = (1.0 + a1 + a2) * (1.0 + a1 + a2);
+    double aa1 = (1.0 - a1 + a2) * (1.0 - a1 + a2);
+    double aa2 = -4.0 * a2;
+    double r1 = (aa0 * phi0 + aa1 * phi1 + aa2 * phi2) * g * g;
+    double r2 = (-aa0 + aa1 + 4.0 * (phi0 - phi1) * aa2) * g * g;
+    double bb0 = aa0;
+    double bb2 = (r1 - r2 * phi1 - bb0) / (4.0 * phi1 * phi1);
+    double bb1 = r2 + bb0 + 4.0 * (phi1 - phi0) * bb2;
+    double sb1 = std::sqrt(std::max(bb1, 0.0));
+    double w = 0.5 * (std::sqrt(bb0) + sb1);
+    double b0 = 0.5 * (w + std::sqrt(std::max(w * w + bb2, 0.0)));
+    double b1 = 0.5 * (std::sqrt(bb0) - sb1);
+    double b2 = -bb2 / (4.0 * b0);
+    return {b0, b1, b2, a1, a2};
+}
+
 BiquadCoefficients biquad(int kind, double hz, int sampleRate, double q, double gainDb) {
     double f = std::min(std::max(hz, 1.0), sampleRate * 0.499);
     double qq = std::max(q, 0.025);
@@ -18,7 +48,7 @@ BiquadCoefficients biquad(int kind, double hz, int sampleRate, double q, double 
         case 3: b0 = 1; b1 = -2 * cw; b2 = 1; a0 = 1 + alpha; a1 = -2 * cw; a2 = 1 - alpha; break;
         case 4: b0 = 1 - alpha; b1 = -2 * cw; b2 = 1 + alpha; a0 = 1 + alpha; a1 = -2 * cw; a2 = 1 - alpha; break;
         default:
-        case 5: b0 = 1 + alpha * a; b1 = -2 * cw; b2 = 1 - alpha * a; a0 = 1 + alpha / a; a1 = -2 * cw; a2 = 1 - alpha / a; break;
+        case 5: return matchedPeaking(f, sampleRate, qq, gainDb);
         case 6: {
             double s = 2 * std::sqrt(a) * alpha;
             b0 = a * ((a + 1) - (a - 1) * cw + s); b1 = 2 * a * ((a - 1) - (a + 1) * cw); b2 = a * ((a + 1) - (a - 1) * cw - s);

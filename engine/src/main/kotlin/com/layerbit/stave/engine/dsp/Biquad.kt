@@ -51,7 +51,7 @@ class BiquadCoefficients(val b0: Double, val b1: Double, val b2: Double, val a1:
                 FilterKind.BAND_PASS -> { b0 = alpha; b1 = 0.0; b2 = -alpha; a0 = 1 + alpha; a1 = -2 * cw; a2 = 1 - alpha }
                 FilterKind.NOTCH -> { b0 = 1.0; b1 = -2 * cw; b2 = 1.0; a0 = 1 + alpha; a1 = -2 * cw; a2 = 1 - alpha }
                 FilterKind.ALL_PASS -> { b0 = 1 - alpha; b1 = -2 * cw; b2 = 1 + alpha; a0 = 1 + alpha; a1 = -2 * cw; a2 = 1 - alpha }
-                FilterKind.PEAKING -> { b0 = 1 + alpha * a; b1 = -2 * cw; b2 = 1 - alpha * a; a0 = 1 + alpha / a; a1 = -2 * cw; a2 = 1 - alpha / a }
+                FilterKind.PEAKING -> return matchedPeaking(f, sampleRate, qq, gainDb)
                 FilterKind.LOW_SHELF -> {
                     val s = 2 * sqrt(a) * alpha
                     b0 = a * ((a + 1) - (a - 1) * cw + s); b1 = 2 * a * ((a - 1) - (a + 1) * cw); b2 = a * ((a + 1) - (a - 1) * cw - s)
@@ -66,10 +66,47 @@ class BiquadCoefficients(val b0: Double, val b1: Double, val b2: Double, val a1:
             return BiquadCoefficients(b0 / a0, b1 / a0, b2 / a0, a1 / a0, a2 / a0)
         }
 
+        /**
+         * A peaking band matched to its analog prototype (M. Vicanek, "Matched Second Order
+         * Digital Filters", 2016): the poles are the analog poles mapped exactly (z = e^sT),
+         * and the zeros are chosen so the magnitude agrees with the analog band at DC, at the
+         * centre and at Nyquist. The cookbook's bilinear transform squeezed a 16 kHz band 5.5 dB
+         * off its curve near 19.4 kHz (BiquadChecks measures it).
+         */
+        private fun matchedPeaking(f0: Double, sampleRate: Int, q: Double, gainDb: Double): BiquadCoefficients {
+            if (gainDb == 0.0) return IDENTITY
+            val w0 = 2.0 * PI * f0 / sampleRate
+            val g = 10.0.pow(gainDb / 20.0)          // the linear gain at the centre
+            val zeta = 1.0 / (2.0 * q * sqrt(g))     // the denominator's damping: s^2 + s/(A Q) + 1, A = sqrt(g)
+            val a1: Double; val a2: Double
+            val decay = kotlin.math.exp(-zeta * w0)
+            if (zeta <= 1.0) a1 = -2.0 * decay * cos(sqrt(1.0 - zeta * zeta) * w0)
+            else a1 = -2.0 * decay * kotlin.math.cosh(sqrt(zeta * zeta - 1.0) * w0)
+            a2 = decay * decay
+            val sinHalf = sin(w0 / 2.0)
+            val phi1 = sinHalf * sinHalf
+            val phi0 = 1.0 - phi1
+            val phi2 = 4.0 * phi0 * phi1
+            val aa0 = (1.0 + a1 + a2) * (1.0 + a1 + a2)
+            val aa1 = (1.0 - a1 + a2) * (1.0 - a1 + a2)
+            val aa2 = -4.0 * a2
+            val r1 = (aa0 * phi0 + aa1 * phi1 + aa2 * phi2) * g * g
+            val r2 = (-aa0 + aa1 + 4.0 * (phi0 - phi1) * aa2) * g * g
+            val bb0 = aa0
+            val bb2 = (r1 - r2 * phi1 - bb0) / (4.0 * phi1 * phi1)
+            val bb1 = r2 + bb0 + 4.0 * (phi1 - phi0) * bb2
+            val w = 0.5 * (sqrt(bb0) + sqrt(bb1.coerceAtLeast(0.0)))
+            val b0 = 0.5 * (w + sqrt((w * w + bb2).coerceAtLeast(0.0)))
+            val b1 = 0.5 * (sqrt(bb0) - sqrt(bb1.coerceAtLeast(0.0)))
+            val b2 = -bb2 / (4.0 * b0)
+            return BiquadCoefficients(b0, b1, b2, a1, a2)
+        }
+
         /** A peaking band whose width is given in octaves, as a graphic equaliser states it. */
         fun peakingByOctaves(hz: Double, sampleRate: Int, octaves: Double, gainDb: Double): BiquadCoefficients {
-            val w0 = 2.0 * PI * hz.coerceIn(1.0, sampleRate * 0.499) / sampleRate
-            val q = 1.0 / (2.0 * sinh(ln(2.0) / 2.0 * octaves * w0 / sin(w0)))
+            // The analog bandwidth: the matched band keeps it, so the bilinear pre-warp (w0 / sin w0)
+            // that once paid back the cookbook's squeeze would now widen every high band.
+            val q = 1.0 / (2.0 * sinh(ln(2.0) / 2.0 * octaves))
             return of(FilterKind.PEAKING, hz, sampleRate, q, gainDb)
         }
 
