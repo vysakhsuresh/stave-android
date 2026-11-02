@@ -126,3 +126,8 @@ back into the roadmap with what broke.
 98. The laptop renders have been seen; the phone has not: Home (cards, pills), the editor's
     sheets (Edit grid, Spectral, EQ labels, Markers rows), Studio's strip toggles, Settings at
     the phone's own font size and at the largest. Re-take the store screenshots 1-12 after.
+99. The song on the phone's speaker against Poweramp, same volume: no grain. Playback now takes
+    the normal output path with Motorola's speaker tuning and Dolby on it (DEVICE_FINDINGS, 2
+    November evening). Then Ready the mic on the Voice tab, Hear myself on headphones: the voice
+    comes back quickly (the low-latency path), and after closing the mic a play is the normal path
+    again (`StaveGraph: output ... normal` in logcat).

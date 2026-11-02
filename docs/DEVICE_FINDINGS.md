@@ -205,3 +205,33 @@ of that test is still open in `docs/PENDING_TESTS.md`.
 - Measured after: 15 s played from the start, captured at the output callback, byte-identical
   to the decoded MP3 (737,664 frames, `cmp`). The decoded song peaks at 0.957, nothing over
   full scale, so nothing clips on the way out.
+
+## 2 November 2026, evening — the grain was the output path
+
+The owner still heard the song grainy beside Poweramp after the Remove-clicks render was taken
+out. Measured on the phone, in order:
+
+- **The samples are right.** The debug capture of a play matched the decoded source bit for bit
+  (398,400 frames), a pause faded linearly over one 192-frame buffer, and a jump while playing
+  dipped over 192 frames out and 192 in, then matched the source again 50.58 s on. The steepest
+  step across the jump was 0.13 against the song's own 0.33.
+- **No underruns.** 60 s of play logged none.
+- **The path was the difference.** Every play opened a low-latency, exclusive-first stream, which
+  landed as a FAST track on the primary output. `dumpsys media.audio_flinger` with the normal
+  path shows what a music player gets and a fast track does not: two effects on the app's own
+  session, "Mot Speaker Helper: Music" (Motorola) and "Music Listener" (Dolby), the speaker
+  tuning every music app on this phone is heard through. The primary output itself is 16-bit,
+  as it is for every app.
+
+Since then a plain play opens `PerformanceMode::None`, shared (20 ms bursts, a 60 ms buffer),
+and only an open mic switches to low latency; the play-head is drawn the output latency behind
+the rendered position, so it shows what is heard. Built and seen on the path; the owner's ear
+on the speaker is PENDING_TESTS 99.
+
+Also seen this evening: names tidied at startup (the list read "Ramayana_ ... (MP3_320K)" until
+the project was opened); Read the song left the play-head at the song's end (the offline render
+was polled as if playing); Measure on a 24-track six-minute project starved the phone of memory
+for 15 s (the render now streams to its file and Measure reads it in blocks; 13.2 LUFS, 26.6
+dBTP both ways); Home's Record opened on Edit; at the largest font "Match phone" shrank and a
+track count ran under the menu button. Release-build cold start: 389, 490, 422 ms. Home at rest
+draws 87 frames in 10 s (the backdrop's 10 steps a second); scrolling Home, 5% slow frames.

@@ -50,9 +50,17 @@ class Transport(private val scope: CoroutineScope) {
                     // way to read dropouts on a phone without an ear on it.
                     val x = EngineNative.xruns(h)
                     if (x != _state.value.xruns) android.util.Log.i("StaveGraph", "underruns $x, output latency ${"%.1f".format(java.util.Locale.ROOT, EngineNative.outputLatencyMs(h))} ms")
+                    val playing = EngineNative.isPlaying(h)
+                    val rendered = EngineNative.position(h)
+                    val latency = EngineNative.outputLatencyMs(h)
+                    if (playing && !_state.value.playing) playStartedAt = rendered
+                    // The engine's position is what it has rendered; what is heard is the output's
+                    // latency behind it (tens of ms on the normal output path, Engine.h). The
+                    // play-head shows what is heard, never before where the play began.
+                    val heard = if (playing) maxOf(playStartedAt, rendered - (latency * _state.value.sampleRate / 1000).toLong()).coerceAtMost(rendered) else rendered
                     _state.value = _state.value.copy(
-                        playing = EngineNative.isPlaying(h), position = EngineNative.position(h), recording = EngineNative.isRecording(h),
-                        latencyMs = EngineNative.outputLatencyMs(h), xruns = EngineNative.xruns(h), inputPeak = EngineNative.inputPeak(h)
+                        playing = playing, position = heard, recording = EngineNative.isRecording(h),
+                        latencyMs = latency, xruns = EngineNative.xruns(h), inputPeak = EngineNative.inputPeak(h)
                     )
                     val n = EngineNative.readMeters(h, buffer)
                     _meters.value = buffer.copyOf(n)
@@ -84,8 +92,17 @@ class Transport(private val scope: CoroutineScope) {
     /** Play stops by itself at [end] (a frame), or runs on when it is -1. */
     fun setPlayEnd(end: Long) { if (handle != 0L) EngineNative.setPlayEnd(handle, end) }
     /** The graph's position now, read straight from the engine (the state flow is polled at 30 Hz). */
-    fun livePosition(): Long = if (handle != 0L) EngineNative.position(handle) else _state.value.position
+    /** Where the sound being heard is, every frame: the rendered position less the output latency (see the poller). */
+    fun livePosition(): Long {
+        val h = handle
+        if (h == 0L) return _state.value.position
+        val rendered = EngineNative.position(h)
+        if (!_state.value.playing) return rendered
+        val lag = (_state.value.latencyMs * _state.value.sampleRate / 1000).toLong()
+        return maxOf(playStartedAt, rendered - lag).coerceAtMost(rendered)
+    }
     /** Debug builds: record what the callback plays (a diff against the source finds dropouts). */
+    private var playStartedAt = 0L
     fun captureStart(seconds: Int) { if (handle != 0L) EngineNative.captureStart(handle, seconds) }
     fun captureSave(file: java.io.File): Long = if (handle != 0L) EngineNative.captureSave(handle, file.path) else -1
     fun setStopAtEnd(on: Boolean) { if (handle != 0L) EngineNative.setStopAtEnd(handle, on) }

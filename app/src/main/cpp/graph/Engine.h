@@ -85,6 +85,7 @@ public:
     // deviceId is Android's AudioDeviceInfo id for a chosen input (a USB interface, a Bluetooth mic); 0 lets the system choose.
     bool openInput(int channels, int preset, int deviceId = 0);
     void closeInput();
+    void setLowLatencyOutput(bool on);
     void setMonitor(bool on, float gainLinear) { monitorOn = on; monitorGain = gainLinear; }
     bool startRecording(const std::string& path);
     void stopRecording();
@@ -126,6 +127,12 @@ private:
     // terrible" was. Created with the stream, called from the callback, as Oboe intends.
     std::unique_ptr<oboe::LatencyTuner> latencyTuner;
     bool safeLatency = false;
+    // The output path. A plain play goes the way a music player's does (the system's normal mixer,
+    // with the phone's own sound processing and deep buffers); only while the mic is open does
+    // it take the low-latency path, where hearing yourself late is the thing to avoid. Every
+    // play went the low-latency way, and the owner heard the song grainy beside Poweramp with
+    // the samples handed over bit-exact.
+    bool lowLatencyOutput = false;
     std::mutex streamLock;
 
     std::atomic<Snapshot*> current{nullptr};

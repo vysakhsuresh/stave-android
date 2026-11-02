@@ -69,8 +69,9 @@ bool Engine::start() {
     if (out) return true;
     oboe::AudioStreamBuilder b;
     b.setDirection(oboe::Direction::Output)
-     ->setPerformanceMode(oboe::PerformanceMode::LowLatency)
-     ->setSharingMode(oboe::SharingMode::Exclusive)
+     ->setPerformanceMode(lowLatencyOutput ? oboe::PerformanceMode::LowLatency : oboe::PerformanceMode::None)
+     // Exclusive goes round the system mixer and its processing; only worth it for monitoring.
+     ->setSharingMode(lowLatencyOutput ? oboe::SharingMode::Exclusive : oboe::SharingMode::Shared)
      ->setFormat(oboe::AudioFormat::Float)
      ->setChannelCount(2)
      ->setSampleRate(rate)
@@ -91,12 +92,15 @@ bool Engine::start() {
     }
     rate = out->getSampleRate();
     burst = out->getFramesPerBurst();
-    // "Safer" in Settings starts at four bursts; either way the tuner grows it on an underrun.
-    out->setBufferSizeInFrames(burst * (safeLatency ? 4 : 2));
-    latencyTuner = std::make_unique<oboe::LatencyTuner>(*out);
+    if (lowLatencyOutput) {
+        // "Safer" in Settings starts at four bursts; either way the tuner grows it on an underrun.
+        out->setBufferSizeInFrames(burst * (safeLatency ? 4 : 2));
+        latencyTuner = std::make_unique<oboe::LatencyTuner>(*out);
+    }
     r = out->requestStart();
     if (r != oboe::Result::OK) { LOGW("start: %s", oboe::convertToText(r)); out->close(); out.reset(); return false; }
-    LOGI("output %d Hz, burst %d, %s", rate, burst, out->getSharingMode() == oboe::SharingMode::Exclusive ? "exclusive" : "shared");
+    LOGI("output %d Hz, burst %d, buffer %d, %s, %s", rate, burst, out->getBufferSizeInFrames(), out->getSharingMode() == oboe::SharingMode::Exclusive ? "exclusive" : "shared",
+         out->getPerformanceMode() == oboe::PerformanceMode::LowLatency ? "low latency" : "normal");
     running.store(true);
     return true;
 }
@@ -138,7 +142,15 @@ double Engine::inputLatencyMs() {
     return r ? r.value() : (double) in->getBufferSizeInFrames() * 1000.0 / rate;
 }
 
+void Engine::setLowLatencyOutput(bool on) {
+    bool wasOpen;
+    { std::lock_guard<std::mutex> g(streamLock); if (lowLatencyOutput == on) return; lowLatencyOutput = on; wasOpen = (bool) out; }
+    if (wasOpen) { stop(); start(); }
+}
+
 bool Engine::openInput(int channels, int preset, int deviceId) {
+    // Monitoring through headphones wants the short path; plain playback does not (Engine.h).
+    setLowLatencyOutput(true);
     std::lock_guard<std::mutex> g(streamLock);
     if (in) return true;
     inputCallback = std::make_unique<InputCallback>(this);
@@ -171,9 +183,12 @@ bool Engine::openInput(int channels, int preset, int deviceId) {
 }
 
 void Engine::closeInput() {
-    std::lock_guard<std::mutex> g(streamLock);
-    if (!in) return;
-    in->requestStop(); in->close(); in.reset();
+    {
+        std::lock_guard<std::mutex> g(streamLock);
+        if (!in) return;
+        in->requestStop(); in->close(); in.reset();
+    }
+    setLowLatencyOutput(false);
 }
 
 int Engine::readInputTap(float* out, int capacity) {
