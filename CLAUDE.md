@@ -176,6 +176,12 @@ before writing the fix.
   copies killed the app. Use `RawAudio.readPlanar`/`writePlanar` and `streamed()`, never
   `interleave()` on a whole song; DynamicsChecks proves each processor streams exactly.
 
+- **A test sweep never runs on the owner's own projects.** The 1 November button sweep pressed
+  "Remove clicks" in a project holding the owner's song, and the next day the owner heard the
+  processed copy and called it grainy. Sweep in a project made for it, and a destructive tool
+  is checked against a real record (`STAVE_RECORD=<a project's media .f32> sh tools/jvm/run.sh
+  repair`), not only a sine.
+
 ## Working agreement
 
 All work lands on `main` and is pushed when the suites pass. Commit messages say why. No model

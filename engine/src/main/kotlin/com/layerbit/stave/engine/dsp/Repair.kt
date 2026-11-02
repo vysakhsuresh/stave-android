@@ -17,43 +17,137 @@ object Repair {
     data class Click(val position: Int, val length: Int)
 
     /**
-     * Clicks and crackle: a sample run whose second difference stands far above the local
-     * median is a discontinuity no acoustic sound makes. Each run, grown by a sample either side,
-     * is replaced by a cubic Hermite curve through the clean neighbours.
+     * Clicks and crackle. Each sample is predicted from the [ORDER] before it (linear prediction
+     * fitted to the 2048 samples around it); what the prediction misses is the residual. Tones
+     * leave almost none, noise leaves its own level everywhere, and a click leaves a spike. A
+     * spike is mended only if it is both far above the residual's robust level (its median)
+     * and far above the largest residual in the 10 ms around it: an attack - a cymbal, a
+     * consonant, a snare - keeps the residual high after it starts, a click does not.
+     *
+     * The first version compared the second difference with its local mean. Every mastered
+     * record has attacks sharper than that, and a 320 kbps song came back with seven "clicks"
+     * a second flattened into it (2 November). Each run, grown by a sample either side, is
+     * replaced by a cubic Hermite curve through the clean neighbours.
      * [sensitivity] 0..1: higher finds more (and risks mending transients that were meant).
      */
     fun declick(samples: FloatArray, sensitivity: Float = 0.5f, maxLength: Int = 64): List<Click> {
         val n = samples.size
-        if (n < 16) return emptyList()
-        // Second difference: a click is a kink, music is smooth at the sample scale.
-        val d2 = FloatArray(n)
-        for (i in 1 until n - 1) d2[i] = abs(samples[i + 1] - 2 * samples[i] + samples[i - 1])
-        // Local scale from a sliding window's mean absolute second difference.
-        val window = 512
-        val threshold = 14f - 10f * sensitivity.coerceIn(0f, 1f)   // 4x the local mean at full sensitivity, 14x at none
+        if (n < 4 * ORDER) return emptyList()
+        val s = sensitivity.coerceIn(0f, 1f)
+        val e = residual(samples)
+        val level = robustLevel(e)
+        val spike = 14f - 8f * s      // times the median-based deviation: 10 at the default
+        val isolation = 4f - 2f * s   // times the largest residual nearby: 3 at the default
+        val near = 480
         val found = ArrayList<Click>()
-        var i = 1
-        var sum = 0f
-        var count = 0
-        val head = minOf(window, n)
-        for (k in 0 until head) { sum += d2[k]; count++ }
-        while (i < n - 1) {
-            // Keep the window centred, roughly.
-            val from = (i - window / 2).coerceAtLeast(0)
-            val to = (from + window).coerceAtMost(n)
-            if (i % 64 == 0) { sum = 0f; count = 0; for (k in from until to) { sum += d2[k]; count++ } }
-            val local = (sum / count.coerceAtLeast(1)).coerceAtLeast(1e-5f)
-            if (d2[i] > local * threshold) {
-                var end = i + 1
-                while (end < n - 1 && end - i < maxLength && d2[end] > local * threshold * 0.5f) end++
-                val start = (i - 1).coerceAtLeast(1)
-                val stop = (end + 1).coerceAtMost(n - 2)
+        var i = ORDER
+        while (i < n - 2) {
+            // Never below -60 dBFS: in a fade to silence the residual is next to nothing and a
+            // rounding step in the last bits looked like a click.
+            val bar = maxOf(spike * level[i / HOP], 0.001f)
+            if (abs(e[i]) <= bar) { i++; continue }
+            // The run: on while the residual stays above half the bar, with gaps of two at most.
+            var end = i
+            var k = i + 1
+            while (k < n - 2 && k - i < maxLength) {
+                if (abs(e[k]) > bar * 0.5f) end = k else if (k - end > 2) break
+                k++
+            }
+            var peak = 0f
+            for (j in i..end) peak = maxOf(peak, abs(e[j]))
+            // The prediction is spoiled for ORDER samples after a click; that ringing is the
+            // click's own, so it is left out of "nearby".
+            var around = 0f
+            for (j in (i - near).coerceAtLeast(0) until (i - 3).coerceAtLeast(0)) around = maxOf(around, abs(e[j]))
+            for (j in (end + ORDER + 3).coerceAtMost(n) until (end + near).coerceAtMost(n)) around = maxOf(around, abs(e[j]))
+            // A note starting leaves the residual busier after it than before; a click leaves the
+            // music as it found it. Ten spikes in a 320 kbps song were plucks and consonants that
+            // passed the isolation test and failed this one.
+            val before = medianAbs(e, (i - 3 - 256).coerceAtLeast(0), (i - 3).coerceAtLeast(0))
+            val after = medianAbs(e, (end + ORDER + 3).coerceAtMost(n), (end + ORDER + 3 + 256).coerceAtMost(n))
+            val attack = after > ONSET_RISE * before
+            if (end - i < maxLength && peak > isolation * around && !attack) {
+                val start = (i - 1).coerceAtLeast(2)
+                val stop = (end + 2).coerceAtMost(n - 2)
                 interpolate(samples, start, stop)
                 found += Click(start, stop - start)
-                i = stop + 1
-            } else i++
+            }
+            i = end + ORDER + 1
         }
         return found
+    }
+
+    private const val ORDER = 16
+    private const val HOP = 256
+    private const val ONSET_RISE = 1.25f
+
+    // The median, not the RMS: the samples next to a click carry its ringing and would lift an RMS.
+    private fun medianAbs(x: FloatArray, from: Int, to: Int): Float {
+        if (to <= from) return 0f
+        val v = FloatArray(to - from) { abs(x[from + it]) }
+        v.sort()
+        return v[v.size / 2]
+    }
+
+    /** Forward linear-prediction residual, coefficients refitted every [HOP] samples on a Hann-windowed 2048 around them. */
+    private fun residual(x: FloatArray): FloatArray {
+        val n = x.size
+        val e = FloatArray(n)
+        val span = 2048
+        val win = DoubleArray(span) { 0.5 - 0.5 * cos(2 * PI * (it + 0.5) / span) }
+        val r = DoubleArray(ORDER + 1)
+        val frame = DoubleArray(span)
+        var a = DoubleArray(ORDER + 1)
+        var b = 0
+        while (b < n) {
+            val from = (b + HOP / 2 - span / 2).coerceIn(0, maxOf(0, n - span))
+            val len = minOf(span, n - from)
+            for (k in 0 until len) frame[k] = x[from + k] * win[k * span / len]
+            for (lag in 0..ORDER) { var acc = 0.0; for (k in lag until len) acc += frame[k] * frame[k - lag]; r[lag] = acc }
+            // A little white noise on lag 0 keeps Levinson stable on a pure tone or silence.
+            r[0] = r[0] * (1 + 1e-4) + 1e-12
+            a = levinson(r)
+            for (i in b until minOf(b + HOP, n)) {
+                var pred = 0.0
+                for (k in 1..ORDER) if (i - k >= 0) pred -= a[k] * x[i - k]
+                e[i] = (x[i] - pred).toFloat()
+            }
+            b += HOP
+        }
+        return e
+    }
+
+    private fun levinson(r: DoubleArray): DoubleArray {
+        val a = DoubleArray(ORDER + 1); a[0] = 1.0
+        val tmp = DoubleArray(ORDER + 1)
+        var err = r[0]
+        for (m in 1..ORDER) {
+            var acc = r[m]
+            for (k in 1 until m) acc += a[k] * r[m - k]
+            val refl = -acc / err
+            for (k in 1 until m) tmp[k] = a[k] + refl * a[m - k]
+            for (k in 1 until m) a[k] = tmp[k]
+            a[m] = refl
+            err *= (1 - refl * refl)
+            if (err <= 0) break
+        }
+        return a
+    }
+
+    /** The residual's deviation per [HOP], from the median magnitude over the 2048 around it (1.4826 x MAD). */
+    private fun robustLevel(e: FloatArray): FloatArray {
+        val n = e.size
+        val out = FloatArray((n + HOP - 1) / HOP)
+        val span = 2048
+        val buf = FloatArray(span)
+        for (h in out.indices) {
+            val from = (h * HOP + HOP / 2 - span / 2).coerceIn(0, maxOf(0, n - span))
+            val len = minOf(span, n - from)
+            for (k in 0 until len) buf[k] = abs(e[from + k])
+            buf.sort(0, len)
+            out[h] = (1.4826f * buf[len / 2]).coerceAtLeast(1e-6f)
+        }
+        return out
     }
 
     /**

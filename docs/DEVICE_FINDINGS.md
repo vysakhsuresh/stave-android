@@ -191,3 +191,17 @@ of that test is still open in `docs/PENDING_TESTS.md`.
 - The app in Arabic (per-app locale ar-EG): every tab, the Edit sheets and Settings opened with
   no crash; the clock reads in Arabic digits as designed. The interface strings are English
   only (no translations yet), so the layout stays left to right.
+
+## 2 November 2026 — "grainy next to Poweramp"
+
+- The owner played a 320 kbps MP3 in Stave and in Poweramp; Stave's sounded grainy. The project
+  opened from the list was not playing the song: its clip pointed at a "Remove clicks" render
+  made by the automated button sweep on 1 November. The old click detector (second difference
+  against a 10 ms mean) had flattened about 7 real attacks a second, by up to 0.70 of full
+  scale. The project was put back on the decoded song; the detector was rebuilt on linear
+  prediction with an isolation and an onset test (`RepairChecks`: a band with abrupt attacks is
+  untouched, clicks in it are still found; on this song, 3 and 2 mends of 5 samples in 115 s,
+  the whole changed by -68.6 and -62.6 dB, where the old one made about 800).
+- Measured after: 15 s played from the start, captured at the output callback, byte-identical
+  to the decoded MP3 (737,664 frames, `cmp`). The decoded song peaks at 0.957, nothing over
+  full scale, so nothing clips on the way out.
