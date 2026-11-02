@@ -276,6 +276,9 @@ fun WaveformStrip(
                 }
                 // Take lanes stacked in the row: lane 0 on top. One lane fills the row as before.
                 val takeLanes = laneCountOf(track)
+                // A track that will not be heard (muted, or another soloed) draws its clips dimmed, as a
+                // muted clip does: a muted Drums lane looked exactly like a playing one.
+                val heard = !track.muted && (!session.anySolo || track.solo)
                 val subH = lane / takeLanes
                 if (takeLanes > 1) for (l in 1 until takeLanes) drawLine(StaveColors.Border.copy(alpha = 0.5f), Offset(0f, top + l * subH), Offset(w, top + l * subH), 1f)
                 for (clip in session.clipsOn(track.id)) {
@@ -283,7 +286,7 @@ fun WaveformStrip(
                     if (x1 < 0 || x0 > w) continue
                     val source = session.source(clip.sourceId) ?: continue
                     val subTop = top + clip.lane.coerceIn(0, takeLanes - 1) * subH
-                    drawClip(clip, source, peaksFor(source), x0, x1, subTop + 2f, subH - 4f, window, clip.muted)
+                    drawClip(clip, source, peaksFor(source), x0, x1, subTop + 2f, subH - 4f, window, clip.muted || !heard)
                     // A clip playing a processed copy says what was done to it: on 2 November the owner heard a
                     // "Remove clicks" copy under the song's plain name and took it for the song.
                     val label = if (source.kind == com.layerbit.stave.engine.project.Source.Kind.RENDER && source.name.contains(" · ")) clip.name + " · " + source.name.substringAfter(" · ") else clip.name
@@ -330,6 +333,9 @@ fun WaveformStrip(
             val c = if (m.kind == Marker.Kind.CHAPTER) StaveColors.Running else StaveColors.Hot
             drawLine(c, Offset(x, rulerPx), Offset(x, h), 1f)
             drawRect(c, Offset(x, 2f), Size(8f, rulerPx - 6f))
+            // Named at the foot of the strip, clear of the clip names at the top and the times above:
+            // "Verse", "Chorus" were bare lines.
+            if (m.name.isNotBlank()) { val st = labelStyle.copy(color = c); labelAt(measurer, m.name, Offset(x + 4f, h - measurer.measure(m.name, st).size.height - 6f), st, plate = true) }
         }
         // The play-head: a fixed line.
         val px = window.pixelOf(window.playhead)

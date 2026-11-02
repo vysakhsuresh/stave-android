@@ -96,6 +96,32 @@ class EditorRender {
         for (tab in EditorTab.entries.drop(1)) { compose.runOnIdle { vm.setTab(tab) }; shot("tab-${tab.id}") }
     }
 
+    /** A project with something in it: three tracks and a bus, markers and a chapter, a selection, a drum pattern. */
+    @Test fun busy() {
+        val app = ApplicationProvider.getApplicationContext<StaveApplication>()
+        val id = project(app)
+        val files = ProjectFiles(app.projects.dir(id))
+        val r = 48_000L
+        val base = files.load()!!
+        files.save(base.copy(
+            tracks = listOf(Track("t1", "Vocals"), Track("t2", "Guitar", volumeDb = -4.0, pan = -0.3), Track("t3", "Drums", muted = true), Track("b1", "Reverb bus", kind = Track.Kind.BUS)),
+            clips = listOf(Clip("c1", "s1", "t1", 0, 0, 30 * r, name = "Lead take"), Clip("c2", "s1", "t2", 2 * r, 0, 20 * r, name = "Rhythm"), Clip("c3", "s1", "t3", 0, 0, 28 * r, name = "Kit")),
+            markers = listOf(com.layerbit.stave.engine.project.Marker("m1", 3 * r, "Verse"), com.layerbit.stave.engine.project.Marker("m2", 11 * r, "Chorus", com.layerbit.stave.engine.project.Marker.Kind.CHAPTER), com.layerbit.stave.engine.project.Marker("m3", 19 * r, "Bridge"))
+        ))
+        val vm = EditorViewModel(app, id)
+        waitUntil { vm.ui.value.loaded }
+        compose.setContent { StaveTheme(ThemeChoice.DARK) { Box(Modifier.fillMaxSize().background(StaveColors.Background)) { EditorScreen(vm, onBack = {}, onAddSounds = {}) } } }
+        fun shot(name: String) { compose.waitForIdle(); Thread.sleep(300); compose.waitForIdle(); compose.onRoot().captureRoboImage("build/outputs/roborazzi/busy-$name.png") }
+        compose.runOnIdle { vm.select(4 * r until 9 * r) }
+        shot("open")
+        compose.runOnIdle { vm.setSheet(EditSheet.SELECT) }; shot("select")
+        compose.runOnIdle { vm.setSheet(EditSheet.MARKERS) }; shot("markers")
+        compose.runOnIdle { vm.setSheet(null); vm.setTab(EditorTab.STUDIO) }; shot("studio")
+        compose.runOnIdle { vm.setTab(EditorTab.BEATS); vm.newPattern() }
+        compose.runOnIdle { for (s in listOf(0, 4, 8, 12)) vm.toggleStep(36, s); for (s in listOf(4, 12)) vm.toggleStep(38, s); for (s in 0 until 16 step 2) vm.toggleStep(42, s) }
+        shot("beats")
+    }
+
     @Test fun dark() = run(ThemeChoice.DARK)
     @Test fun light() = run(ThemeChoice.LIGHT)
     @Test @Config(fontScale = 1.3f) fun largeText() = run(ThemeChoice.DARK, "-large-text")

@@ -409,11 +409,13 @@ private fun MarkersSheet(vm: EditorViewModel, ui: EditorViewModel.Ui) {
     if (ui.session.markers.isEmpty()) Text(stringResource(R.string.markers_none), style = MaterialTheme.typography.bodySmall, color = StaveColors.Dim)
     for (m in ui.session.markers) {
         var name by remember(m.id) { mutableStateOf(m.name) }
+        // Fixed widths for the two buttons, so every row's name field starts and ends at the same x:
+        // sized to their words, "Chapter" pushed its row's field narrower than the others.
         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Text(Timecode.display(Timecode.ofSamples(m.position, ui.session.sampleRate), 1), style = com.layerbit.stave.ui.theme.Numerals, color = if (m.kind == Marker.Kind.CHAPTER) StaveColors.Running else StaveColors.Hot, modifier = Modifier.width(64.dp))
             OutlinedTextField(value = name, onValueChange = { name = it; vm.renameMarker(m.id, it) }, singleLine = true, modifier = Modifier.weight(1f), textStyle = MaterialTheme.typography.bodyMedium)
-            SecondaryButton(stringResource(if (m.kind == Marker.Kind.CHAPTER) R.string.markers_chapter else R.string.markers_marker), onClick = { vm.setMarkerKind(m.id, if (m.kind == Marker.Kind.CHAPTER) Marker.Kind.MARKER else Marker.Kind.CHAPTER) }, tall = false)
-            SecondaryButton(stringResource(R.string.app_delete), onClick = { vm.removeMarker(m.id) }, tall = false)
+            SecondaryButton(stringResource(if (m.kind == Marker.Kind.CHAPTER) R.string.markers_chapter else R.string.markers_marker), onClick = { vm.setMarkerKind(m.id, if (m.kind == Marker.Kind.CHAPTER) Marker.Kind.MARKER else Marker.Kind.CHAPTER) }, tall = false, modifier = Modifier.width(100.dp).height(56.dp))
+            SecondaryButton(stringResource(R.string.app_delete), onClick = { vm.removeMarker(m.id) }, tall = false, modifier = Modifier.width(88.dp).height(56.dp))
         }
     }
     // Regions: a named stretch, made from the selection, selected again by a tap.

@@ -118,7 +118,7 @@ fun BeatsPanel(vm: EditorViewModel, ui: EditorViewModel.Ui, modifier: Modifier =
                         SecondaryButton(stringResource(R.string.beats_soundfont_remove), onClick = { vm.removeSoundFont(file); vm.setInstrument(Instruments.DRUMS) }, tall = false, danger = true)
                     }
                 }
-                SecondaryButton(stringResource(R.string.beats_soundfont_add), onClick = { importSoundFont.launch(arrayOf("*/*")) }, tall = false, modifier = Modifier.padding(top = 8.dp))
+                SecondaryButton(stringResource(R.string.beats_soundfont_add), onClick = { importSoundFont.launch(arrayOf("*/*")) }, tall = false, modifier = Modifier.fillMaxWidth().padding(top = 8.dp))
             }
         }
 
